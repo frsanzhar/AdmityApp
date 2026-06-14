@@ -1,0 +1,10 @@
+# Configuration for `flutter gen-l10n`, which generates the typed
+# AppLocalizations class from the .arb files in lib/l10n.
+arb-dir: lib/l10n
+template-arb-file: app_en.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+output-dir: lib/l10n
+# Non-nullable AppLocalizations.of(context) — fail fast if the delegate is
+# missing rather than returning null at every call site.
+nullable-getter: false

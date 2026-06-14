@@ -1,0 +1,31 @@
+# Admity uses very_good_analysis (a strict superset of flutter_lints /
+# package:lints). CI runs `flutter analyze --fatal-infos --fatal-warnings`.
+include: package:very_good_analysis/analysis_options.yaml
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"            # generated (drift / json_serializable later)
+    - "**/*.freezed.dart"
+    - "lib/l10n/app_localizations*.dart" # generated localizations
+    - "build/**"
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+
+linter:
+  rules:
+    # Comments may be written in Russian or English in this project, so the
+    # strict TODO-format rule is relaxed; tracked notes remain a team convention.
+    flutter_style_todos: false
+    # Riverpod controllers expose explicit, intention-revealing methods
+    # (e.g. `setLocale`) instead of bare setters — keep that style.
+    use_setters_to_change_properties: false
+    # App (not a published package): full member-level docs aren't required on
+    # every field/enum value. Key public APIs are still documented by convention.
+    public_member_api_docs: false
+    # 80 columns is impractical for Flutter widget trees; rely on `dart format`.
+    lines_longer_than_80_chars: false
+    # Riverpod provider declarations are self-descriptive via their type args;
+    # requiring a second explicit variable type is noise.
+    specify_nonobvious_property_types: false

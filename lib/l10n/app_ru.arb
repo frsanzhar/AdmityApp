@@ -1,0 +1,17 @@
+{
+  "@@locale": "ru",
+  "appTitle": "Admity",
+  "navHome": "Главная",
+  "navLearn": "Учёба",
+  "navProfile": "Профиль",
+  "onboardingWelcomeTitle": "Твой путь в университет начинается здесь",
+  "onboardingWelcomeBody": "Честные шансы, реальные стипендии и наставник, который помогает тебе расти, а не делает работу за тебя.",
+  "onboardingGetStarted": "Начать",
+  "authSignIn": "Войти",
+  "dashboardScaffoldNotice": "Каркас шага 1 — настоящие функции появятся на следующих этапах.",
+  "languageEnglish": "English",
+  "languageRussian": "Русский",
+  "languageKazakh": "Қазақша",
+  "commonNext": "Далее",
+  "commonBack": "Назад"
+}

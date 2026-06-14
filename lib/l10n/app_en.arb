@@ -1,0 +1,33 @@
+{
+  "@@locale": "en",
+  "appTitle": "Admity",
+  "@appTitle": {
+    "description": "The application name, shown in the app bar and task switcher."
+  },
+  "navHome": "Home",
+  "@navHome": { "description": "Bottom navigation: home tab." },
+  "navLearn": "Learn",
+  "@navLearn": { "description": "Bottom navigation: learning / intensives tab." },
+  "navProfile": "Profile",
+  "@navProfile": { "description": "Bottom navigation: profile tab." },
+  "onboardingWelcomeTitle": "Your path to university starts here",
+  "@onboardingWelcomeTitle": { "description": "Onboarding hero headline." },
+  "onboardingWelcomeBody": "Honest chances, real scholarships, and a mentor who helps you grow — not one who does the work for you.",
+  "@onboardingWelcomeBody": { "description": "Onboarding hero supporting text." },
+  "onboardingGetStarted": "Get started",
+  "@onboardingGetStarted": { "description": "Primary call-to-action on the welcome screen." },
+  "authSignIn": "Sign in",
+  "@authSignIn": { "description": "Sign-in action / screen title." },
+  "dashboardScaffoldNotice": "Step 1 scaffold — the real features arrive in the next milestones.",
+  "@dashboardScaffoldNotice": { "description": "Placeholder notice shown on the scaffold home screen." },
+  "languageEnglish": "English",
+  "@languageEnglish": { "description": "Language option label for English." },
+  "languageRussian": "Русский",
+  "@languageRussian": { "description": "Language option label for Russian." },
+  "languageKazakh": "Қазақша",
+  "@languageKazakh": { "description": "Language option label for Kazakh." },
+  "commonNext": "Next",
+  "@commonNext": { "description": "Generic next action." },
+  "commonBack": "Back",
+  "@commonBack": { "description": "Generic back action." }
+}

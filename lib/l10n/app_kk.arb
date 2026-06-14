@@ -1,0 +1,17 @@
+{
+  "@@locale": "kk",
+  "appTitle": "Admity",
+  "navHome": "Басты бет",
+  "navLearn": "Оқу",
+  "navProfile": "Профиль",
+  "onboardingWelcomeTitle": "Университетке апарар жолың осы жерден басталады",
+  "onboardingWelcomeBody": "Шынайы мүмкіндіктер, нақты гранттар және сенің орныңа жұмыс істемейтін, керісінше өсуіңе көмектесетін тәлімгер.",
+  "onboardingGetStarted": "Бастау",
+  "authSignIn": "Кіру",
+  "dashboardScaffoldNotice": "1-қадам қаңқасы — нақты мүмкіндіктер келесі кезеңдерде қосылады.",
+  "languageEnglish": "English",
+  "languageRussian": "Русский",
+  "languageKazakh": "Қазақша",
+  "commonNext": "Келесі",
+  "commonBack": "Артқа"
+}

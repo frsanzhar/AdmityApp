@@ -1,0 +1,96 @@
+name: admity
+description: "Admity — agentic admissions mentor for students from the regions of Kazakhstan."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.4
+
+# Dependencies are kept alphabetical to satisfy very_good_analysis
+# (sort_pub_dependencies). SDK packages sort by their key like any other.
+dependencies:
+  crypto: ^3.0.6                   # sha256 nonce for Sign in with Apple
+  cupertino_icons: ^1.0.8
+  dio: ^5.9.2                      # HTTP client w/ interceptors (used beyond Supabase SDK)
+  drift: ^2.34.0                   # offline-light structured cache (codegen wired in a later step)
+  fl_chart: ^1.2.0                 # chancing bands + score progress charts
+  flutter:
+    sdk: flutter
+  flutter_animate: ^4.5.2          # declarative micro-interactions
+  flutter_localizations:
+    sdk: flutter
+  flutter_riverpod: ^3.0.0         # state management (single source of truth)
+  flutter_secure_storage: ^10.3.1  # tokens / secrets at rest
+  go_router: ^17.3.0               # declarative navigation + deep links
+  image_picker: ^1.1.2             # camera/gallery capture (GPA табель, intensive tasks)
+  intl: ^0.20.2                    # i18n message formatting
+  lottie: ^3.3.3                   # vector animations (only when designer ships assets)
+  path: ^1.9.1
+  path_provider: ^2.1.5
+  rive: ^0.14.8                    # Eraly mascot state machine
+  sign_in_with_apple: ^6.1.4       # native Sign in with Apple credential
+  sqlite3_flutter_libs: ^0.6.0+eol # native sqlite for drift
+  supabase_flutter: ^2.14.2        # Postgres + Auth + Storage + Realtime + RLS
+  table_calendar: ^3.1.2           # month-view admissions calendar
+  url_launcher: ^6.3.2
+
+dev_dependencies:
+  build_runner: ^2.15.0
+  flutter_launcher_icons: ^0.14.3   # generates iOS/Android/web app icons from one PNG
+  flutter_lints: ^6.0.0
+  flutter_native_splash: ^2.4.6     # generates native launch screens (logo on cold start)
+  flutter_test:
+    sdk: flutter
+  mocktail: ^1.0.5
+  very_good_analysis: ^10.2.0
+
+# The following section is specific to Flutter packages.
+flutter:
+
+  # Ensures Material Icons are bundled.
+  uses-material-design: true
+
+  # Generates the typed AppLocalizations class from lib/l10n/*.arb, driven by
+  # l10n.yaml. Docs: https://docs.flutter.dev/ui/accessibility-and-internationalization/internationalization
+  generate: true
+
+  # Brand assets (logo / launch mark) used by the splash and launcher icons.
+  assets:
+    - assets/brand/
+
+  # Custom fonts land in Step 2 (design system). Bundled locally (not runtime
+  # Google Fonts) for offline use + full Cyrillic / Kazakh glyph coverage.
+  # fonts:
+  #   - family: ClashDisplay   # expressive editorial display family
+  #     fonts:
+  #       - asset: assets/fonts/ClashDisplay-Medium.ttf
+  #       - asset: assets/fonts/ClashDisplay-Semibold.ttf
+  #         weight: 600
+  #       - asset: assets/fonts/ClashDisplay-Bold.ttf
+  #         weight: 700
+  #   - family: Inter          # humanist body family (KZ/RU/EN glyphs)
+  #     fonts:
+  #       - asset: assets/fonts/Inter-Regular.ttf
+  #       - asset: assets/fonts/Inter-Medium.ttf
+  #         weight: 500
+  #       - asset: assets/fonts/Inter-SemiBold.ttf
+  #         weight: 600
+
+# ── Native launch screen (logo visible on cold start, before Flutter boots) ──
+# Regenerate with: dart run flutter_native_splash:create
+flutter_native_splash:
+  color: "#F6F1E7"
+  image: assets/brand/admity_splash.png
+  android_12:
+    color: "#F6F1E7"
+    image: assets/brand/admity_splash.png
+  web: false
+
+# ── App launcher icons ───────────────────────────────────────────────────────
+# Regenerate with: dart run flutter_launcher_icons
+flutter_launcher_icons:
+  image_path: "assets/brand/admity_icon.png"
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  min_sdk_android: 21
