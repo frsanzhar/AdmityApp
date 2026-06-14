@@ -218,3 +218,35 @@ flutter build appbundle --release --dart-define-from-file=env.json
 flutter build ios      --release --dart-define-from-file=env.json
 flutter analyze && flutter test
 ```
+
+---
+
+## 9. Публикация в приватный GitHub-репозиторий
+
+Репозиторий уже инициализирован локально с первым коммитом на ветке `main`
+(`git log` это покажет). `.gitignore` исключает `env.json`/`.env`, `.dart_tool/`,
+`build/`, `ios/Pods/` — секреты и артефакты в историю НЕ попадают.
+
+**Вариант A — через GitHub CLI (быстрее всего):**
+```bash
+brew install gh            # если ещё не установлен
+gh auth login              # GitHub.com → HTTPS → войти в браузере (твой аккаунт)
+# создаёт приватный репо, добавляет remote и пушит текущую ветку:
+gh repo create admity --private --source=. --remote=origin --push
+```
+
+**Вариант B — вручную через github.com:**
+1. Открой <https://github.com/new>, имя `admity`, выбери **Private**, НЕ добавляй
+   README/.gitignore/лицензию (репозиторий уже не пустой локально).
+2. Привяжи remote и запушь:
+```bash
+git remote add origin https://github.com/<твой-логин>/admity.git
+# или по SSH: git remote add origin git@github.com:<твой-логин>/admity.git
+git push -u origin main
+```
+
+Дальнейшие изменения: `git add -A && git commit -m "..." && git push`.
+
+> Авторизацию в GitHub (вход в твой аккаунт) нужно сделать тебе самому — я
+> намеренно не вхожу в твои аккаунты. Локальный git уже готов, остаётся только
+> один из вариантов выше.
