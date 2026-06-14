@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:admity/core/l10n/locale_controller.dart';
 import 'package:admity/core/router/app_routes.dart';
 import 'package:admity/core/theme/app_spacing.dart';
 import 'package:admity/core/theme/app_theme_extension.dart';
+import 'package:admity/features/auth/presentation/auth_controller.dart';
 import 'package:admity/features/profile/presentation/profile_providers.dart';
 import 'package:admity/shared/widgets/bento_card.dart';
 import 'package:admity/shared/widgets/section_header.dart';
@@ -9,6 +12,7 @@ import 'package:admity/shared/widgets/source_note.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Profile + private "interesting facts about me" notes + language.
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -53,6 +57,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.screen),
         children: [
+          const _AccountSection(),
+          const SizedBox(height: AppSpacing.lg),
           BentoCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,6 +163,78 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
           ),
           Expanded(child: Text(value, style: context.text.bodyMedium)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Account entry: a sign-in card when signed out, or the signed-in email with
+/// a sign-out button. This is the ONLY place that routes to the auth screen.
+class _AccountSection extends ConsumerWidget {
+  const _AccountSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authUserProvider).value;
+    final tokens = context.tokens;
+
+    if (user == null) {
+      return BentoCard(
+        accent: tokens.info,
+        onTap: () => context.push(AppRoutes.auth),
+        child: Row(
+          children: [
+            Icon(Icons.login_rounded, color: context.colors.primary),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Войти или зарегистрироваться',
+                    style: context.text.titleMedium,
+                  ),
+                  Text(
+                    'Через Apple или код на Gmail. Нужно, чтобы Ералы отвечал '
+                    'и прогресс синхронизировался между устройствами.',
+                    style: context.text.bodySmall
+                        ?.copyWith(color: tokens.textMuted),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: tokens.textMuted),
+          ],
+        ),
+      );
+    }
+
+    return BentoCard(
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: tokens.success.withValues(alpha: 0.18),
+            child: Icon(Icons.check_rounded, color: tokens.success),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Вы вошли', style: context.text.labelMedium),
+                Text(
+                  user.email ?? 'Аккаунт',
+                  style: context.text.titleMedium,
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () =>
+                unawaited(Supabase.instance.client.auth.signOut()),
+            child: const Text('Выйти'),
+          ),
         ],
       ),
     );

@@ -257,6 +257,21 @@ class AuthController extends Notifier<AuthState> {
 final authControllerProvider =
     NotifierProvider<AuthController, AuthState>(AuthController.new);
 
+/// Streams the current Supabase auth [User], or `null` when signed out or when
+/// Supabase is not configured (offline-light). Lets the UI show a sign-in entry
+/// vs the signed-in account.
+final authUserProvider = StreamProvider<User?>((ref) async* {
+  if (!AppEnv.hasSupabase) {
+    yield null;
+    return;
+  }
+  final client = Supabase.instance.client;
+  yield client.auth.currentUser;
+  await for (final event in client.auth.onAuthStateChange) {
+    yield event.session?.user;
+  }
+});
+
 /// Whether Apple sign-in should be offered (iOS / macOS only).
 ///
 /// Wrapped in a getter so widget code stays free of `dart:io` imports and the

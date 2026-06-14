@@ -49,6 +49,9 @@ app.*.map.json
 env.json
 *.env.json
 .env
+# Supabase CLI scratch / local state.
+supabase/.temp/
+supabase/.branches/
 # Generated localizations (run `flutter gen-l10n` to recreate).
 /lib/l10n/app_localizations*.dart
 # Generated code (drift / json_serializable, added in later steps).

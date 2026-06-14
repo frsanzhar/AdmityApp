@@ -44,6 +44,103 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     return ref.read(eventsByDayProvider)[key] ?? const [];
   }
 
+  /// Opens a small form to create a personal event on (by default) the selected
+  /// day. Persisted via [userCalendarEventsProvider].
+  Future<void> _showAddDialog() async {
+    final now = ref.read(calendarNowProvider);
+    final titleController = TextEditingController();
+    final subtitleController = TextEditingController();
+    var date = _selectedDay;
+    var kind = CalendarEventKind.deadline;
+
+    final added = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setLocal) => AlertDialog(
+          title: const Text('Новое событие'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: titleController,
+                  autofocus: true,
+                  decoration: const InputDecoration(hintText: 'Название'),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: subtitleController,
+                  decoration:
+                      const InputDecoration(hintText: 'Заметка (необязательно)'),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  children: [
+                    for (final k in CalendarEventKind.values)
+                      ChoiceChip(
+                        label: Text(k.label),
+                        selected: kind == k,
+                        onSelected: (_) => setLocal(() => kind = k),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Row(
+                  children: [
+                    Expanded(child: Text(CalendarStyle.longDate(date))),
+                    TextButton.icon(
+                      icon: const Icon(Icons.event_rounded, size: 18),
+                      label: const Text('Дата'),
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: date,
+                          firstDate: DateTime(now.year - 1),
+                          lastDate: DateTime(now.year + 4),
+                        );
+                        if (picked != null) setLocal(() => date = picked);
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Отмена'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Добавить'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final title = titleController.text.trim();
+    final subtitle = subtitleController.text.trim();
+    titleController.dispose();
+    subtitleController.dispose();
+    if (added != true || title.isEmpty) return;
+
+    ref.read(userCalendarEventsProvider.notifier).add(
+          CalendarEvent(
+            id: DateTime.now().microsecondsSinceEpoch.toString(),
+            title: title,
+            date: date,
+            kind: kind,
+            subtitle: subtitle.isEmpty ? null : subtitle,
+            userCreated: true,
+          ),
+        );
+    if (mounted) setState(() => _selectedDay = date);
+  }
+
   @override
   Widget build(BuildContext context) {
     final byDay = ref.watch(eventsByDayProvider);
@@ -61,6 +158,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Календарь')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showAddDialog,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Событие'),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.screen),
@@ -188,7 +290,14 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 )
               else
                 for (final e in selected) ...[
-                  _EventCard(event: e),
+                  _EventCard(
+                    event: e,
+                    onDelete: e.userCreated && e.id != null
+                        ? () => ref
+                            .read(userCalendarEventsProvider.notifier)
+                            .removeById(e.id!)
+                        : null,
+                  ),
                   const SizedBox(height: AppSpacing.sm),
                 ],
               const SizedBox(height: AppSpacing.xs),
@@ -206,9 +315,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 }
 
 class _EventCard extends StatelessWidget {
-  const _EventCard({required this.event});
+  const _EventCard({required this.event, this.onDelete});
 
   final CalendarEvent event;
+
+  /// When non-null, a delete button is shown (user-created events only).
+  final VoidCallback? onDelete;
 
   Future<void> _openSource() async {
     final url = event.sourceUrl;
@@ -237,6 +349,17 @@ class _EventCard extends StatelessWidget {
               ),
               if (event.isApproximate)
                 _Tag(text: 'ориентир', color: color),
+              if (onDelete != null)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onDelete,
+                  icon: Icon(
+                    Icons.delete_outline_rounded,
+                    color: context.tokens.textMuted,
+                    size: 20,
+                  ),
+                  tooltip: 'Удалить',
+                ),
             ],
           ),
           if (event.subtitle != null) ...[
