@@ -3,6 +3,7 @@ import 'package:admity/core/theme/app_spacing.dart';
 import 'package:admity/core/theme/app_theme_extension.dart';
 import 'package:admity/features/essay_review/domain/essay_models.dart';
 import 'package:admity/features/essay_review/domain/rubric_scorer.dart';
+import 'package:admity/features/essay_review/presentation/essay_providers.dart';
 import 'package:admity/shared/widgets/bento_card.dart';
 import 'package:admity/shared/widgets/primary_button.dart';
 import 'package:admity/shared/widgets/source_note.dart';
@@ -25,14 +26,43 @@ class _EssayScreenState extends ConsumerState<EssayScreen> {
   EssayFeedback? _feedback;
 
   @override
+  void initState() {
+    super.initState();
+    // Restore the saved draft + feedback for the default kind (persisted/synced).
+    final rec = ref.read(essaysProvider)[_kind];
+    if (rec != null) {
+      _controller.text = rec.draftText;
+      _feedback = rec.feedback;
+    }
+  }
+
+  @override
   void dispose() {
+    // Best-effort: keep the in-progress draft so it isn't lost on pop.
+    final text = _controller.text;
+    if (text.trim().isNotEmpty) {
+      ref.read(essaysProvider.notifier).saveDraft(_kind, text);
+    }
     _controller.dispose();
     super.dispose();
   }
 
   void _check() {
+    final feedback = LocalRubricScorer.score(_controller.text, _kind);
+    setState(() => _feedback = feedback);
+    ref.read(essaysProvider.notifier).saveFeedback(_kind, _controller.text, feedback);
+  }
+
+  void _switchKind(EssayKind kind) {
+    // Save the current draft under the old kind before loading the new one.
+    if (_controller.text.trim().isNotEmpty) {
+      ref.read(essaysProvider.notifier).saveDraft(_kind, _controller.text);
+    }
+    final rec = ref.read(essaysProvider)[kind];
     setState(() {
-      _feedback = LocalRubricScorer.score(_controller.text, _kind);
+      _kind = kind;
+      _controller.text = rec?.draftText ?? '';
+      _feedback = rec?.feedback;
     });
   }
 
@@ -58,7 +88,7 @@ class _EssayScreenState extends ConsumerState<EssayScreen> {
               for (final k in EssayKind.values)
                 DropdownMenuItem(value: k, child: Text(k.label)),
             ],
-            onChanged: (v) => setState(() => _kind = v ?? EssayKind.commonApp),
+            onChanged: (v) => _switchKind(v ?? EssayKind.commonApp),
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(

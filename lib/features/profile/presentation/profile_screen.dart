@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:admity/core/l10n/locale_controller.dart';
 import 'package:admity/core/router/app_routes.dart';
 import 'package:admity/core/theme/app_spacing.dart';
@@ -196,8 +194,8 @@ class _AccountSection extends ConsumerWidget {
                     style: context.text.titleMedium,
                   ),
                   Text(
-                    'Через Apple или код на Gmail. Нужно, чтобы Ералы отвечал '
-                    'и прогресс синхронизировался между устройствами.',
+                    'Через Apple или код на Gmail. Нужно, чтобы общаться с '
+                    'Ералы и сохранить твой аккаунт.',
                     style: context.text.bodySmall
                         ?.copyWith(color: tokens.textMuted),
                   ),
@@ -231,8 +229,21 @@ class _AccountSection extends ConsumerWidget {
             ),
           ),
           TextButton(
-            onPressed: () =>
-                unawaited(Supabase.instance.client.auth.signOut()),
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              try {
+                await Supabase.instance.client.auth.signOut();
+                // Clear the auth-flow state so the next visit to the sign-in
+                // screen starts fresh instead of on the "signed in" step.
+                ref.invalidate(authControllerProvider);
+              } on Object {
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Не удалось выйти. Проверь соединение.'),
+                  ),
+                );
+              }
+            },
             child: const Text('Выйти'),
           ),
         ],

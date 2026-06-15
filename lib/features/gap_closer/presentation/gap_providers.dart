@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:admity/core/storage/local_store.dart';
+import 'package:admity/core/sync/student_sync_repository.dart';
 import 'package:admity/features/career_test/presentation/career_providers.dart';
 import 'package:admity/features/gap_closer/domain/gap_generator.dart';
 import 'package:admity/features/gap_closer/domain/gap_task.dart';
@@ -48,8 +51,26 @@ class GapTasksController extends Notifier<List<GapTask>> {
     _persist();
   }
 
-  void _persist() =>
-      ref.read(localStoreProvider).put(_key, state.map((t) => t.toJson()).toList());
+  /// Replaces local state + cache from server-fetched tasks (sign-in/realtime).
+  void hydrate(List<GapTask> tasks) {
+    state = tasks;
+    ref
+        .read(localStoreProvider)
+        .put(_key, tasks.map((t) => t.toJson()).toList());
+  }
+
+  /// Wipes local tasks on sign-out (server is durable).
+  void clear() {
+    state = const [];
+    ref.read(localStoreProvider).remove(_key);
+  }
+
+  void _persist() {
+    ref
+        .read(localStoreProvider)
+        .put(_key, state.map((t) => t.toJson()).toList());
+    unawaited(ref.read(studentSyncRepositoryProvider).replaceGapTasks(state));
+  }
 }
 
 final gapTasksProvider =

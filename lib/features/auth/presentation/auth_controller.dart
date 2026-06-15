@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:admity/core/env/app_env.dart';
 import 'package:admity/core/utils/app_logger.dart';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -278,5 +279,8 @@ final authUserProvider = StreamProvider<User?>((ref) async* {
 /// Android build never references the Apple button.
 final appleAuthAvailableProvider = Provider<bool>((ref) {
   if (!AppEnv.hasSupabase) return false;
+  // `Platform` is from dart:io and throws on Flutter web — guard first so
+  // opening the auth screen on the web target doesn't crash at build time.
+  if (kIsWeb) return false;
   return Platform.isIOS || Platform.isMacOS;
 });

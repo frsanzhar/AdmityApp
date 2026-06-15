@@ -30,6 +30,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   final _codeController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    // The controller is a global Notifier, so its state survives across screen
+    // opens. After a previous sign-in/sign-out it may still read `signedIn`,
+    // which would trip the navigate-away listener the instant this screen
+    // mounts. Start every visit from a clean provider-choice step.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(authControllerProvider.notifier).reset();
+    });
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _codeController.dispose();
@@ -88,8 +101,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                'Войди, чтобы синхронизировать прогресс между '
-                'устройствами — или продолжи как гость.',
+                'Войди, чтобы общаться с Ералы и сохранить аккаунт — '
+                'или продолжи как гость.',
                 style: context.text.bodyMedium
                     ?.copyWith(color: context.tokens.textMuted),
                 textAlign: TextAlign.center,

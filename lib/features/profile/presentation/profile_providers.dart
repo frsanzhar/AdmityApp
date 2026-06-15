@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:admity/core/storage/local_store.dart';
+import 'package:admity/features/profile/data/profile_repository.dart';
 import 'package:admity/shared/models/profile.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Holds the student [Profile], persisted to the local store (and to Supabase
-/// when connected).
+/// Holds the student [Profile]. The local store is the offline source of truth
+/// (synchronous reads); when signed in, every save also writes through to
+/// Supabase, and [hydrate]/[clear] are driven by the auth-sync coordinator.
 class ProfileController extends Notifier<Profile> {
   static const _key = 'profile';
 
@@ -16,10 +20,24 @@ class ProfileController extends Notifier<Profile> {
   void save(Profile profile) {
     state = profile;
     ref.read(localStoreProvider).put(_key, profile.toJson());
+    unawaited(ref.read(profileRepositoryProvider).upsertProfile(profile));
   }
 
   void update(Profile Function(Profile current) transform) =>
       save(transform(state));
+
+  /// Replaces local state + cache from a server-fetched profile (sign-in).
+  void hydrate(Profile profile) {
+    state = profile;
+    ref.read(localStoreProvider).put(_key, profile.toJson());
+  }
+
+  /// Wipes the local profile on sign-out (privacy on shared devices); the
+  /// server copy is the durable record and re-hydrates on the next sign-in.
+  void clear() {
+    state = const Profile();
+    ref.read(localStoreProvider).remove(_key);
+  }
 }
 
 final profileProvider =
@@ -48,7 +66,22 @@ class NotesController extends Notifier<List<String>> {
     _persist();
   }
 
-  void _persist() => ref.read(localStoreProvider).put(_key, state);
+  /// Replaces local state + cache from server-fetched notes (sign-in).
+  void hydrate(List<String> notes) {
+    state = notes;
+    ref.read(localStoreProvider).put(_key, notes);
+  }
+
+  /// Wipes local notes on sign-out (private data; re-hydrates on next sign-in).
+  void clear() {
+    state = const [];
+    ref.read(localStoreProvider).remove(_key);
+  }
+
+  void _persist() {
+    ref.read(localStoreProvider).put(_key, state);
+    unawaited(ref.read(profileRepositoryProvider).replaceNotes(state));
+  }
 }
 
 final notesProvider =

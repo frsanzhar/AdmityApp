@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:admity/core/ai/eraly_client.dart';
+import 'package:admity/core/storage/local_store.dart';
+import 'package:admity/core/sync/student_sync_repository.dart';
 import 'package:admity/features/calendar/domain/calendar_ai_actions.dart';
 import 'package:admity/features/calendar/domain/calendar_event.dart';
 import 'package:admity/features/calendar/presentation/calendar_providers.dart';
@@ -8,29 +12,44 @@ import 'package:admity/features/eraly_chat/domain/chat_models.dart';
 import 'package:admity/features/profile/presentation/profile_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Holds the active Eraly conversation. In-memory for the session (chat history
-/// is synced to Supabase when connected).
+/// Holds the active Eraly conversation. Cached locally and (when signed in)
+/// persisted to Supabase, so history survives restarts and syncs across devices.
 class ChatController extends Notifier<List<ChatMessage>> {
+  static const _key = 'chat_messages';
   var _seq = 0;
 
   String _id() => 'm${_seq++}_${DateTime.now().microsecondsSinceEpoch}';
 
+  ChatMessage _greeting() => ChatMessage(
+        id: _id(),
+        role: ChatRole.eraly,
+        content:
+            'Привет! Я Ералы. Спроси про твои шансы, стипендии, эссе или с '
+            'чего начать. Я помогу и подскажу — но работу за тебя делать не '
+            'буду 🙂',
+        createdAt: DateTime.now(),
+      );
+
   @override
-  List<ChatMessage> build() => [
-        ChatMessage(
-          id: _id(),
-          role: ChatRole.eraly,
-          content:
-              'Привет! Я Ералы. Спроси про твои шансы, стипендии, эссе или с '
-              'чего начать. Я помогу и подскажу — но работу за тебя делать не '
-              'буду 🙂',
-          createdAt: DateTime.now(),
-        ),
-      ];
+  List<ChatMessage> build() {
+    final cached = ref.read(localStoreProvider).readList(_key);
+    if (cached != null && cached.isNotEmpty) {
+      return cached
+          .whereType<Map<String, dynamic>>()
+          .map(ChatMessage.fromJson)
+          .toList();
+    }
+    return [_greeting()];
+  }
 
   Future<void> send(String text) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
+
+    // Snapshot the conversation BEFORE adding the new turn. The server appends
+    // [message] itself, so sending it inside [history] too would duplicate the
+    // student's message in the prompt. This is prior turns only.
+    final priorHistory = state.where((m) => !m.pending).toList();
 
     final user = ChatMessage(
       id: _id(),
@@ -48,7 +67,7 @@ class ChatController extends Notifier<List<ChatMessage>> {
     state = [...state, user, pending];
 
     final reply = await ref.read(eralyClientProvider).send(
-          history: state.where((m) => !m.pending).toList(),
+          history: priorHistory,
           message: trimmed,
           profileContext: _profileContext(),
         );
@@ -68,6 +87,33 @@ class ChatController extends Notifier<List<ChatMessage>> {
         else
           m,
     ];
+
+    // Cache locally and (when signed in) append this turn to the cloud thread.
+    _persistLocal();
+    final eralyMsg =
+        state.firstWhere((m) => m.id == pending.id, orElse: () => pending);
+    unawaited(
+      ref.read(studentSyncRepositoryProvider).appendMessages([user, eralyMsg]),
+    );
+  }
+
+  /// Replaces local state + cache from server-fetched history (sign-in).
+  void hydrate(List<ChatMessage> messages) {
+    state = messages.isEmpty ? [_greeting()] : messages;
+    _persistLocal();
+  }
+
+  /// Resets to a fresh greeting on sign-out (server history is durable).
+  void clear() {
+    state = [_greeting()];
+    ref.read(localStoreProvider).remove(_key);
+  }
+
+  void _persistLocal() {
+    ref.read(localStoreProvider).put(
+          _key,
+          [for (final m in state) if (!m.pending) m.toJson()],
+        );
   }
 
   /// Applies Eraly's calendar [actions] to [userCalendarEventsProvider] and
@@ -80,7 +126,15 @@ class ChatController extends Notifier<List<ChatMessage>> {
     var n = 0;
     for (final a in actions) {
       if (a.op == 'add') {
-        final date = a.date ?? DateTime.now();
+        // Never fabricate a deadline. If Eraly didn't give a real date, skip the
+        // add and ask — a wrong date is worse than no date for an applicant.
+        final date = a.date;
+        if (date == null) {
+          lines.add(
+            '📅 Уточни дату для «${a.title}» — и я добавлю её в календарь.',
+          );
+          continue;
+        }
         notifier.add(
           CalendarEvent(
             id: 'ai_${DateTime.now().microsecondsSinceEpoch}_${n++}',

@@ -28,6 +28,20 @@ class ChatMessage {
     this.pending = false,
   });
 
+  /// Rebuilds a message from cached/synced JSON; tolerant of unknown roles and
+  /// missing timestamps so legacy/partial data never throws.
+  factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
+        id: json['id'] as String? ?? '',
+        role: ChatRole.values.firstWhere(
+          (r) => r.name == json['role'],
+          orElse: () => ChatRole.eraly,
+        ),
+        content: json['content'] as String? ?? '',
+        createdAt:
+            DateTime.tryParse(json['created_at'] as String? ?? '') ??
+                DateTime.fromMillisecondsSinceEpoch(0),
+      );
+
   final String id;
   final ChatRole role;
   final String content;
@@ -43,4 +57,13 @@ class ChatMessage {
         createdAt: createdAt,
         pending: pending ?? this.pending,
       );
+
+  /// Serializes for the local cache / sync. The transient [pending] flag is
+  /// never persisted (an in-flight empty bubble must not be cached or uploaded).
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'role': role.name,
+        'content': content,
+        'created_at': createdAt.toIso8601String(),
+      };
 }

@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:admity/core/storage/local_store.dart';
+import 'package:admity/core/sync/student_sync_repository.dart';
 import 'package:admity/features/career_test/domain/career_items.dart';
 import 'package:admity/features/career_test/domain/career_models.dart';
 import 'package:admity/features/career_test/domain/career_scoring.dart';
@@ -48,7 +51,57 @@ class CareerController extends Notifier<CareerResult?> {
       'riasec': riasecAnswers,
       'big_five': bigFiveAnswers,
     });
+    unawaited(
+      ref.read(studentSyncRepositoryProvider).upsertCareer(
+            riasecAnswers: riasecAnswers,
+            bigFiveAnswers: bigFiveAnswers,
+            result: result,
+          ),
+    );
     return result;
+  }
+
+  /// Rehydrates from server-fetched raw answers (re-scores deterministically).
+  /// Ignores malformed lengths so a bad payload never yields a wrong result.
+  void hydrateAnswers(List<int> riasecAnswers, List<int> bigFiveAnswers) {
+    if (riasecAnswers.length != kRiasecItems.length ||
+        bigFiveAnswers.length != kBigFiveItems.length) {
+      return;
+    }
+    state = CareerScoring.score(
+      riasecAnswers: riasecAnswers,
+      bigFiveAnswers: bigFiveAnswers,
+    );
+    ref.read(localStoreProvider).put(_key, {
+      'riasec': riasecAnswers,
+      'big_five': bigFiveAnswers,
+    });
+  }
+
+  /// Wipes the local career result on sign-out (server is durable).
+  void clear() {
+    state = null;
+    ref.read(localStoreProvider).remove(_key);
+  }
+
+  /// Migrates a guest's locally-stored answers up to Supabase on first sign-in
+  /// (no-op if there are no stored answers / no result).
+  Future<void> syncUp() async {
+    final json = ref.read(localStoreProvider).readJson(_key);
+    final result = state;
+    if (json == null || result == null) return;
+    final riasec = (json['riasec'] as List<dynamic>?)
+        ?.map((e) => (e as num).toInt())
+        .toList();
+    final bigFive = (json['big_five'] as List<dynamic>?)
+        ?.map((e) => (e as num).toInt())
+        .toList();
+    if (riasec == null || bigFive == null) return;
+    await ref.read(studentSyncRepositoryProvider).upsertCareer(
+          riasecAnswers: riasec,
+          bigFiveAnswers: bigFive,
+          result: result,
+        );
   }
 }
 

@@ -1,5 +1,6 @@
 import 'package:admity/core/l10n/locale_controller.dart';
 import 'package:admity/core/router/app_router.dart';
+import 'package:admity/core/sync/sync_coordinator.dart';
 import 'package:admity/core/theme/app_theme.dart';
 import 'package:admity/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +18,9 @@ class AdmityApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
     final locale = ref.watch(localeControllerProvider);
+    // Keep the full student-data ↔ Supabase sync + realtime listener alive for
+    // the app's lifetime (no-op when Supabase isn't configured).
+    ref.watch(syncCoordinatorProvider);
 
     return MaterialApp.router(
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,

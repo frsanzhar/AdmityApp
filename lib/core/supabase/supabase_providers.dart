@@ -19,8 +19,11 @@ final supabaseClientProvider = Provider<SupabaseClient>((ref) {
 
 /// Streams auth state changes (sign-in / sign-out / token refresh).
 ///
-/// Consumed by the router in Step 4 to guard authenticated routes.
+/// Yields nothing in offline-light mode so it is always safe to watch (reading
+/// [supabaseClientProvider] there would throw). Auth gating is currently done
+/// by `authUserProvider` in the auth feature, not the router.
 final authStateChangesProvider = StreamProvider<AuthState>((ref) {
+  if (!AppEnv.hasSupabase) return const Stream.empty();
   final client = ref.watch(supabaseClientProvider);
   return client.auth.onAuthStateChange;
 });

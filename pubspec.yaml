@@ -11,8 +11,6 @@ environment:
 dependencies:
   crypto: ^3.0.6                   # sha256 nonce for Sign in with Apple
   cupertino_icons: ^1.0.8
-  dio: ^5.9.2                      # HTTP client w/ interceptors (used beyond Supabase SDK)
-  drift: ^2.34.0                   # offline-light structured cache (codegen wired in a later step)
   fl_chart: ^1.2.0                 # chancing bands + score progress charts
   flutter:
     sdk: flutter
@@ -20,19 +18,20 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   flutter_riverpod: ^3.0.0         # state management (single source of truth)
-  flutter_secure_storage: ^10.3.1  # tokens / secrets at rest
   go_router: ^17.3.0               # declarative navigation + deep links
   image_picker: ^1.1.2             # camera/gallery capture (GPA табель, intensive tasks)
   intl: ^0.20.2                    # i18n message formatting
-  lottie: ^3.3.3                   # vector animations (only when designer ships assets)
   path: ^1.9.1
   path_provider: ^2.1.5
-  rive: ^0.14.8                    # Eraly mascot state machine
   sign_in_with_apple: ^6.1.4       # native Sign in with Apple credential
-  sqlite3_flutter_libs: ^0.6.0+eol # native sqlite for drift
   supabase_flutter: ^2.14.2        # Postgres + Auth + Storage + Realtime + RLS
   table_calendar: ^3.1.2           # month-view admissions calendar
   url_launcher: ^6.3.2
+  # Removed 2026-06-15 (dead deps, 0 imports — re-add when actually used):
+  #   rive (mascot is custom-painted), lottie, drift + sqlite3_flutter_libs
+  #   (storage is a JSON file), dio (Supabase SDK handles HTTP),
+  #   flutter_secure_storage. rive/sqlite shipped native .so per ABI, so this
+  #   shrinks the APK and speeds builds.
 
 dev_dependencies:
   build_runner: ^2.15.0

@@ -217,15 +217,24 @@ Deno.serve(async (req: Request) => {
   if (!message) return json(cors, { error: "Empty message" }, 400);
 
   const history = Array.isArray(body.history) ? body.history : [];
-  const messages = [
-    ...history
-      .filter((m) => m && typeof m.content === "string" && m.content.length > 0)
-      .map((m) => ({
-        role: m.role === "user" ? "user" : "assistant",
-        content: m.content,
-      })),
-    { role: "user", content: message },
-  ];
+  const mapped = history
+    .filter((m) => m && typeof m.content === "string" && m.content.length > 0)
+    .map((m) => ({
+      role: m.role === "user" ? "user" : "assistant",
+      content: m.content,
+    }));
+  mapped.push({ role: "user", content: message });
+
+  // The Anthropic Messages API requires the first message to use the "user"
+  // role. Eraly's conversation opens with a seed greeting (assistant), so drop
+  // any leading assistant turns; otherwise every request 400s and the client
+  // silently falls back to the offline reply. Consecutive same-role messages
+  // are allowed (the API merges them), so this is the only normalization needed.
+  let firstUser = 0;
+  while (firstUser < mapped.length && mapped[firstUser].role !== "user") {
+    firstUser++;
+  }
+  const messages = mapped.slice(firstUser);
 
   // Inject the student's structured context as a system addendum. The client
   // already minimizes PII (no name, coarse region/GPA); we never add the id.
@@ -233,20 +242,41 @@ Deno.serve(async (req: Request) => {
     ? `\n\nКОНТЕКСТ УЧЕНИКА (JSON): ${JSON.stringify(body.profile)}`
     : "";
 
-  const res = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 1024,
-      system: ERALY_SYSTEM_PROMPT + profileBlock,
-      messages,
-    }),
-  });
+  // Bound the upstream call: a slow Anthropic response should fail fast with a
+  // retry hint rather than hang until the function runtime limit (which, paired
+  // with the client timeout, would otherwise wedge the student's turn).
+  const upstream = new AbortController();
+  const upstreamTimer = setTimeout(() => upstream.abort(), 25_000);
+  let res: Response;
+  try {
+    res = await fetch(ANTHROPIC_URL, {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        // A mentor reply often includes steps + a calendar action block; 1024
+        // was tight enough to truncate longer answers mid-sentence (stop_reason
+        // "max_tokens"). 2048 keeps replies whole at a still-modest cost.
+        max_tokens: 2048,
+        system: ERALY_SYSTEM_PROMPT + profileBlock,
+        messages,
+      }),
+      signal: upstream.signal,
+    });
+  } catch (err) {
+    const timedOut = err instanceof DOMException && err.name === "AbortError";
+    return json(
+      cors,
+      { error: timedOut ? "Anthropic timed out" : "Anthropic request failed" },
+      timedOut ? 504 : 502,
+    );
+  } finally {
+    clearTimeout(upstreamTimer);
+  }
 
   if (!res.ok) {
     const detail = await res.text();

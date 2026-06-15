@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:admity/core/storage/local_store.dart';
+import 'package:admity/core/sync/student_sync_repository.dart';
 import 'package:admity/features/intensives/data/intensives_seed.dart';
 import 'package:admity/features/intensives/domain/intensive_engine.dart';
 import 'package:admity/features/intensives/domain/intensive_models.dart';
@@ -56,10 +59,30 @@ class IntensiveProgressController
     return completion;
   }
 
-  void _persist() => ref.read(localStoreProvider).put(
-        _key,
-        state.map((slug, p) => MapEntry(slug, p.toJson())),
-      );
+  /// Replaces local state + cache from server-fetched progress (sign-in/realtime).
+  void hydrate(Map<String, IntensiveProgress> progress) {
+    state = progress;
+    ref.read(localStoreProvider).put(
+          _key,
+          state.map((slug, p) => MapEntry(slug, p.toJson())),
+        );
+  }
+
+  /// Wipes local progress on sign-out (server is durable).
+  void clear() {
+    state = {};
+    ref.read(localStoreProvider).remove(_key);
+  }
+
+  void _persist() {
+    ref.read(localStoreProvider).put(
+          _key,
+          state.map((slug, p) => MapEntry(slug, p.toJson())),
+        );
+    unawaited(
+      ref.read(studentSyncRepositoryProvider).upsertIntensiveProgress(state),
+    );
+  }
 }
 
 final intensiveProgressProvider =

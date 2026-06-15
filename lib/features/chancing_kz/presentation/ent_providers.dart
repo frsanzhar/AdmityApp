@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:admity/core/storage/local_store.dart';
+import 'package:admity/core/sync/student_sync_repository.dart';
 import 'package:admity/features/chancing_kz/data/ent_cutoffs_seed.dart';
 import 'package:admity/features/chancing_kz/domain/ent_models.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +17,18 @@ class EntScoreController extends Notifier<EntScore?> {
   }
 
   void save(EntScore score) {
+    state = score;
+    ref.read(localStoreProvider).put(_key, score.toJson());
+    unawaited(ref.read(studentSyncRepositoryProvider).upsertEnt(score));
+  }
+
+  /// Replaces local state + cache from a server-fetched score (sign-in/realtime).
+  /// A null [score] means the server has no row → clear local.
+  void hydrate(EntScore? score) {
+    if (score == null) {
+      clear();
+      return;
+    }
     state = score;
     ref.read(localStoreProvider).put(_key, score.toJson());
   }

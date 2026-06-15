@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:admity/core/storage/local_store.dart';
+import 'package:admity/core/sync/student_sync_repository.dart';
 import 'package:admity/features/universities/data/universities_seed.dart';
 import 'package:admity/features/universities/domain/university.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -49,7 +52,26 @@ class CollegeListController extends Notifier<Set<String>> {
     final copy = {...state};
     if (!copy.add(slug)) copy.remove(slug);
     state = copy;
+    _persist();
+  }
+
+  /// Replaces local state + cache from a server-fetched list (sign-in/realtime).
+  void hydrate(Set<String> slugs) {
+    state = slugs;
+    ref.read(localStoreProvider).put(_key, slugs.toList());
+  }
+
+  /// Wipes the local list on sign-out (server is durable).
+  void clear() {
+    state = <String>{};
+    ref.read(localStoreProvider).remove(_key);
+  }
+
+  void _persist() {
     ref.read(localStoreProvider).put(_key, state.toList());
+    unawaited(
+      ref.read(studentSyncRepositoryProvider).replaceCollegeList(state),
+    );
   }
 }
 
