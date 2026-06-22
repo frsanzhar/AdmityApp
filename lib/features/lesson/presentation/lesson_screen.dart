@@ -3,24 +3,23 @@
 /// ## Step flow (requirement 3)
 /// intro → THEORY (explanatory cards) → questions → feedback → complete
 ///
-/// [LessonStepKind.theory] is the new step.  Theory cards are scrollable
-/// explanation pages (2–4 cards) shown before the questions.  Each card
-/// renders a headline + body text, optional emoji, and a «Далее» PrimaryButton
-/// that advances through cards one at a time.  After the last card the user
-/// taps «К вопросам» (also PrimaryButton) to enter the question phase.
+/// ## Question types (R7)
+/// - multipleChoice: tap option, then «Проверить»
+/// - trueFalse: tap «Верно»/«Неверно» → immediate check (no separate «Проверить»)
+/// - tapToSelect: blank sentence + word chips, tap chip → «Проверить»
 ///
 /// ## Layout rules (CLAUDE.md)
 /// AppScaffold > Column(.min for top bar) > Expanded > SingleChildScrollView
 /// > Column(mainAxisSize: .min).
 /// Never uses CrossAxisAlignment.stretch inside a scroll.
 ///
-/// ## Seeded theory
-/// Real theory text for the sample "Сравнение вероятностей" lesson is baked
-/// in below — Cyrillic prose that covers the topic.
+/// ## Intro diagram (R8)
+/// Uses LessonTopicDiagram(variant: TopicVariant.fractions) instead of TopicDiagramSlot.
 library;
 
 import 'package:admity/core/theme/app_colors.dart';
 import 'package:admity/core/theme/app_tokens.dart';
+import 'package:admity/shared/diagrams/courses/lesson_topic_diagram.dart';
 import 'package:admity/shared/rive/rive_assets.dart';
 import 'package:admity/shared/rive/rive_state_machine_slot.dart';
 import 'package:admity/shared/widgets/app_card.dart';
@@ -29,6 +28,7 @@ import 'package:admity/shared/widgets/featured_button.dart';
 import 'package:admity/shared/widgets/mascot_slot.dart';
 import 'package:admity/shared/widgets/primary_button.dart';
 import 'package:admity/shared/widgets/progress_ring.dart';
+// ignore: unused_import -- kept for backwards-compat in test imports
 import 'package:admity/shared/widgets/topic_diagram_slot.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -51,19 +51,33 @@ class TheoryCardData {
   final String? emoji;
 }
 
-/// A single multiple-choice question in the lesson.
+/// Which interaction type a [LessonQuestion] uses.
+enum QuestionType {
+  /// Standard multiple choice — tap option, then «Проверить».
+  multipleChoice,
+
+  /// Two buttons «Верно» / «Неверно» — immediate feedback on tap.
+  trueFalse,
+
+  /// Sentence with ____ blank + word chips — tap chip then «Проверить».
+  tapToSelect,
+}
+
+/// A single question in the lesson.
 class LessonQuestion {
   const LessonQuestion({
     required this.question,
     required this.options,
     required this.correctIndex,
     required this.explanation,
+    this.type = QuestionType.multipleChoice,
   });
 
   final String question;
   final List<String> options;
   final int correctIndex;
   final String explanation;
+  final QuestionType type;
 }
 
 /// Which high-level step the lesson is currently on.
@@ -179,9 +193,14 @@ const _theoryCards = <TheoryCardData>[
   ),
 ];
 
-// ── Seeded questions ──────────────────────────────────────────────────────────
+// ── Seeded questions (R7) ─────────────────────────────────────────────────────
+//
+// Q0: multipleChoice — coin flip (correctIndex: 1 → '1/2')
+// Q1: trueFalse — достоверное событие (correctIndex: 0 → 'Верно')
+// Q2: tapToSelect — blank fill (correctIndex: 1 → '0')
 
 const _lessonQuestions = <LessonQuestion>[
+  // Q0: multipleChoice (default type) — kept exactly as before for test compat
   LessonQuestion(
     question: 'Бросают монету. Какова вероятность выпадения орла?',
     options: ['1/4', '1/2', '3/4', '1'],
@@ -190,29 +209,26 @@ const _lessonQuestions = <LessonQuestion>[
         'Монета имеет два равновероятных исхода: орёл и решка. '
         'Поэтому вероятность орла = 1/2 = 0.5.',
   ),
+  // Q1: trueFalse — correctIndex: 0 = 'Верно'
   LessonQuestion(
-    question:
-        'В мешке 3 красных и 7 синих шара. Какова вероятность '
-        'вытащить красный?',
-    options: ['3/10', '7/10', '1/3', '1/7'],
+    type: QuestionType.trueFalse,
+    question: 'Вероятность достоверного события равна 1.',
+    options: ['Верно', 'Неверно'],
     correctIndex: 0,
     explanation:
-        'Всего 10 шаров, 3 из которых красные. '
-        'Вероятность = 3 / (3+7) = 3/10 = 0.3.',
+        'Достоверное событие — то, которое обязательно произойдёт. '
+        'По определению, его вероятность равна 1.',
   ),
+  // Q2: tapToSelect — blank sentence, correctIndex: 1 → '0'
+  // options: ['1', '0', '1/2', '100%'] → index 1 = '0'
   LessonQuestion(
-    question: 'Какое событие является достоверным?',
-    options: [
-      'Бросок кубика даст 7',
-      'Выпадет либо чётное, либо нечётное число',
-      'Выпадет число больше 5',
-      'Монета встанет на ребро',
-    ],
+    type: QuestionType.tapToSelect,
+    question: 'Вероятность невозможного события равна ____.',
+    options: ['1', '0', '1/2', '100%'],
     correctIndex: 1,
     explanation:
-        'Достоверное событие — то, которое обязательно произойдёт. '
-        'На игральном кубике любой результат — либо чётное, либо '
-        'нечётное число, поэтому это событие достоверно (вероятность = 1).',
+        'Невозможное событие не может произойти никогда. '
+        'Его вероятность равна 0 по определению.',
   ),
 ];
 
@@ -477,7 +493,12 @@ class _IntroStep extends StatelessWidget {
             duration: 300.ms,
           ),
           SizedBox(height: tokens.gapXxl),
-          const TopicDiagramSlot(size: 160)
+          // R8: LessonTopicDiagram instead of TopicDiagramSlot
+          const SizedBox(
+                width: 160,
+                height: 160,
+                child: LessonTopicDiagram(variant: TopicVariant.fractions),
+              )
               .animate()
               .fadeIn(delay: 120.ms, duration: 350.ms)
               .scale(
@@ -630,7 +651,7 @@ class _TheoryStep extends StatelessWidget {
 
           SizedBox(height: tokens.gapXxl),
 
-          // Advance button (PrimaryButton — normal action, §8)
+          // Advance button (PrimaryButton — normal action)
           PrimaryButton(
             label: isLast ? 'К вопросам' : 'Далее',
             onPressed: () => ref.read(lessonProvider.notifier).advanceTheory(),
@@ -643,7 +664,7 @@ class _TheoryStep extends StatelessWidget {
   }
 }
 
-/// A single theory card card widget.
+/// A single theory card widget.
 class _TheoryCardWidget extends StatelessWidget {
   const _TheoryCardWidget({required this.card});
 
@@ -687,6 +708,7 @@ class _TheoryCardWidget extends StatelessWidget {
 
 // ── Step 3: Question ──────────────────────────────────────────────────────────
 
+/// Dispatches to the correct question UI based on [LessonQuestion.type].
 class _QuestionStep extends StatelessWidget {
   const _QuestionStep({required this.state, required this.ref});
 
@@ -695,9 +717,34 @@ class _QuestionStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final question = _lessonQuestions[state.currentQuestionIndex];
+    switch (question.type) {
+      case QuestionType.multipleChoice:
+        return _MultipleChoiceStep(state: state, ref: ref, question: question);
+      case QuestionType.trueFalse:
+        return _TrueFalseStep(state: state, ref: ref, question: question);
+      case QuestionType.tapToSelect:
+        return _TapToSelectStep(state: state, ref: ref, question: question);
+    }
+  }
+}
+
+/// Standard multiple-choice question: option cards + «Проверить».
+class _MultipleChoiceStep extends StatelessWidget {
+  const _MultipleChoiceStep({
+    required this.state,
+    required this.ref,
+    required this.question,
+  });
+
+  final LessonState state;
+  final WidgetRef ref;
+  final LessonQuestion question;
+
+  @override
+  Widget build(BuildContext context) {
     final tokens =
         Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
-    final question = _lessonQuestions[state.currentQuestionIndex];
 
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -708,22 +755,7 @@ class _QuestionStep extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(height: tokens.gapSm),
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: tokens.gapMd,
-              vertical: tokens.gapXs,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(tokens.radiusSm),
-            ),
-            child: Text(
-              'Вопрос ${state.currentQuestionIndex + 1} из ${_lessonQuestions.length}',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: AppColors.primary,
-              ),
-            ),
-          ).animate().fadeIn(duration: 200.ms),
+          _QuestionCounterPill(state: state),
           SizedBox(height: tokens.gapXl),
           Text(
                 question.question,
@@ -763,6 +795,277 @@ class _QuestionStep extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// True/False question: two buttons — tap immediately checks (no «Проверить»).
+class _TrueFalseStep extends StatelessWidget {
+  const _TrueFalseStep({
+    required this.state,
+    required this.ref,
+    required this.question,
+  });
+
+  final LessonState state;
+  final WidgetRef ref;
+  final LessonQuestion question;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: tokens.screenPadding,
+        vertical: tokens.gapLg,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(height: tokens.gapSm),
+          _QuestionCounterPill(state: state),
+          SizedBox(height: tokens.gapXl),
+          Text(
+                question.question,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: AppColors.ink,
+                ),
+                textAlign: TextAlign.center,
+              )
+              .animate(key: ValueKey('q_${state.currentQuestionIndex}'))
+              .fadeIn(duration: 280.ms)
+              .slideY(begin: -0.04, end: 0),
+          SizedBox(height: tokens.gapXxl),
+          // True/False buttons — tapping immediately selects AND checks
+          Row(
+            children: [
+              Expanded(
+                child: _TrueFalseButton(
+                  label: question.options[0], // 'Верно'
+                  icon: Icons.check_circle_outline_rounded,
+                  color: AppColors.successGreen,
+                  isSelected: state.selectedOptionIndex == 0,
+                  onTap: () {
+                    ref.read(lessonProvider.notifier).selectOption(0);
+                    ref.read(lessonProvider.notifier).checkAnswer();
+                  },
+                ).animate().fadeIn(delay: 60.ms, duration: 240.ms),
+              ),
+              SizedBox(width: tokens.gapMd),
+              Expanded(
+                child: _TrueFalseButton(
+                  label: question.options[1], // 'Неверно'
+                  icon: Icons.cancel_outlined,
+                  color: AppColors.errorRed,
+                  isSelected: state.selectedOptionIndex == 1,
+                  onTap: () {
+                    ref.read(lessonProvider.notifier).selectOption(1);
+                    ref.read(lessonProvider.notifier).checkAnswer();
+                  },
+                ).animate().fadeIn(delay: 100.ms, duration: 240.ms),
+              ),
+            ],
+          ),
+          SizedBox(height: tokens.gapXl),
+        ],
+      ),
+    );
+  }
+}
+
+/// A large Верно/Неверно button for trueFalse questions.
+class _TrueFalseButton extends StatelessWidget {
+  const _TrueFalseButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+
+    final bgColor = isSelected
+        ? color.withValues(alpha: 0.12)
+        : AppColors.surfaceTint;
+    final borderColor = isSelected ? color : AppColors.border;
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: EdgeInsets.symmetric(
+          vertical: tokens.gapLg,
+          horizontal: tokens.gapMd,
+        ),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(tokens.radiusLg),
+          border: Border.all(color: borderColor, width: isSelected ? 2 : 1),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 32),
+            SizedBox(height: tokens.gapSm),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Tap-to-select question: sentence with ____ blank + word chips.
+class _TapToSelectStep extends StatelessWidget {
+  const _TapToSelectStep({
+    required this.state,
+    required this.ref,
+    required this.question,
+  });
+
+  final LessonState state;
+  final WidgetRef ref;
+  final LessonQuestion question;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+
+    // The question text contains ____ as the blank marker.
+    // If an option is selected, fill the blank with it.
+    final selectedLabel = state.selectedOptionIndex >= 0
+        ? question.options[state.selectedOptionIndex]
+        : null;
+    final displayText = selectedLabel != null
+        ? question.question.replaceAll('____', selectedLabel)
+        : question.question;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: tokens.screenPadding,
+        vertical: tokens.gapLg,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(height: tokens.gapSm),
+          _QuestionCounterPill(state: state),
+          SizedBox(height: tokens.gapXl),
+          Text(
+                displayText,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: AppColors.ink,
+                ),
+                textAlign: TextAlign.center,
+              )
+              .animate(key: ValueKey('q_${state.currentQuestionIndex}'))
+              .fadeIn(duration: 280.ms)
+              .slideY(begin: -0.04, end: 0),
+          SizedBox(height: tokens.gapXxl),
+          // Word chips
+          Wrap(
+            spacing: tokens.gapSm,
+            runSpacing: tokens.gapSm,
+            alignment: WrapAlignment.center,
+            children: List.generate(question.options.length, (i) {
+              final isSelected = state.selectedOptionIndex == i;
+              return GestureDetector(
+                onTap: () => ref.read(lessonProvider.notifier).selectOption(i),
+                behavior: HitTestBehavior.opaque,
+                child:
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: tokens.gapLg,
+                        vertical: tokens.gapSm,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primary.withValues(alpha: 0.10)
+                            : AppColors.surfaceTint,
+                        borderRadius: BorderRadius.circular(tokens.radiusMd),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.border,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Text(
+                        question.options[i],
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: isSelected ? AppColors.primary : AppColors.ink,
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                        ),
+                      ),
+                    ).animate().fadeIn(
+                      delay: Duration(milliseconds: 40 + i * 50),
+                      duration: 240.ms,
+                    ),
+              );
+            }),
+          ),
+          SizedBox(height: tokens.gapXxl),
+          PrimaryButton(
+            label: 'Проверить',
+            onPressed: state.hasSelection
+                ? () => ref.read(lessonProvider.notifier).checkAnswer()
+                : null,
+          ),
+          SizedBox(height: tokens.gapXl),
+        ],
+      ),
+    );
+  }
+}
+
+/// Counter pill shown at the top of each question step.
+class _QuestionCounterPill extends StatelessWidget {
+  const _QuestionCounterPill({required this.state});
+
+  final LessonState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: tokens.gapMd,
+        vertical: tokens.gapXs,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(tokens.radiusSm),
+      ),
+      child: Text(
+        'Вопрос ${state.currentQuestionIndex + 1} из ${_lessonQuestions.length}',
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+          color: AppColors.primary,
+        ),
+      ),
+    ).animate().fadeIn(duration: 200.ms);
   }
 }
 

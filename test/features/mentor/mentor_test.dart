@@ -308,12 +308,31 @@ void main() {
     );
   });
 
-  testWidgets('MentorScreen shows greeting message from Ералы', (tester) async {
+  testWidgets('MentorScreen shows conversational greeting from Ералы', (
+    tester,
+  ) async {
     await tester.pumpWidget(_themed(const MentorScreen()));
     await tester.pumpAndSettle();
 
     expect(find.text('Ералы'), findsWidgets);
-    expect(find.textContaining('Привет'), findsWidgets);
+    // Greeting contains the warm opener phrase.
+    expect(
+      find.textContaining('Расскажи о себе побольше'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('MentorScreen shows no canned prompt buttons initially', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_themed(const MentorScreen()));
+    await tester.pumpAndSettle();
+
+    // The «Проверить все мероприятия» button must NOT appear on first open —
+    // it only surfaces after Ералы has proposed events (mode == eventPlanning).
+    expect(find.textContaining('Проверить все мероприятия'), findsNothing);
+    // «Открыть план» likewise must not appear until a plan is generated.
+    expect(find.textContaining('Открыть план'), findsNothing);
   });
 
   testWidgets('MentorScreen has input field and send button', (tester) async {

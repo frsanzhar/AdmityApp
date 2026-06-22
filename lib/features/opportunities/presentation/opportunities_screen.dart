@@ -15,8 +15,9 @@ import 'package:go_router/go_router.dart';
 
 // ── Screen ─────────────────────────────────────────────────────────────────────
 
-/// Opportunities screen — Scholarships + Universities + Events + Project Ideas
+/// Opportunities screen — Scholarships + Events + Project Ideas
 /// (DESIGN_SYSTEM.md §7.6).
+/// Университеты pulled out into its own /universities route.
 ///
 /// Layout: AppScaffold > Column > segmented tabs header + Expanded scroll body.
 /// Accent: AppColors.primary (tab indicator + chip borders).
@@ -63,9 +64,9 @@ class _OpportunitiesHeader extends ConsumerWidget {
   final OpportunityFilter filter;
   final AppTokens tokens;
 
+  // Университеты pulled out into its own /universities screen (DESIGN_SYSTEM §7.6).
   static const List<(OpportunitySection, String)> _sections = [
     (OpportunitySection.scholarships, 'Стипендии'),
-    (OpportunitySection.universities, 'Университеты'),
     (OpportunitySection.events, 'Мероприятия'),
     (OpportunitySection.projectIdeas, 'Идеи проектов'),
   ];
@@ -73,9 +74,7 @@ class _OpportunitiesHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notifier = ref.read(opportunitiesSectionProvider.notifier);
-    final showFilter =
-        section == OpportunitySection.scholarships ||
-        section == OpportunitySection.universities;
+    final showFilter = section == OpportunitySection.scholarships;
 
     return ColoredBox(
       color: AppColors.white,
@@ -149,7 +148,7 @@ class _OpportunitiesHeader extends ConsumerWidget {
           ),
           // Divider
           const Divider(height: 1, color: AppColors.border),
-          // Filter row (scholarships + universities only)
+          // Filter row (scholarships only)
           if (showFilter) _FilterRow(filter: filter, tokens: tokens),
         ],
       ),
@@ -242,10 +241,7 @@ class _FilterRow extends ConsumerWidget {
 
   void _showCityPicker(BuildContext context, WidgetRef ref) {
     final cities = [
-      ...{
-        ...seedScholarships.map((s) => s.city),
-        ...seedUniversities.map((u) => u.city),
-      },
+      ...{...seedScholarships.map((s) => s.city)},
     ]..sort();
 
     unawaited(
@@ -474,9 +470,11 @@ class _OpportunitiesBody extends ConsumerWidget {
       },
       child: KeyedSubtree(
         key: ValueKey(section),
+        // Университеты tab removed — lives at /universities now.
         child: switch (section) {
           OpportunitySection.scholarships => _ScholarshipsTab(tokens: tokens),
-          OpportunitySection.universities => _UniversitiesTab(tokens: tokens),
+          // universities enum value unused in this screen; fall back to scholarships.
+          OpportunitySection.universities => _ScholarshipsTab(tokens: tokens),
           OpportunitySection.events => _EventsTab(tokens: tokens),
           OpportunitySection.projectIdeas => _ProjectIdeasTab(tokens: tokens),
         },
@@ -618,164 +616,6 @@ class _ScholarshipCard extends StatelessWidget {
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: AppColors.primary,
                 ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Universities tab ──────────────────────────────────────────────────────────
-
-class _UniversitiesTab extends ConsumerWidget {
-  const _UniversitiesTab({required this.tokens});
-
-  final AppTokens tokens;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final universities = ref.watch(filteredUniversitiesProvider);
-
-    if (universities.isEmpty) {
-      return const _EmptyState(
-        message: 'Нет университетов по выбранным фильтрам',
-      );
-    }
-
-    return ListView.separated(
-      padding: EdgeInsets.all(tokens.screenPadding),
-      itemCount: universities.length,
-      separatorBuilder: (context, i) => SizedBox(height: tokens.gapMd),
-      itemBuilder: (context, i) {
-        final u = universities[i];
-        return _UniversityCard(
-              university: u,
-              onTap: () => context.go('/opportunities/university/${u.id}'),
-            )
-            .animate()
-            .fadeIn(
-              delay: Duration(milliseconds: 60 * i),
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeOut,
-            )
-            .slideY(
-              begin: 0.06,
-              end: 0,
-              delay: Duration(milliseconds: 60 * i),
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeOut,
-            );
-      },
-    );
-  }
-}
-
-class _UniversityCard extends StatelessWidget {
-  const _UniversityCard({required this.university, this.onTap});
-
-  final University university;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens =
-        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
-
-    return AppCard(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  university.name,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: AppColors.ink,
-                  ),
-                ),
-              ),
-              _AccessibilityBadge(accessibility: university.accessibility),
-            ],
-          ),
-          SizedBox(height: tokens.gapSm),
-          Row(
-            children: [
-              const Icon(
-                Icons.location_on_outlined,
-                size: 14,
-                color: AppColors.inkSecondary,
-              ),
-              SizedBox(width: tokens.gapXs),
-              Text(
-                university.city,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              SizedBox(width: tokens.gapMd),
-              const Icon(
-                Icons.school_outlined,
-                size: 14,
-                color: AppColors.inkSecondary,
-              ),
-              SizedBox(width: tokens.gapXs),
-              Text(
-                academicFieldLabel(university.field),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
-          SizedBox(height: tokens.gapSm),
-          Text(
-            university.description,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: AppColors.inkSecondary,
-            ),
-          ),
-          SizedBox(height: tokens.gapMd),
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: tokens.gapMd,
-                  vertical: tokens.gapXs,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceTint,
-                  borderRadius: BorderRadius.circular(tokens.radiusSm),
-                ),
-                child: Text(
-                  'ЕНТ ≥ ${university.entThreshold}',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: AppColors.ink,
-                  ),
-                ),
-              ),
-              SizedBox(width: tokens.gapMd),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: tokens.gapMd,
-                  vertical: tokens.gapXs,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceTint,
-                  borderRadius: BorderRadius.circular(tokens.radiusSm),
-                ),
-                child: Text(
-                  university.tuitionLabel,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: AppColors.ink,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              const Icon(
-                Icons.arrow_forward_rounded,
-                size: 16,
-                color: AppColors.primary,
               ),
             ],
           ),

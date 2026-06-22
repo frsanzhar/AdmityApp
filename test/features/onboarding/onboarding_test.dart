@@ -64,11 +64,12 @@ void main() {
     );
   });
 
-  testWidgets('First step shows welcome text', (tester) async {
+  testWidgets('First step shows role selection cards', (tester) async {
     await tester.pumpWidget(_themed(const OnboardingScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Добро пожаловать в Admity'), findsOneWidget);
+    // Step 0 is the role step — it shows role choice cards.
+    expect(find.text('Я учусь'), findsOneWidget);
   });
 
   testWidgets('Progress bar is present on step 0', (tester) async {
@@ -80,22 +81,29 @@ void main() {
     expect(find.byType(AnimatedContainer), findsWidgets);
   });
 
-  testWidgets('Далее advances to feature step 1', (tester) async {
+  testWidgets('Далее advances after role is selected', (tester) async {
     await tester.pumpWidget(_themed(const OnboardingScreen()));
     await tester.pumpAndSettle();
 
-    // Step 0 is welcome — tap Далее.
+    // Step 0 requires role selection before Далее is enabled.
+    // Tap the role card first.
+    await tester.tap(find.text('Я учусь'));
+    await tester.pumpAndSettle();
+
+    // Now tap Далее to advance to step 1.
     await tester.tap(find.text('Далее'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Честный прогноз шансов'), findsOneWidget);
+    // Step 1 shows the mascot greeting.
+    expect(find.text('Привет! Я — Ералы,'), findsOneWidget);
   });
 
   testWidgets('Back button absent on step 0', (tester) async {
     await tester.pumpWidget(_themed(const OnboardingScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Далее'), findsOneWidget);
+    // Step 0: no back button, role cards visible.
+    expect(find.text('Я учусь'), findsOneWidget);
     expect(find.byIcon(Icons.arrow_back_rounded), findsNothing);
   });
 
@@ -103,25 +111,36 @@ void main() {
     await tester.pumpWidget(_themed(const OnboardingScreen()));
     await tester.pumpAndSettle();
 
+    // Select role then advance to step 1.
+    await tester.tap(find.text('Я учусь'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Далее'));
     await tester.pumpAndSettle();
 
+    // Back arrow should now be visible.
     expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
   });
 
-  testWidgets('City step shows city field and Алматы chip', (tester) async {
+  testWidgets('Motivation step shows 4 option cards', (tester) async {
     await tester.pumpWidget(_themed(const OnboardingScreen()));
     await tester.pumpAndSettle();
 
-    // Navigate to step 5 (city): tap Далее 5 times
-    for (var i = 0; i < 5; i++) {
-      await tester.tap(find.text('Далее'));
-      await tester.pumpAndSettle();
-    }
+    // Navigate to step 2 (motivation): select role → Далее → Далее.
+    await tester.tap(find.text('Я учусь'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Далее'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Далее'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.text('Из какого ты города?'), findsOneWidget);
-    expect(find.byType(TextField), findsWidgets);
-    expect(find.text('Алматы'), findsOneWidget);
+    // Motivation step shows the heading and all 4 option labels.
+    expect(find.text('Что тебя мотивирует?'), findsOneWidget);
+    expect(find.text('Высокая цель'), findsOneWidget);
+    expect(find.text('Новые знания'), findsOneWidget);
+    expect(find.text('Карьера'), findsOneWidget);
+    expect(find.text('Интерес'), findsOneWidget);
   });
 
   testWidgets(
@@ -131,36 +150,80 @@ void main() {
       await tester.pumpWidget(_themed(const OnboardingScreen(), repo: repo));
       await tester.pumpAndSettle();
 
-      // Navigate steps 0..11 (12 taps of Далее reaches step 12 reveal).
-      // pumpAndSettle is safe here because each step is non-auto-advancing.
-      for (var i = 0; i < 12; i++) {
-        await tester.tap(find.text('Далее'));
-        // Use pump with a short duration rather than pumpAndSettle for the
-        // AnimatedSwitcher transition, then settle.
+      // Helper: pump through an AnimatedSwitcher transition.
+      Future<void> pump() async {
         await tester.pump(const Duration(milliseconds: 400));
         await tester.pump(const Duration(milliseconds: 50));
       }
 
-      // Step 12 is the reveal. With disableAnimations=true (set globally in
-      // flutter_test_config.dart), _PlanRevealStep._startSequence() fires a
-      // 300 ms timer that calls onRevealComplete() → advances to step 13.
-      // Pump past that timer.
+      // Step 0: role selection required before Далее is enabled.
+      await tester.tap(find.text('Я учусь'));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.text('Далее'));
+      await pump();
+
+      // Step 1: mascot greeting — no selection required, Далее works.
+      await tester.tap(find.text('Далее'));
+      await pump();
+
+      // Step 2: motivation — selection required.
+      await tester.tap(find.text('Высокая цель'));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.text('Далее'));
+      await pump();
+
+      // Step 3: sound preference — selection required.
+      await tester.tap(find.text('Мелодичный'));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.text('Далее'));
+      await pump();
+
+      // Step 4: age — no selection required (text field, defaults canAdvance=true).
+      await tester.tap(find.text('Далее'));
+      await pump();
+
+      // Step 5: subject — selection required.
+      await tester.tap(find.text('Математика'));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.text('Далее'));
+      await pump();
+
+      // Step 6: universities trust — no selection required.
+      await tester.tap(find.text('Далее'));
+      await pump();
+
+      // Step 7: knowledge level — selection required.
+      await tester.tap(find.text('Новичок'));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.text('Далее'));
+      await pump();
+
+      // Steps 8, 9, 10: no selection required.
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(find.text('Далее'));
+        await pump();
+      }
+
+      // Step 11 (_ThreeStepPlanStep): _NavArea is hidden; step has its own
+      // FeaturedButton «Создать мой план».
+      expect(find.text('Создать мой план'), findsOneWidget);
+      await tester.tap(find.text('Создать мой план'));
+      await pump();
+
+      // Step 12 (_PlanCreationStep): with disableAnimations=true, fires a
+      // 300 ms timer that calls onComplete() → moves to step 13.
       await tester.pump(const Duration(milliseconds: 350));
-      // Pump once more to process the setState triggered by the timer.
       await tester.pump(const Duration(milliseconds: 50));
 
-      // Now on step 13 (completion). Find and tap "Начать".
+      // Step 13 (_FinishStep): shows «Начать».
       expect(find.text('Начать'), findsOneWidget);
       await tester.tap(find.text('Начать'));
       // _finish() is async: saves profile then calls context.go('/home').
-      // Use pump cycles rather than pumpAndSettle to avoid blocking on the
-      // GoRouter navigation animation.
       await tester.pump(); // trigger the async _finish() chain
       await tester.pump(const Duration(milliseconds: 100)); // repo save
       await tester.pump(const Duration(milliseconds: 300)); // go_router nav
 
-      // Profile must have been saved with onboardingComplete=true before the
-      // navigation happens (saveProfile is called before context.go).
+      // Profile must have been saved with onboardingComplete=true.
       final saved = await repo.loadProfile();
       expect(saved.onboardingComplete, isTrue);
     },

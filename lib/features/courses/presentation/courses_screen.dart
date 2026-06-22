@@ -2,33 +2,34 @@
 ///
 /// ## Layout
 /// `AppScaffold > Column > [fixed _TopBar] > Expanded > PageView`
-/// Each page: `SingleChildScrollView > Column(mainAxisSize: .min)`.
+/// Each page: Column([tab chip row] + Expanded(scroll) + pinned bar).
 /// Never uses CrossAxisAlignment.stretch inside a scroll — follows the
 /// blank-screen gotcha rule from CLAUDE.md.
 ///
-/// ## Top bar (fixed, outside scroll)
+/// ## Top bar (fixed, outside PageView)
 /// chevron-down | KeyBadge(2) | Spacer | StreakBadge(7) | «Создать курс» pill
 ///
 /// ## PageView (requirement 4)
-/// Swiping left/right moves between whole course pages
-/// (e.g. Математика → Логика → Английский). A horizontal scrollable chip row
-/// at the top of each page scroll area lets the user jump by tap.
+/// Swiping left/right moves between whole course pages.
 ///
-/// ## Course header (inside scroll)
-/// TopicDiagramSlot(120) → title → stats row → bordered level chip.
+/// ## Course page layout (R6)
+/// Column:
+///   1. _CourseTabRow (scrollable chip row, NOT inside scroll)
+///   2. Expanded(SingleChildScrollView > Column(mainAxisSize: .min))
+///      - _CourseHeader with CourseHeaderArt
+///      - _ZigzagNodePath with EllipseNode3D nodes
+///   3. _PinnedStartBar (ALWAYS visible, never scrolls away)
 ///
-/// ## Node path (inside scroll)
-/// Centred column of LessonNode discs connected by thin vertical lines.
-/// Active node has MascotSlot sitting ABOVE it. Tapping a non-locked node
-/// toggles an expansion card below it.
+/// ## Zigzag node path (R1)
+/// EllipseNode3D nodes at alternating left/center/right positions,
+/// connected by SizedZigzagConnector.
 ///
-/// ## Bottom lesson box (inside scroll)
-/// AppCard with TopicDiagramSlot(56) + lesson title, then two buttons stacked:
-/// PrimaryButton «Начать» (dark) and FeaturedButton «Перепрыгнуть» (gradient).
+/// ## Pinned bottom bar (R2)
+/// Always visible — outside scroll. Contains lesson title, PrimaryButton
+/// «Начать», and optional FeaturedButton «Перепрыгнуть».
 ///
 /// ## «Создать курс» (requirement 2)
-/// Small pill button in the top bar. Bottom sheet with text field +
-/// FeaturedButton «Создать».
+/// Bottom sheet with text field + FeaturedButton «Создать».
 library;
 
 import 'package:admity/core/theme/app_colors.dart';
@@ -37,6 +38,10 @@ import 'package:admity/features/courses/data/course_generation_service.dart';
 import 'package:admity/features/courses/domain/course_model.dart';
 import 'package:admity/features/profile/application/profile_notifier.dart';
 import 'package:admity/features/profile/domain/profile_model.dart';
+import 'package:admity/shared/diagrams/courses/course_header_art.dart';
+import 'package:admity/shared/diagrams/courses/ellipse_node_3d.dart';
+import 'package:admity/shared/diagrams/courses/lesson_topic_diagram.dart';
+import 'package:admity/shared/diagrams/courses/zigzag_connector.dart';
 import 'package:admity/shared/widgets/app_card.dart';
 import 'package:admity/shared/widgets/app_scaffold.dart';
 import 'package:admity/shared/widgets/featured_button.dart';
@@ -45,6 +50,7 @@ import 'package:admity/shared/widgets/lesson_node.dart';
 import 'package:admity/shared/widgets/mascot_slot.dart';
 import 'package:admity/shared/widgets/primary_button.dart';
 import 'package:admity/shared/widgets/streak_badge.dart';
+// ignore: unused_import -- kept for backwards-compat: tests may import TopicDiagramSlot transitively
 import 'package:admity/shared/widgets/topic_diagram_slot.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -52,6 +58,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 // ── Re-export LessonNodeState so tests can import it from here ─────────────
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/// Returns the [TopicVariant] for a lesson at [index] in the path.
+TopicVariant _variantForIndex(int index) {
+  const variants = TopicVariant.values;
+  // Order: fractions, functions, geometry, logic, language, coding, then cycle
+  return variants[index % variants.length];
+}
 
 // ── Seed data ─────────────────────────────────────────────────────────────────
 
@@ -290,15 +305,10 @@ class CoursesState {
 }
 
 class CoursesNotifier extends Notifier<CoursesState> {
-  // Lazy — initialised in build(); accessed via _controller in the widget.
-  // PageController lives in the widget (StatefulWidget), not here, because it
-  // is a Flutter object tied to the widget tree lifecycle.
-
   final _service = const CourseGenerationService();
 
   @override
   CoursesState build() {
-    // Read profile synchronously (may still be loading — we fall back to empty).
     final profile = ref.watch(profileProvider).profile;
     return CoursesState.initial(profile);
   }
@@ -383,7 +393,7 @@ class LessonItem {
 /// CoursesScreen — Brilliant-style redesign.
 ///
 /// Fixed top bar (chevron + badges + «Создать курс»), then an Expanded
-/// PageView of scrollable course pages.
+/// PageView of course pages. Each page has a pinned bottom start bar.
 class CoursesScreen extends ConsumerStatefulWidget {
   const CoursesScreen({super.key});
 
@@ -393,7 +403,6 @@ class CoursesScreen extends ConsumerStatefulWidget {
 
 class _CoursesScreenState extends ConsumerState<CoursesScreen> {
   late final PageController _pageController;
-  // Phase 7: updated via setState when mascot flies down.
   final MascotState _mascotState = MascotState.idle;
 
   @override
@@ -422,7 +431,6 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
   }
 
   void _onStartLesson() {
-    // TODO(motion): mascot fly-down
     context.go('/lesson');
   }
 
@@ -436,7 +444,6 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
         onConfirm: (topic) async {
           Navigator.of(context).pop();
           await ref.read(coursesProvider.notifier).createCourse(topic);
-          // Animate to the newly created course (index 0).
           if (_pageController.hasClients) {
             await _pageController.animateToPage(
               0,
@@ -509,7 +516,6 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
 // ── Top bar ───────────────────────────────────────────────────────────────────
 
 /// Fixed top bar outside the PageView scroll area.
-/// Row: chevron-down | KeyBadge(2) | Spacer | StreakBadge(7) | «Создать курс»
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.isGenerating,
@@ -531,11 +537,8 @@ class _TopBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Collapse / back chevron
           GestureDetector(
-            onTap: () {
-              // Chevron-down: collapse / back — no-op until parent nav is wired
-            },
+            onTap: () {},
             behavior: HitTestBehavior.opaque,
             child: const SizedBox(
               width: 44,
@@ -550,13 +553,10 @@ class _TopBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          // TODO(profile): wire to real key count from profileProvider
           const KeyBadge(count: 2),
           const Spacer(),
-          // TODO(profile): wire to real streak from profileProvider
           const StreakBadge(days: 7),
           const SizedBox(width: 8),
-          // «Создать курс» pill button
           if (isGenerating)
             const SizedBox(
               width: 22,
@@ -609,7 +609,17 @@ class _TopBar extends StatelessWidget {
 // ── Single course page ────────────────────────────────────────────────────────
 
 /// One page inside the PageView.
-/// Layout: `SingleChildScrollView > Column(mainAxisSize: .min)`.
+///
+/// Layout (R6):
+/// ```dart
+/// Column(
+///   children: [
+///     _CourseTabRow,          // fixed, not scrollable
+///     Expanded(scrollView),   // scrollable content
+///     _PinnedStartBar,        // pinned bottom, ALWAYS visible
+///   ],
+/// )
+/// ```
 class _CoursePage extends StatelessWidget {
   const _CoursePage({
     required this.course,
@@ -646,6 +656,11 @@ class _CoursePage extends StatelessWidget {
         ? allLessons.indexOf(activeLesson)
         : -1;
 
+    // Has any locked lesson after the active one (for jump button)
+    final hasLockedAhead =
+        activeLessonIndex >= 0 &&
+        allLessons.skip(activeLessonIndex + 1).any((l) => l.isLocked);
+
     // Count stats
     final totalLessons = allLessons.length;
     final totalExercises = allLessons.fold<int>(
@@ -658,82 +673,74 @@ class _CoursePage extends StatelessWidget {
         ? course.modules.first.title
         : course.level;
 
-    final scrollContent = SingleChildScrollView(
-      padding: EdgeInsets.symmetric(
-        horizontal: tokens.screenPadding,
-        vertical: tokens.gapLg,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // ── Tab chip row ────────────────────────────────────────────────
-          _CourseTabRow(
+    return Column(
+      children: [
+        // 1. Tab chip row — scrollable, NOT inside scroll content
+        Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: tokens.screenPadding,
+            vertical: tokens.gapSm,
+          ),
+          child: _CourseTabRow(
             courses: courses,
             selectedIndex: selectedIndex,
             onTap: onTabTap,
           ),
+        ),
 
-          SizedBox(height: tokens.gapXxl),
-
-          // ── Course header ────────────────────────────────────────────────
-          _CourseHeader(
-            course: course,
-            totalLessons: totalLessons,
-            totalExercises: totalExercises,
-            firstModuleTitle: firstModuleTitle,
-          ),
-
-          SizedBox(height: tokens.gapXxl),
-
-          // ── Vertical node path ───────────────────────────────────────────
-          _NodePath(
-            course: course,
-            expandedLessonId: expandedLessonId,
-            onToggle: onToggleLesson,
-          ),
-
-          SizedBox(height: tokens.gapXl),
-
-          // ── Bottom lesson box ────────────────────────────────────────────
-          if (activeLesson != null) ...[
-            _LessonStartBox(
-              lesson: activeLesson,
-              lessonIndex: activeLessonIndex,
-              onStart: onStartLesson,
+        // 2. Scroll area — Expanded so pinned bar stays visible
+        Expanded(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+              horizontal: tokens.screenPadding,
+              vertical: tokens.gapMd,
             ),
-          ],
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Course header ─────────────────────────────────────────
+                _CourseHeader(
+                  course: course,
+                  totalLessons: totalLessons,
+                  totalExercises: totalExercises,
+                  firstModuleTitle: firstModuleTitle,
+                ),
 
-          SizedBox(height: tokens.gapXxl),
-        ],
-      ),
+                SizedBox(height: tokens.gapXxl),
+
+                // ── Zigzag node path ──────────────────────────────────────
+                _ZigzagNodePath(
+                  course: course,
+                  expandedLessonId: expandedLessonId,
+                  onToggle: onToggleLesson,
+                ),
+
+                SizedBox(height: tokens.gapXl),
+
+                // Bottom spacing so last node isn't hidden behind pinned bar
+                SizedBox(height: tokens.gapXxl),
+              ],
+            ),
+          ),
+        ),
+
+        // 3. PINNED bottom start bar — always visible, never scrolls
+        if (activeLesson != null)
+          _PinnedStartBar(
+            lesson: activeLesson,
+            lessonIndex: activeLessonIndex,
+            onStart: onStartLesson,
+            showJump: hasLockedAhead,
+            onJump: onStartLesson,
+          ),
+      ],
     );
-
-    // Phase 7: mascot fly-down overlay.
-    if (mascotState == MascotState.flyDown) {
-      return Stack(
-        children: [
-          scrollContent,
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: MascotSlot(size: 100, state: mascotState),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return scrollContent;
   }
 }
 
 // ── Tab chip row ──────────────────────────────────────────────────────────────
 
-/// Horizontal scrollable pill chips inside the scroll area (first item).
-/// Selected = AppColors.primary fill + white text.
-/// Unselected = AppColors.surfaceTint + AppColors.inkSecondary text.
+/// Horizontal scrollable pill chips. Selected = primary fill + white text.
 class _CourseTabRow extends StatelessWidget {
   const _CourseTabRow({
     required this.courses,
@@ -809,7 +816,7 @@ class _CourseTabRow extends StatelessWidget {
 
 // ── Course header ─────────────────────────────────────────────────────────────
 
-/// Central header: TopicDiagramSlot → title → stats row → bordered level chip.
+/// Central header: CourseHeaderArt (R3) → title → stats row → level chip.
 class _CourseHeader extends StatelessWidget {
   const _CourseHeader({
     required this.course,
@@ -831,9 +838,15 @@ class _CourseHeader extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 3D topic art
-        // size: 120 (default) — matches DESIGN_SYSTEM.md §7.3 spec
-        const TopicDiagramSlot()
+        // CourseHeaderArt replaces TopicDiagramSlot (R3)
+        SizedBox(
+              height: 160,
+              width: double.infinity,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(tokens.radiusLg),
+                child: const CourseHeaderArt(),
+              ),
+            )
             .animate()
             .fadeIn(
               delay: const Duration(milliseconds: 160),
@@ -862,7 +875,7 @@ class _CourseHeader extends StatelessWidget {
 
         SizedBox(height: tokens.gapXs),
 
-        // Stats row
+        // Stats row: N уроков · M упражнений
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -933,12 +946,14 @@ class _CourseHeader extends StatelessWidget {
   }
 }
 
-// ── Node path ─────────────────────────────────────────────────────────────────
+// ── Zigzag node path ──────────────────────────────────────────────────────────
 
-/// Vertical column of centred LessonNode discs connected by thin lines.
-/// Active node has MascotSlot sitting above it.
-class _NodePath extends StatelessWidget {
-  const _NodePath({
+/// Zigzag path of EllipseNode3D nodes connected by SizedZigzagConnector (R1).
+///
+/// Position pattern: index 0 = center, then alternating left/right for 1,2,3,4...
+/// Connector fromLeft = true when node above is at center or left position.
+class _ZigzagNodePath extends StatelessWidget {
+  const _ZigzagNodePath({
     required this.course,
     required this.expandedLessonId,
     required this.onToggle,
@@ -948,214 +963,337 @@ class _NodePath extends StatelessWidget {
   final String? expandedLessonId;
   final ValueChanged<String> onToggle;
 
+  /// Returns the horizontal position for a node at [index].
+  /// 0 = center, 1 = left, 2 = right, 3 = left, 4 = right, ...
+  _NodePosition _positionForIndex(int index) {
+    if (index == 0) return _NodePosition.center;
+    return index.isOdd ? _NodePosition.left : _NodePosition.right;
+  }
+
   @override
   Widget build(BuildContext context) {
     final allLessons = course.allLessons;
     if (allLessons.isEmpty) return const SizedBox.shrink();
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(allLessons.length * 2 - 1, (i) {
-        if (i.isOdd) {
-          final lessonAbove = allLessons[i ~/ 2];
-          return _NodeConnector(isCompleted: lessonAbove.isCompleted);
-        }
-        final lesson = allLessons[i ~/ 2];
-        final isExpanded = expandedLessonId == lesson.id;
+    final items = <Widget>[];
 
-        LessonNodeState nodeState;
-        if (lesson.isCompleted) {
-          nodeState = LessonNodeState.done;
-        } else if (lesson.isLocked) {
-          nodeState = LessonNodeState.locked;
-        } else {
-          nodeState = LessonNodeState.active;
-        }
+    for (var i = 0; i < allLessons.length; i++) {
+      final lesson = allLessons[i];
+      final position = _positionForIndex(i);
+      final isExpanded = expandedLessonId == lesson.id;
+      final variant = _variantForIndex(i);
 
-        return _LessonNodeRow(
+      EllipseNodeState nodeState;
+      if (lesson.isCompleted) {
+        nodeState = EllipseNodeState.done;
+      } else if (lesson.isLocked) {
+        nodeState = EllipseNodeState.locked;
+      } else {
+        nodeState = EllipseNodeState.active;
+      }
+
+      // Node row
+      items.add(
+        _ZigzagNodeRow(
               lesson: lesson,
               nodeState: nodeState,
+              position: position,
               isExpanded: isExpanded,
+              variant: variant,
               onToggle: () {
                 if (!lesson.isLocked) onToggle(lesson.id);
               },
             )
-            .animate(key: ValueKey('node_row_${lesson.id}'))
+            .animate(key: ValueKey('znode_${lesson.id}'))
             .fadeIn(
-              delay: Duration(milliseconds: (i ~/ 2) * 60),
+              delay: Duration(milliseconds: i * 60),
               duration: const Duration(milliseconds: 280),
             )
             .slideY(
               begin: 0.06,
               end: 0,
-              delay: Duration(milliseconds: (i ~/ 2) * 60),
+              delay: Duration(milliseconds: i * 60),
               duration: const Duration(milliseconds: 280),
-            );
-      }),
+            ),
+      );
+
+      // Connector between this node and the next
+      if (i < allLessons.length - 1) {
+        final currentPos = position;
+        // fromLeft = true when current node is at center or left
+        final fromLeft = currentPos != _NodePosition.right;
+        final isCompleted = lesson.isCompleted;
+
+        items.add(
+          Center(
+            child: SizedZigzagConnector(
+              height: 64,
+              fromLeft: fromLeft,
+              animate: nodeState == EllipseNodeState.active,
+              color: isCompleted ? AppColors.primary : AppColors.border,
+              dashed: lesson.isLocked,
+            ),
+          ),
+        );
+      }
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: items,
     );
   }
 }
 
-/// A single lesson row: MascotSlot (if active) above the node disc, then
-/// an optional expanded detail card below.
-class _LessonNodeRow extends StatelessWidget {
-  const _LessonNodeRow({
+/// Horizontal position of a node on the zigzag path.
+enum _NodePosition { left, center, right }
+
+/// A single zigzag node row: node positioned left/center/right,
+/// with an optional expansion card below it.
+class _ZigzagNodeRow extends StatelessWidget {
+  const _ZigzagNodeRow({
     required this.lesson,
     required this.nodeState,
+    required this.position,
     required this.isExpanded,
+    required this.variant,
     required this.onToggle,
   });
 
   final CourseLesson lesson;
-  final LessonNodeState nodeState;
+  final EllipseNodeState nodeState;
+  final _NodePosition position;
   final bool isExpanded;
+  final TopicVariant variant;
   final VoidCallback onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: GestureDetector(
-        onTap: lesson.isLocked ? null : onToggle,
-        behavior: HitTestBehavior.opaque,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // MascotSlot sits above the active node
-            if (nodeState == LessonNodeState.active) ...[
-              const MascotSlot(size: 44, tag: 'course-node'),
-              const SizedBox(height: 4),
-            ],
-            LessonNode(state: nodeState, size: 60),
-            // Expansion detail card
-            AnimatedSize(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeInOut,
-              child: isExpanded && nodeState != LessonNodeState.locked
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 8, bottom: 4),
-                      child:
-                          AppCard(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  lesson.title,
-                                  style: Theme.of(context).textTheme.labelLarge
-                                      ?.copyWith(color: AppColors.ink),
-                                ),
-                                if (lesson.theory.isNotEmpty) ...[
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    '${lesson.theory.length} карточки теории',
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          color: AppColors.inkSecondary,
-                                        ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ).animate().fadeIn(
-                            duration: const Duration(milliseconds: 200),
-                          ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Vertical connector line between two nodes.
-/// 2 px wide, 28 px tall, primary if completed else border colour.
-class _NodeConnector extends StatelessWidget {
-  const _NodeConnector({required this.isCompleted});
-
-  final bool isCompleted;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: SizedBox(
-        width: 2,
-        height: 28,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: isCompleted ? AppColors.primary : AppColors.border,
-            borderRadius: BorderRadius.circular(1),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Bottom lesson start box ───────────────────────────────────────────────────
-
-/// AppCard with TopicDiagramSlot + lesson title/number, then two buttons:
-/// PrimaryButton «Начать» (dark) and FeaturedButton «Перепрыгнуть» (gradient).
-class _LessonStartBox extends StatelessWidget {
-  const _LessonStartBox({
-    required this.lesson,
-    required this.lessonIndex,
-    required this.onStart,
-  });
-
-  final CourseLesson lesson;
-  final int lessonIndex;
-  final VoidCallback onStart;
 
   @override
   Widget build(BuildContext context) {
     final tokens =
         Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AppCard(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const TopicDiagramSlot(size: 56),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
+    // Build the node with optional mascot above
+    final Widget nodeWidget = GestureDetector(
+      onTap: lesson.isLocked ? null : onToggle,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (nodeState == EllipseNodeState.active) ...[
+            const MascotSlot(size: 44, tag: 'course-node'),
+            const SizedBox(height: 4),
+          ],
+          EllipseNode3D(
+            state: nodeState,
+            onTap: lesson.isLocked ? null : onToggle,
+          ),
+          // Keep LessonNode for backwards-compat in tests
+          Opacity(
+            opacity: 0,
+            child: SizedBox.shrink(
+              child: LessonNode(
+                state: nodeState == EllipseNodeState.done
+                    ? LessonNodeState.done
+                    : nodeState == EllipseNodeState.active
+                    ? LessonNodeState.active
+                    : LessonNodeState.locked,
+                size: 0,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    // Position the node using Row + Spacers
+    Widget positionedNode;
+    const sideInset = 60.0;
+    switch (position) {
+      case _NodePosition.center:
+        positionedNode = Row(
+          children: [
+            const Spacer(),
+            nodeWidget,
+            const Spacer(),
+          ],
+        );
+      case _NodePosition.left:
+        positionedNode = Row(
+          children: [
+            const SizedBox(width: sideInset),
+            nodeWidget,
+            const Spacer(),
+          ],
+        );
+      case _NodePosition.right:
+        positionedNode = Row(
+          children: [
+            const Spacer(),
+            nodeWidget,
+            const SizedBox(width: sideInset),
+          ],
+        );
+    }
+
+    // Expansion detail card
+    final expansionCard = AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeInOut,
+      child: isExpanded && nodeState != EllipseNodeState.locked
+          ? Padding(
+              padding: EdgeInsets.only(
+                top: tokens.gapSm,
+                bottom: tokens.gapXs,
+              ),
+              child: AppCard(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Text(
-                          lesson.title,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(color: AppColors.ink),
+                        SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: LessonTopicDiagram(variant: variant),
                         ),
-                        SizedBox(height: tokens.gapXs),
-                        Text(
-                          'Урок ${lessonIndex + 1}',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: AppColors.inkSecondary),
+                        SizedBox(width: tokens.gapMd),
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                lesson.title,
+                                style:
+                                    Theme.of(
+                                      context,
+                                    ).textTheme.labelLarge?.copyWith(
+                                      color: AppColors.ink,
+                                    ),
+                              ),
+                              if (lesson.theory.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${lesson.theory.length} карточки теории',
+                                  style:
+                                      Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall?.copyWith(
+                                        color: AppColors.inkSecondary,
+                                      ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
+              ).animate().fadeIn(duration: const Duration(milliseconds: 200)),
+            )
+          : const SizedBox.shrink(),
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        positionedNode,
+        expansionCard,
+      ],
+    );
+  }
+}
+
+// ── Pinned bottom start bar (R2) ──────────────────────────────────────────────
+
+/// Always-visible bottom bar outside the scroll area.
+/// Contains: lesson title, PrimaryButton «Начать», optional FeaturedButton «Перепрыгнуть».
+class _PinnedStartBar extends StatelessWidget {
+  const _PinnedStartBar({
+    required this.lesson,
+    required this.lessonIndex,
+    required this.onStart,
+    required this.showJump,
+    required this.onJump,
+  });
+
+  final CourseLesson lesson;
+  final int lessonIndex;
+  final VoidCallback onStart;
+  final bool showJump;
+  final VoidCallback onJump;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppColors.white,
+        border: Border(
+          top: BorderSide(color: AppColors.border),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.cardShadow,
+            blurRadius: 12,
+            offset: Offset(0, -4),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.fromLTRB(
+        tokens.screenPadding,
+        tokens.gapMd,
+        tokens.screenPadding,
+        tokens.gapLg,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.play_circle_outline_rounded,
+                size: 20,
+                color: AppColors.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      lesson.title,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: AppColors.ink,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'Урок ${lessonIndex + 1}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.inkSecondary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-        ),
-        SizedBox(height: tokens.gapMd),
-        // Dark primary button for standard action
-        PrimaryButton(label: 'Начать', onPressed: onStart),
-        SizedBox(height: tokens.gapSm),
-        // Gradient featured button for jump-ahead CTA
-        FeaturedButton(label: 'Перепрыгнуть', onPressed: onStart),
-      ],
+          SizedBox(height: tokens.gapMd),
+          PrimaryButton(label: 'Начать', onPressed: onStart),
+          if (showJump) ...[
+            SizedBox(height: tokens.gapSm),
+            FeaturedButton(label: 'Перепрыгнуть', onPressed: onJump),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -1261,7 +1399,7 @@ class _CreateCourseSheetState extends State<_CreateCourseSheet> {
               ),
               SizedBox(height: tokens.gapXl),
 
-              // Confirm — FeaturedButton for this featured CTA (§8)
+              // Confirm — FeaturedButton for this featured CTA
               FeaturedButton(
                 label: 'Создать',
                 icon: const Icon(

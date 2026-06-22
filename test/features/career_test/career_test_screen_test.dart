@@ -1,20 +1,14 @@
-/// Widget tests for CareerTestScreen.
+/// Widget tests for DailyCareerTestScreen.
 library;
 
 import 'package:admity/core/theme/app_tokens.dart';
-import 'package:admity/features/profile/application/profile_notifier.dart';
-import 'package:admity/features/profile/data/profile_repository.dart';
-import 'package:admity/features/profile/presentation/career_test_screen.dart';
+import 'package:admity/features/career/presentation/daily_career_test_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Widget _themed(Widget child, {InMemoryProfileRepository? repo}) {
-  final effectiveRepo = repo ?? InMemoryProfileRepository();
+Widget _themed(Widget child) {
   return ProviderScope(
-    overrides: [
-      profileRepositoryProvider.overrideWithValue(effectiveRepo),
-    ],
     child: MaterialApp(
       theme: ThemeData(extensions: [AppTokens.defaults()]),
       home: child,
@@ -23,66 +17,92 @@ Widget _themed(Widget child, {InMemoryProfileRepository? repo}) {
 }
 
 void main() {
-  testWidgets('CareerTestScreen builds without layout errors', (tester) async {
+  testWidgets('DailyCareerTestScreen builds without layout errors', (
+    tester,
+  ) async {
     final errors = <FlutterErrorDetails>[];
     final prev = FlutterError.onError;
     FlutterError.onError = errors.add;
     addTearDown(() => FlutterError.onError = prev);
 
-    await tester.pumpWidget(_themed(const CareerTestScreen()));
+    await tester.pumpWidget(_themed(const DailyCareerTestScreen()));
     await tester.pumpAndSettle();
 
     expect(
       errors,
       isEmpty,
-      reason: 'no framework/layout errors on CareerTestScreen',
+      reason: 'no framework/layout errors on DailyCareerTestScreen',
     );
   });
 
-  testWidgets('Shows warning card with time estimate', (tester) async {
-    await tester.pumpWidget(_themed(const CareerTestScreen()));
+  testWidgets('Shows header title', (tester) async {
+    await tester.pumpWidget(_themed(const DailyCareerTestScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('10–15 минут'), findsOneWidget);
+    expect(find.text('Узнай свою профессию'), findsOneWidget);
   });
 
-  testWidgets('Shows first question', (tester) async {
-    await tester.pumpWidget(_themed(const CareerTestScreen()));
+  testWidgets('Shows progress bar and counter', (tester) async {
+    await tester.pumpWidget(_themed(const DailyCareerTestScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Вопрос 1'), findsOneWidget);
-    expect(
-      find.textContaining('собирать и чинить вещи'),
-      findsOneWidget,
-    );
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.text('1 / 5'), findsOneWidget);
   });
 
-  testWidgets('Shows answer chips Нет / Нейтрально / Да', (tester) async {
-    await tester.pumpWidget(_themed(const CareerTestScreen()));
+  testWidgets('Shows a question with answer options', (tester) async {
+    await tester.pumpWidget(_themed(const DailyCareerTestScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Нет'), findsOneWidget);
-    expect(find.text('Нейтрально'), findsOneWidget);
+    // At least one answer option should be visible
+    // Options are either "Да", "Нет", "Иногда" or "Да", "Нет", "Возможно"
     expect(find.text('Да'), findsOneWidget);
+    expect(find.text('Нет'), findsOneWidget);
   });
 
-  testWidgets('Progress bar is visible', (tester) async {
-    await tester.pumpWidget(_themed(const CareerTestScreen()));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(LinearProgressIndicator), findsWidgets);
-    expect(find.text('1 / 30'), findsOneWidget);
-  });
-
-  testWidgets('Tapping Да advances to question 2', (tester) async {
-    await tester.pumpWidget(_themed(const CareerTestScreen()));
+  testWidgets('Tapping an answer advances to question 2', (tester) async {
+    await tester.pumpWidget(_themed(const DailyCareerTestScreen()));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Да'));
-    // The 200ms delay before auto-advance
-    await tester.pump(const Duration(milliseconds: 300));
+    // Wait for auto-advance delay (320ms)
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
 
-    expect(find.text('Вопрос 2'), findsOneWidget);
+    expect(find.text('2 / 5'), findsOneWidget);
+  });
+
+  testWidgets('Completing all 5 questions shows the result screen', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_themed(const DailyCareerTestScreen()));
+    await tester.pumpAndSettle();
+
+    // Answer all 5 questions by tapping "Да" each time
+    for (var i = 0; i < 5; i++) {
+      await tester.tap(find.text('Да'));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('Ты прошёл тест!'), findsOneWidget);
+    expect(find.text('На главную'), findsOneWidget);
+  });
+
+  testWidgets('Result screen shows top category insight', (tester) async {
+    await tester.pumpWidget(_themed(const DailyCareerTestScreen()));
+    await tester.pumpAndSettle();
+
+    for (var i = 0; i < 5; i++) {
+      await tester.tap(find.text('Да'));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('Твоя сильная сторона:'), findsOneWidget);
+    expect(
+      find.text('Возвращайся завтра за новым тестом'),
+      findsOneWidget,
+    );
   });
 }

@@ -273,15 +273,19 @@ void main() {
       );
     });
 
-    testWidgets('all four section tabs are visible', (tester) async {
-      await tester.pumpWidget(_themed(const OpportunitiesScreen()));
-      await tester.pumpAndSettle();
+    testWidgets(
+      'three section tabs are visible (Университеты moved to /universities)',
+      (tester) async {
+        await tester.pumpWidget(_themed(const OpportunitiesScreen()));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Стипендии'), findsWidgets);
-      expect(find.text('Университеты'), findsOneWidget);
-      expect(find.text('Мероприятия'), findsOneWidget);
-      expect(find.text('Идеи проектов'), findsOneWidget);
-    });
+        expect(find.text('Стипендии'), findsWidgets);
+        // Университеты is now its own /universities screen — must NOT appear here.
+        expect(find.text('Университеты'), findsNothing);
+        expect(find.text('Мероприятия'), findsOneWidget);
+        expect(find.text('Идеи проектов'), findsOneWidget);
+      },
+    );
 
     testWidgets('default section shows scholarships list', (tester) async {
       await tester.pumpWidget(_themed(const OpportunitiesScreen()));
@@ -290,29 +294,17 @@ void main() {
       expect(find.text('Болашак'), findsOneWidget);
     });
 
-    testWidgets('switching to Университеты shows universities', (tester) async {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            theme: ThemeData(extensions: [AppTokens.defaults()]),
-            home: const Scaffold(body: OpportunitiesScreen()),
-          ),
-        ),
-      );
+    // Университеты tab was removed from OpportunitiesScreen — it lives at
+    // /universities. This test now verifies that universities are NOT shown here.
+    testWidgets('Университеты tab is absent from OpportunitiesScreen', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_themed(const OpportunitiesScreen()));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Университеты'));
-      await tester.pumpAndSettle();
-
-      expect(
-        container.read(opportunitiesSectionProvider),
-        OpportunitySection.universities,
-      );
-      expect(find.text('Назарбаев Университет'), findsOneWidget);
+      expect(find.text('Университеты'), findsNothing);
+      // Seed university name should not appear either
+      expect(find.text('Назарбаев Университет'), findsNothing);
     });
 
     testWidgets('switching to Мероприятия shows events', (tester) async {
@@ -1016,53 +1008,20 @@ void main() {
       expect(find.text('Университет не найден'), findsOneWidget);
     });
 
-    testWidgets('tapping university card in list navigates to detail', (
-      tester,
-    ) async {
-      final router = GoRouter(
-        initialLocation: '/opportunities',
-        routes: [
-          GoRoute(
-            path: '/opportunities',
-            builder: (context, state) =>
-                const Scaffold(body: OpportunitiesScreen()),
-          ),
-          GoRoute(
-            path: '/opportunities/scholarship/:id',
-            builder: (context, state) =>
-                const Scaffold(body: Center(child: Text('ScholarshipDetail'))),
-          ),
-          GoRoute(
-            path: '/opportunities/university/:id',
-            builder: (context, state) => Scaffold(
-              body: Center(
-                child: Text('UniDetail:${state.pathParameters['id']}'),
-              ),
-            ),
-          ),
-        ],
-      );
+    // University navigation from OpportunitiesScreen is gone; navigation now
+    // happens from UniversitiesScreen (/universities). This test is superseded
+    // by universities_screen_test.dart which covers the tapping flow.
+    testWidgets(
+      'OpportunitiesScreen no longer has a university navigation path',
+      (
+        tester,
+      ) async {
+        await tester.pumpWidget(_themed(const OpportunitiesScreen()));
+        await tester.pumpAndSettle();
 
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp.router(
-            routerConfig: router,
-            theme: ThemeData(extensions: [AppTokens.defaults()]),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Switch to universities tab
-      await tester.tap(find.text('Университеты'));
-      await tester.pumpAndSettle();
-
-      // Tap the first university card (НУ)
-      await tester.tap(find.text('Назарбаев Университет'));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('UniDetail:nu'), findsOneWidget);
-    });
+        expect(find.text('Университеты'), findsNothing);
+      },
+    );
   });
 
   // ── Widget tests: EventDetailScreen ──────────────────────────────────────────

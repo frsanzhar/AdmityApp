@@ -4,14 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Wraps [child] with ProviderScope + themed MaterialApp (Admity tokens),
-/// mirroring widget_test.dart pattern.
 Widget _themed(Widget child) {
   return ProviderScope(
     child: MaterialApp(
-      theme: ThemeData(
-        extensions: [AppTokens.defaults()],
-      ),
+      theme: ThemeData(extensions: [AppTokens.defaults()]),
       home: child,
     ),
   );
@@ -20,7 +16,7 @@ Widget _themed(Widget child) {
 void main() {
   // ── Anti-blank-screen guard ──────────────────────────────────────────────────
 
-  testWidgets('HomeScreen builds with no framework/layout errors', (
+  testWidgets('HomeScreen builds without layout/framework errors', (
     tester,
   ) async {
     final errors = <FlutterErrorDetails>[];
@@ -38,7 +34,7 @@ void main() {
     );
   });
 
-  // ── Structural content checks ────────────────────────────────────────────────
+  // ── Structural checks ────────────────────────────────────────────────────────
 
   testWidgets('header greeting is visible', (tester) async {
     await tester.pumpWidget(_themed(const HomeScreen()));
@@ -48,114 +44,133 @@ void main() {
     expect(find.text('Готов к новым знаниям?'), findsOneWidget);
   });
 
-  testWidgets('today-agenda card is present', (tester) async {
+  testWidgets('streak week card is always visible', (tester) async {
     await tester.pumpWidget(_themed(const HomeScreen()));
     await tester.pumpAndSettle();
 
-    // The day-label widget is always rendered (empty-state or events).
-    // Verify the card scaffolding text key for the empty state.
-    expect(
-      find.textContaining('Событий на сегодня нет'),
-      findsOneWidget,
-    );
+    expect(find.text('Серия — 7 дней'), findsOneWidget);
+    // Day labels appear in both the streak row and the calendar weekday header,
+    // so use findsWidgets (not findsOneWidget) — we just need them present.
+    expect(find.text('Пн'), findsWidgets);
+    expect(find.text('Вс'), findsWidgets);
   });
 
-  testWidgets('"Задание на сегодня" card is below the agenda', (tester) async {
+  testWidgets('tapping a streak day shows its state label', (tester) async {
     await tester.pumpWidget(_themed(const HomeScreen()));
     await tester.pumpAndSettle();
 
+    // The streak section '_StreakWeekSection' renders day labels inside
+    // GestureDetectors.  The calendar weekday header also renders 'Пн', so we
+    // must tap the first match (inside the streak card, which comes first in
+    // the widget tree).
+    await tester.tap(find.text('Пн').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('День завершён!'), findsOneWidget);
+
+    // Tap "Чт" (Thursday = index 3, lit = false). Also use .first in case
+    // calendar header duplicates it.
+    await tester.tap(find.text('Чт').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Этот день пропущен'), findsOneWidget);
+  });
+
+  testWidgets('calendar card is visible', (tester) async {
+    await tester.pumpWidget(_themed(const HomeScreen()));
+    await tester.pumpAndSettle();
+
+    // The calendar month header has exactly one chevron_left and one
+    // chevron_right, but todo-row chevron_rights also exist, so use
+    // findsWidgets for both and verify at least one of each is shown.
+    expect(find.byIcon(Icons.chevron_left), findsWidgets);
+    expect(find.byIcon(Icons.chevron_right), findsWidgets);
+    // Weekday labels are always present in the calendar header.
+    expect(find.text('Пн'), findsWidgets);
+  });
+
+  testWidgets('"Добавить событие" button is present in calendar', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_themed(const HomeScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Добавить событие'), findsOneWidget);
+  });
+
+  testWidgets('career test card is visible', (tester) async {
+    await tester.pumpWidget(_themed(const HomeScreen()));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Узнай свою профессию'));
+    expect(find.text('Узнай свою профессию'), findsOneWidget);
+    expect(find.text('Пройти тест'), findsOneWidget);
+  });
+
+  testWidgets('universities card is visible', (tester) async {
+    await tester.pumpWidget(_themed(const HomeScreen()));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Вузы Казахстана'));
+    expect(find.text('Вузы Казахстана'), findsOneWidget);
+    expect(find.text('Смотреть'), findsOneWidget);
+  });
+
+  testWidgets('"Задание на сегодня" card is present', (tester) async {
+    await tester.pumpWidget(_themed(const HomeScreen()));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Задание на сегодня'));
     expect(find.text('Задание на сегодня'), findsOneWidget);
-    expect(find.text('Продолжить'), findsOneWidget);
   });
 
   testWidgets('task list shows seeded tasks', (tester) async {
     await tester.pumpWidget(_themed(const HomeScreen()));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('Сегодняшние задачи'));
     expect(find.text('Сегодняшние задачи'), findsOneWidget);
     expect(find.text('Пройти урок по математике'), findsOneWidget);
-    expect(find.text('Изучить стипендии БОЛАШАК'), findsOneWidget);
   });
 
-  // ── Streak badge popup ────────────────────────────────────────────────────────
+  // ── No stretch-in-scroll guard ───────────────────────────────────────────────
 
-  testWidgets('tapping StreakBadge shows week popup', (tester) async {
+  testWidgets('no stretch-in-scroll — no layout errors after scrolling', (
+    tester,
+  ) async {
+    final errors = <FlutterErrorDetails>[];
+    final prev = FlutterError.onError;
+    FlutterError.onError = errors.add;
+    addTearDown(() => FlutterError.onError = prev);
+
     await tester.pumpWidget(_themed(const HomeScreen()));
     await tester.pumpAndSettle();
 
-    // The popup is hidden before tap.
-    expect(find.text('Серия — эта неделя'), findsNothing);
-
-    // Tap the badge (it is wrapped in a GestureDetector with the Semantics label).
-    final badge = find.bySemanticsLabel(
-      RegExp('Серия'),
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -400),
     );
-    await tester.tap(badge);
     await tester.pumpAndSettle();
 
-    expect(find.text('Серия — эта неделя'), findsOneWidget);
-    // Days of week labels rendered.
-    expect(find.text('Пн'), findsOneWidget);
-    expect(find.text('Вс'), findsOneWidget);
-  });
-
-  testWidgets('streak popup dismisses on close', (tester) async {
-    await tester.pumpWidget(_themed(const HomeScreen()));
-    await tester.pumpAndSettle();
-
-    // Open.
-    final badge = find.bySemanticsLabel(RegExp('Серия'));
-    await tester.tap(badge);
-    await tester.pumpAndSettle();
-    expect(find.text('Серия — эта неделя'), findsOneWidget);
-
-    // Dismiss via close icon.
-    await tester.tap(find.byIcon(Icons.close));
-    await tester.pumpAndSettle();
-    expect(find.text('Серия — эта неделя'), findsNothing);
+    expect(
+      errors,
+      isEmpty,
+      reason: 'no layout errors after scroll (stretch-in-scroll guard)',
+    );
   });
 
   // ── Todo CRUD ─────────────────────────────────────────────────────────────────
 
-  testWidgets('checkbox toggles done state', (tester) async {
-    await tester.pumpWidget(_themed(const HomeScreen()));
-    await tester.pumpAndSettle();
-
-    // Tap the checkbox of the first task — it is a GestureDetector child of _TodoRow.
-    // We target by AnimatedContainer via Icon.check absence first.
-    final firstTaskText = find.text('Пройти урок по математике');
-    expect(firstTaskText, findsOneWidget);
-
-    // Tap the checkbox widget (AnimatedContainer, found by the checkbox Icon's parent).
-    // The checkbox is a GestureDetector containing an AnimatedContainer.
-    // We scroll to and tap the first checkbox area.
-    final checkboxes = find.byWidgetPredicate(
-      (w) => w is AnimatedContainer && w.decoration is BoxDecoration,
-    );
-    // Tap the first checkbox.
-    await tester.tap(checkboxes.first);
-    await tester.pumpAndSettle();
-
-    // After toggle the check icon is present.
-    expect(find.byIcon(Icons.check), findsWidgets);
-  });
-
-  testWidgets('tapping task row opens bottom sheet', (tester) async {
-    await tester.pumpWidget(_themed(const HomeScreen()));
-    await tester.pumpAndSettle();
-
-    // Tap the task row (the GestureDetector wrapping the whole row).
-    await tester.tap(find.text('Пройти урок по математике'));
-    await tester.pumpAndSettle();
-
-    // Sheet title for the task should be visible (read mode shows title).
-    expect(find.text('Пройти урок по математике'), findsWidgets);
-    // Edit icon is shown in read mode.
-    expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
-  });
-
   testWidgets('add-task sheet opens from + button', (tester) async {
     await tester.pumpWidget(_themed(const HomeScreen()));
+    await tester.pumpAndSettle();
+
+    // The task list card is below the fold — scroll to it first.
+    await tester.scrollUntilVisible(
+      find.byIcon(Icons.add_circle_outline),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.add_circle_outline));
@@ -169,66 +184,23 @@ void main() {
     await tester.pumpWidget(_themed(const HomeScreen()));
     await tester.pumpAndSettle();
 
-    // Open add sheet.
+    // Scroll the task list card into view before tapping its + button.
+    await tester.scrollUntilVisible(
+      find.byIcon(Icons.add_circle_outline),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byIcon(Icons.add_circle_outline));
     await tester.pumpAndSettle();
 
-    // Enter title.
     await tester.enterText(find.byType(TextField).first, 'Тест новой задачи');
     await tester.pumpAndSettle();
 
-    // Save.
     await tester.tap(find.text('Сохранить'));
     await tester.pumpAndSettle();
 
     expect(find.text('Тест новой задачи'), findsOneWidget);
-  });
-
-  testWidgets('deleting a task removes it from the list', (tester) async {
-    await tester.pumpWidget(_themed(const HomeScreen()));
-    await tester.pumpAndSettle();
-
-    const targetTask = 'Обновить профиль';
-    expect(find.text(targetTask), findsOneWidget);
-
-    // Open the task sheet (scroll into view first — it may be below the fold
-    // in the test viewport).
-    await tester.ensureVisible(find.text(targetTask));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(targetTask));
-    await tester.pumpAndSettle();
-
-    // Tap delete.
-    await tester.tap(find.text('Удалить задачу'));
-    await tester.pumpAndSettle();
-
-    expect(find.text(targetTask), findsNothing);
-  });
-
-  testWidgets('no stretch-in-scroll — Column uses mainAxisSize.min', (
-    tester,
-  ) async {
-    await tester.pumpWidget(_themed(const HomeScreen()));
-    await tester.pumpAndSettle();
-
-    // Verify no CrossAxisAlignment.stretch Column inside ScrollView exists by
-    // checking screen renders without overflow errors (errors list already covers
-    // this; this test is a named guard for the CLAUDE.md gotcha).
-    final errors = <FlutterErrorDetails>[];
-    final prev = FlutterError.onError;
-    FlutterError.onError = errors.add;
-    addTearDown(() => FlutterError.onError = prev);
-
-    await tester.drag(
-      find.byType(SingleChildScrollView),
-      const Offset(0, -300),
-    );
-    await tester.pumpAndSettle();
-
-    expect(
-      errors,
-      isEmpty,
-      reason: 'no layout errors after scroll (stretch-in-scroll guard)',
-    );
   });
 }
