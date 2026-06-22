@@ -75,14 +75,18 @@ void main() {
 
     test('does NOT block IELTS plan request', () {
       expect(
-        GhostwritingGuard.isGhostwritingRequest('помоги мне подготовиться к IELTS'),
+        GhostwritingGuard.isGhostwritingRequest(
+          'помоги мне подготовиться к IELTS',
+        ),
         isFalse,
       );
     });
 
     test('does NOT block general question in English', () {
       expect(
-        GhostwritingGuard.isGhostwritingRequest('how can I improve my writing?'),
+        GhostwritingGuard.isGhostwritingRequest(
+          'how can I improve my writing?',
+        ),
         isFalse,
       );
     });
@@ -95,8 +99,7 @@ void main() {
   // ── 2. Event review save-gate (domain model) ──────────────────────────────
 
   group('Event review save-gate', () {
-    test(
-        'CalendarEvent.fromProposed throws AssertionError '
+    test('CalendarEvent.fromProposed throws AssertionError '
         'when event is not reviewed', () {
       final evt = ProposedEvent(
         id: 'test_1',
@@ -124,8 +127,7 @@ void main() {
       expect(calEvt.title, 'Reviewed Event');
     });
 
-    test(
-        'commitReviewedEvents via notifier throws StateError '
+    test('commitReviewedEvents via notifier throws StateError '
         'when proposed events are un-reviewed', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
@@ -288,8 +290,9 @@ void main() {
 
   // ── 6. MentorScreen widget: no layout errors ──────────────────────────────
 
-  testWidgets('MentorScreen builds with no framework/layout errors',
-      (tester) async {
+  testWidgets('MentorScreen builds with no framework/layout errors', (
+    tester,
+  ) async {
     final errors = <FlutterErrorDetails>[];
     final prev = FlutterError.onError;
     FlutterError.onError = errors.add;
@@ -298,8 +301,11 @@ void main() {
     await tester.pumpWidget(_themed(const MentorScreen()));
     await tester.pumpAndSettle();
 
-    expect(errors, isEmpty,
-        reason: 'no framework/layout errors on MentorScreen');
+    expect(
+      errors,
+      isEmpty,
+      reason: 'no framework/layout errors on MentorScreen',
+    );
   });
 
   testWidgets('MentorScreen shows greeting message from Ералы', (tester) async {
@@ -340,16 +346,20 @@ void main() {
     await tester.pumpWidget(_themed(const EventReviewScreen()));
     await tester.pumpAndSettle();
 
-    expect(errors, isEmpty,
-        reason: 'no framework/layout errors on EventReviewScreen');
+    expect(
+      errors,
+      isEmpty,
+      reason: 'no framework/layout errors on EventReviewScreen',
+    );
   });
 
   testWidgets(
-      'EventReviewScreen shows "Нет предложенных мероприятий" when empty',
-      (tester) async {
-    await tester.pumpWidget(_themed(const EventReviewScreen()));
-    await tester.pumpAndSettle();
+    'EventReviewScreen shows "Нет предложенных мероприятий" when empty',
+    (tester) async {
+      await tester.pumpWidget(_themed(const EventReviewScreen()));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Нет предложенных мероприятий'), findsOneWidget);
-  });
+      expect(find.text('Нет предложенных мероприятий'), findsOneWidget);
+    },
+  );
 }

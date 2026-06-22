@@ -314,7 +314,9 @@ void main() {
 
       await Future<void>.delayed(Duration.zero); // wait for initial load
 
-      await container.read(profileProvider.notifier).saveProfile(
+      await container
+          .read(profileProvider.notifier)
+          .saveProfile(
             const StudentProfile(name: 'Айгерим', city: 'Алматы'),
           );
 
@@ -400,7 +402,9 @@ void main() {
           .addPackage(name: 'Test Pack');
 
       final pkgId = container.read(profileProvider).packages.first.id;
-      await container.read(profileProvider.notifier).addItemToPackage(
+      await container
+          .read(profileProvider.notifier)
+          .addItemToPackage(
             packageId: pkgId,
             label: 'Транскрипт',
           );
@@ -415,19 +419,26 @@ void main() {
       addTearDown(container.dispose);
 
       await Future<void>.delayed(Duration.zero);
-      await container
-          .read(profileProvider.notifier)
-          .addPackage(name: 'Pack');
+      await container.read(profileProvider.notifier).addPackage(name: 'Pack');
 
       final pkgId = container.read(profileProvider).packages.first.id;
-      await container.read(profileProvider.notifier).addItemToPackage(
+      await container
+          .read(profileProvider.notifier)
+          .addItemToPackage(
             packageId: pkgId,
             label: 'Рекомендация',
           );
 
-      final itemId =
-          container.read(profileProvider).packages.first.items.first.id;
-      await container.read(profileProvider.notifier).removeItemFromPackage(
+      final itemId = container
+          .read(profileProvider)
+          .packages
+          .first
+          .items
+          .first
+          .id;
+      await container
+          .read(profileProvider.notifier)
+          .removeItemFromPackage(
             packageId: pkgId,
             itemId: itemId,
           );
@@ -440,7 +451,9 @@ void main() {
       addTearDown(container.dispose);
 
       await Future<void>.delayed(Duration.zero);
-      await container.read(profileProvider.notifier).addItemToPackage(
+      await container
+          .read(profileProvider.notifier)
+          .addItemToPackage(
             packageId: 'nonexistent',
             label: 'Ignored',
           );
@@ -451,8 +464,9 @@ void main() {
 
   // ── 4. ProfileScreen widget tests ─────────────────────────────────────────
 
-  testWidgets('ProfileScreen builds with no framework/layout errors',
-      (tester) async {
+  testWidgets('ProfileScreen builds with no framework/layout errors', (
+    tester,
+  ) async {
     final errors = <FlutterErrorDetails>[];
     final prev = FlutterError.onError;
     FlutterError.onError = errors.add;
@@ -461,8 +475,11 @@ void main() {
     await tester.pumpWidget(_themed(const ProfileScreen()));
     await tester.pumpAndSettle();
 
-    expect(errors, isEmpty,
-        reason: 'no framework/layout errors on ProfileScreen');
+    expect(
+      errors,
+      isEmpty,
+      reason: 'no framework/layout errors on ProfileScreen',
+    );
   });
 
   testWidgets('ProfileScreen shows header title', (tester) async {
@@ -472,35 +489,33 @@ void main() {
     expect(find.text('Профиль'), findsOneWidget);
   });
 
-  testWidgets('ProfileScreen shows three section titles', (tester) async {
+  testWidgets('ProfileScreen shows the self-data section (no notes)', (
+    tester,
+  ) async {
     await tester.pumpWidget(_themed(const ProfileScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Мои данные'), findsOneWidget);
-    expect(find.text('Заметки о себе'), findsOneWidget);
-    expect(find.text('Пакеты документов'), findsOneWidget);
+    expect(find.text('Мои данные'), findsWidgets);
+    // "Заметки о себе" was intentionally removed.
+    expect(find.text('Заметки о себе'), findsNothing);
   });
 
-  testWidgets('ProfileScreen has Save button in self-data form', (tester) async {
+  testWidgets('ProfileScreen has a pencil edit affordance', (tester) async {
     await tester.pumpWidget(_themed(const ProfileScreen()));
+    await tester.pumpAndSettle();
+
+    // The header pencil toggles edit mode for "Мои данные".
+    expect(find.byIcon(Icons.edit_outlined), findsWidgets);
+  });
+
+  testWidgets('ProfileScreen edit mode reveals a Save button', (tester) async {
+    await tester.pumpWidget(_themed(const ProfileScreen()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.edit_outlined).first);
     await tester.pumpAndSettle();
 
     expect(find.text('Сохранить'), findsOneWidget);
-  });
-
-  testWidgets('ProfileScreen add-note button is present', (tester) async {
-    await tester.pumpWidget(_themed(const ProfileScreen()));
-    await tester.pumpAndSettle();
-
-    expect(find.byIcon(Icons.add_rounded), findsWidgets);
-  });
-
-  testWidgets('ProfileScreen shows "Новый пакет" form', (tester) async {
-    await tester.pumpWidget(_themed(const ProfileScreen()));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Новый пакет'), findsOneWidget);
-    expect(find.text('Создать пакет'), findsOneWidget);
   });
 
   testWidgets('ProfileScreen shows MascotSlot in header', (tester) async {
@@ -517,25 +532,29 @@ void main() {
   });
 
   testWidgets(
-      'ProfileScreen: typing a name and saving shows snack bar message',
-      (tester) async {
-    final repo = InMemoryProfileRepository();
-    await tester.pumpWidget(_themed(const ProfileScreen(), repo: repo));
-    await tester.pumpAndSettle();
+    'ProfileScreen: editing a name and saving persists it',
+    (tester) async {
+      final repo = InMemoryProfileRepository();
+      await tester.pumpWidget(_themed(const ProfileScreen(), repo: repo));
+      await tester.pumpAndSettle();
 
-    // Find the name field (first TextField on screen) and enter text.
-    final nameFields = find.byType(TextField);
-    await tester.enterText(nameFields.first, 'Айгерим');
-    await tester.pump();
+      // Enter edit mode via the header pencil.
+      await tester.tap(find.byIcon(Icons.edit_outlined).first);
+      await tester.pumpAndSettle();
 
-    // Ensure the Save button is visible and tap it.
-    final saveBtn = find.text('Сохранить');
-    await tester.ensureVisible(saveBtn);
-    await tester.pump();
-    await tester.tap(saveBtn);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
+      // Enter a name in the first field, then save.
+      await tester.enterText(find.byType(TextField).first, 'Айгерим');
+      await tester.pump();
 
-    expect(find.text('Данные сохранены'), findsOneWidget);
-  });
+      final saveBtn = find.text('Сохранить');
+      await tester.ensureVisible(saveBtn);
+      await tester.pump();
+      await tester.tap(saveBtn);
+      await tester.pumpAndSettle();
+
+      // Save succeeded → persisted to the repository.
+      final saved = await repo.loadProfile();
+      expect(saved.name, 'Айгерим');
+    },
+  );
 }

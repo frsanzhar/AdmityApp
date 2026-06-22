@@ -78,24 +78,57 @@ void main() {
       expect(s.correctCount, 0);
       expect(s.xp, 0);
       expect(s.isChecked, isFalse);
+      expect(s.currentTheoryCardIndex, 0);
     });
 
-    test('beginLesson transitions to question step', () {
+    test('beginLesson transitions to theory step (not question)', () {
       notifier.beginLesson();
-      expect(container.read(lessonProvider).stepKind, LessonStepKind.question);
+      expect(container.read(lessonProvider).stepKind, LessonStepKind.theory);
+    });
+
+    test('beginLesson resets theory card index to 0', () {
+      notifier.beginLesson();
+      expect(container.read(lessonProvider).currentTheoryCardIndex, 0);
+    });
+
+    test('advanceTheory moves to next card', () {
+      notifier.beginLesson();
+      expect(container.read(lessonProvider).currentTheoryCardIndex, 0);
+      notifier.advanceTheory();
+      expect(container.read(lessonProvider).currentTheoryCardIndex, 1);
+    });
+
+    test('advanceTheory after last card moves to question step', () {
+      notifier.beginLesson();
+      // Advance through all theory cards (4 cards → advance 4 times).
+      // After the 4th advance we should be in the question step.
+      for (var i = 0; i < 4; i++) {
+        notifier.advanceTheory();
+      }
+      expect(
+        container.read(lessonProvider).stepKind,
+        LessonStepKind.question,
+        reason:
+            'after advancing past last theory card, step should be question',
+      );
     });
 
     test('selectOption updates selectedOptionIndex', () {
-      notifier
-        ..beginLesson()
-        ..selectOption(2);
+      notifier.beginLesson();
+      for (var i = 0; i < 4; i++) {
+        notifier.advanceTheory();
+      }
+      notifier.selectOption(2);
       expect(container.read(lessonProvider).selectedOptionIndex, 2);
     });
 
     test('checkAnswer with correct answer increments correctCount and xp', () {
       // Q0 correctIndex = 1
+      notifier.beginLesson();
+      for (var i = 0; i < 4; i++) {
+        notifier.advanceTheory();
+      }
       notifier
-        ..beginLesson()
         ..selectOption(1)
         ..checkAnswer();
       final s = container.read(lessonProvider);
@@ -107,8 +140,11 @@ void main() {
 
     test('checkAnswer with wrong answer does not increment correctCount', () {
       // Q0 correctIndex = 1; we pick 0 (wrong)
+      notifier.beginLesson();
+      for (var i = 0; i < 4; i++) {
+        notifier.advanceTheory();
+      }
       notifier
-        ..beginLesson()
         ..selectOption(0)
         ..checkAnswer();
       final s = container.read(lessonProvider);
@@ -118,17 +154,25 @@ void main() {
     });
 
     test('checkAnswer without selection is a no-op', () {
-      notifier
-        ..beginLesson()
-        ..checkAnswer(); // no selection yet
+      notifier.beginLesson();
+      for (var i = 0; i < 4; i++) {
+        notifier.advanceTheory();
+      }
+      notifier.checkAnswer(); // no selection yet
       final s = container.read(lessonProvider);
-      expect(s.stepKind, LessonStepKind.question,
-          reason: 'should stay on question when nothing is selected');
+      expect(
+        s.stepKind,
+        LessonStepKind.question,
+        reason: 'should stay on question when nothing is selected',
+      );
     });
 
     test('continueLesson advances to next question', () {
+      notifier.beginLesson();
+      for (var i = 0; i < 4; i++) {
+        notifier.advanceTheory();
+      }
       notifier
-        ..beginLesson()
         ..selectOption(1)
         ..checkAnswer()
         ..continueLesson();
@@ -139,32 +183,40 @@ void main() {
       expect(s.isChecked, isFalse);
     });
 
-    test('completing all questions reaches complete step with completion bonus',
-        () {
-      notifier
-        ..beginLesson()
-        // Q0 correct = 1
-        ..selectOption(1)
-        ..checkAnswer()
-        ..continueLesson()
-        // Q1 correct = 0
-        ..selectOption(0)
-        ..checkAnswer()
-        ..continueLesson()
-        // Q2 correct = 1
-        ..selectOption(1)
-        ..checkAnswer()
-        ..continueLesson(); // triggers complete
-      final s = container.read(lessonProvider);
-      expect(s.stepKind, LessonStepKind.complete);
-      expect(s.correctCount, 3);
-      // 3 correct × 15 + 5 completion bonus = 50
-      expect(s.xp, 3 * lessonXpPerCorrect + lessonCompletionBonus);
-    });
+    test(
+      'completing all questions reaches complete step with completion bonus',
+      () {
+        notifier.beginLesson();
+        for (var i = 0; i < 4; i++) {
+          notifier.advanceTheory();
+        }
+        notifier
+          // Q0 correct = 1
+          ..selectOption(1)
+          ..checkAnswer()
+          ..continueLesson()
+          // Q1 correct = 0
+          ..selectOption(0)
+          ..checkAnswer()
+          ..continueLesson()
+          // Q2 correct = 1
+          ..selectOption(1)
+          ..checkAnswer()
+          ..continueLesson(); // triggers complete
+        final s = container.read(lessonProvider);
+        expect(s.stepKind, LessonStepKind.complete);
+        expect(s.correctCount, 3);
+        // 3 correct × 15 + 5 completion bonus = 50
+        expect(s.xp, 3 * lessonXpPerCorrect + lessonCompletionBonus);
+      },
+    );
 
     test('toggleExplanation flips isExplanationExpanded', () {
+      notifier.beginLesson();
+      for (var i = 0; i < 4; i++) {
+        notifier.advanceTheory();
+      }
       notifier
-        ..beginLesson()
         ..selectOption(0)
         ..checkAnswer();
       expect(container.read(lessonProvider).isExplanationExpanded, isFalse);
@@ -178,8 +230,9 @@ void main() {
   // ── Widget tests ─────────────────────────────────────────────────────────────
 
   group('LessonScreen widget tests', () {
-    testWidgets('builds with NO framework/layout errors on intro step',
-        (tester) async {
+    testWidgets('builds with NO framework/layout errors on intro step', (
+      tester,
+    ) async {
       final errors = <FlutterErrorDetails>[];
       final prev = FlutterError.onError;
       FlutterError.onError = errors.add;
@@ -187,67 +240,139 @@ void main() {
 
       await _pumpLesson(tester);
 
-      expect(errors, isEmpty,
-          reason: 'no swallowed layout errors on LessonScreen intro');
+      expect(
+        errors,
+        isEmpty,
+        reason: 'no swallowed layout errors on LessonScreen intro',
+      );
     });
 
-    testWidgets('intro step shows display title and FeaturedButton',
-        (tester) async {
+    testWidgets('intro step shows display title and FeaturedButton', (
+      tester,
+    ) async {
       await _pumpLesson(tester);
       expect(find.text('Сравнение вероятностей'), findsOneWidget);
       expect(find.byType(FeaturedButton), findsOneWidget);
       expect(find.text('Начать урок'), findsOneWidget);
     });
 
-    testWidgets('tapping "Начать урок" advances to question step',
-        (tester) async {
-      final container = await _pumpLesson(tester);
-      expect(container.read(lessonProvider).stepKind, LessonStepKind.intro);
+    testWidgets(
+      'tapping "Начать урок" advances to THEORY step (not question)',
+      (tester) async {
+        final container = await _pumpLesson(tester);
+        expect(container.read(lessonProvider).stepKind, LessonStepKind.intro);
 
-      // FeaturedButton may be below the test viewport; scroll to it first.
-      await tester.scrollUntilVisible(
-        find.text('Начать урок'),
-        100,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.tap(find.text('Начать урок'), warnIfMissed: false);
-      await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(
+          find.text('Начать урок'),
+          100,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.tap(find.text('Начать урок'), warnIfMissed: false);
+        await tester.pumpAndSettle();
 
-      expect(
-          container.read(lessonProvider).stepKind, LessonStepKind.question);
-    });
+        expect(
+          container.read(lessonProvider).stepKind,
+          LessonStepKind.theory,
+          reason: 'intro → theory, not directly to question',
+        );
+      },
+    );
 
-    testWidgets('question step: Check button disabled with no selection',
-        (tester) async {
+    testWidgets('theory step shows a theory card headline', (tester) async {
+      final errors = <FlutterErrorDetails>[];
+      final prev = FlutterError.onError;
+      FlutterError.onError = errors.add;
+      addTearDown(() => FlutterError.onError = prev);
+
       final container = await _pumpLesson(tester);
       container.read(lessonProvider.notifier).beginLesson();
       await tester.pumpAndSettle();
 
-      // Find PrimaryButton "Проверить"
+      expect(container.read(lessonProvider).stepKind, LessonStepKind.theory);
+      // The first theory card headline for this lesson is:
+      expect(find.text('Что такое вероятность?'), findsOneWidget);
+
+      expect(errors, isEmpty, reason: 'no layout errors on theory step');
+    });
+
+    testWidgets('"Далее" advances theory cards', (tester) async {
+      final container = await _pumpLesson(tester);
+      container.read(lessonProvider.notifier).beginLesson();
+      await tester.pumpAndSettle();
+
+      expect(container.read(lessonProvider).currentTheoryCardIndex, 0);
+
+      await tester.tap(find.text('Далее'));
+      await tester.pumpAndSettle();
+
+      expect(container.read(lessonProvider).currentTheoryCardIndex, 1);
+    });
+
+    testWidgets('last theory card shows "К вопросам" button', (tester) async {
+      final container = await _pumpLesson(tester);
+      container.read(lessonProvider.notifier).beginLesson();
+      // Advance to last card (index 3 of 4 cards).
+      container.read(lessonProvider.notifier)
+        ..advanceTheory()
+        ..advanceTheory()
+        ..advanceTheory();
+      await tester.pumpAndSettle();
+
+      expect(container.read(lessonProvider).currentTheoryCardIndex, 3);
+      expect(find.text('К вопросам'), findsOneWidget);
+    });
+
+    testWidgets('"К вопросам" moves to question step', (tester) async {
+      final container = await _pumpLesson(tester);
+      container.read(lessonProvider.notifier).beginLesson();
+      for (var i = 0; i < 4; i++) {
+        container.read(lessonProvider.notifier).advanceTheory();
+      }
+      await tester.pumpAndSettle();
+
+      expect(container.read(lessonProvider).stepKind, LessonStepKind.question);
+    });
+
+    testWidgets('question step: Check button disabled with no selection', (
+      tester,
+    ) async {
+      final container = await _pumpLesson(tester);
+      container.read(lessonProvider.notifier).beginLesson();
+      for (var i = 0; i < 4; i++) {
+        container.read(lessonProvider.notifier).advanceTheory();
+      }
+      await tester.pumpAndSettle();
+
       expect(find.text('Проверить'), findsOneWidget);
-      // The button should be disabled (onPressed = null → ElevatedButton is
-      // inactive; tap should not change state)
       final beforeState = container.read(lessonProvider);
       await tester.tap(find.text('Проверить'), warnIfMissed: false);
       await tester.pumpAndSettle();
       final afterState = container.read(lessonProvider);
-      expect(afterState.stepKind, beforeState.stepKind,
-          reason: 'Check should be a no-op without a selection');
+      expect(
+        afterState.stepKind,
+        beforeState.stepKind,
+        reason: 'Check should be a no-op without a selection',
+      );
     });
 
     testWidgets('selecting an answer enables Check', (tester) async {
       final container = await _pumpLesson(tester);
       container.read(lessonProvider.notifier).beginLesson();
+      for (var i = 0; i < 4; i++) {
+        container.read(lessonProvider.notifier).advanceTheory();
+      }
       await tester.pumpAndSettle();
 
-      // Tap the first option
       final options = find.text('1/4');
       expect(options, findsOneWidget);
       await tester.tap(options);
       await tester.pumpAndSettle();
 
-      expect(container.read(lessonProvider).selectedOptionIndex, 0,
-          reason: 'first option should be selected');
+      expect(
+        container.read(lessonProvider).selectedOptionIndex,
+        0,
+        reason: 'first option should be selected',
+      );
       expect(container.read(lessonProvider).hasSelection, isTrue);
     });
 
@@ -259,6 +384,9 @@ void main() {
 
       final container = await _pumpLesson(tester);
       container.read(lessonProvider.notifier).beginLesson();
+      for (var i = 0; i < 4; i++) {
+        container.read(lessonProvider.notifier).advanceTheory();
+      }
       await tester.pumpAndSettle();
 
       // Q0 correct answer is index 1 = '1/2'
@@ -270,7 +398,6 @@ void main() {
 
       expect(container.read(lessonProvider).stepKind, LessonStepKind.feedback);
       expect(container.read(lessonProvider).correctCount, 1);
-      // "Верно!" text should appear
       expect(find.text('Верно!'), findsOneWidget);
 
       expect(errors, isEmpty, reason: 'no layout errors on feedback step');
@@ -279,6 +406,9 @@ void main() {
     testWidgets('wrong answer shows Неверно banner', (tester) async {
       final container = await _pumpLesson(tester);
       container.read(lessonProvider.notifier).beginLesson();
+      for (var i = 0; i < 4; i++) {
+        container.read(lessonProvider.notifier).advanceTheory();
+      }
       await tester.pumpAndSettle();
 
       // Q0 wrong answer is index 0 = '1/4'
@@ -294,24 +424,27 @@ void main() {
 
     testWidgets('Почему? expander reveals explanation on tap', (tester) async {
       final container = await _pumpLesson(tester);
+      container.read(lessonProvider.notifier).beginLesson();
+      for (var i = 0; i < 4; i++) {
+        container.read(lessonProvider.notifier).advanceTheory();
+      }
       container.read(lessonProvider.notifier)
-        ..beginLesson()
         ..selectOption(1)
         ..checkAnswer();
       await tester.pumpAndSettle();
 
-      // Explanation should be hidden initially
       expect(container.read(lessonProvider).isExplanationExpanded, isFalse);
 
       await tester.tap(find.text('Почему?'));
       await tester.pumpAndSettle();
 
       expect(container.read(lessonProvider).isExplanationExpanded, isTrue);
-      // Explanation text snippet should now be visible
       expect(find.textContaining('равновероятных'), findsOneWidget);
     });
 
-    testWidgets('completing all questions shows complete screen', (tester) async {
+    testWidgets('completing all questions shows complete screen', (
+      tester,
+    ) async {
       final errors = <FlutterErrorDetails>[];
       final prev = FlutterError.onError;
       FlutterError.onError = errors.add;
@@ -319,9 +452,11 @@ void main() {
 
       final container = await _pumpLesson(tester);
 
-      // Fast-forward through all questions via notifier directly.
+      container.read(lessonProvider.notifier).beginLesson();
+      for (var i = 0; i < 4; i++) {
+        container.read(lessonProvider.notifier).advanceTheory();
+      }
       container.read(lessonProvider.notifier)
-        ..beginLesson()
         ..selectOption(1) // Q0 correct
         ..checkAnswer()
         ..continueLesson()
@@ -334,13 +469,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(container.read(lessonProvider).stepKind, LessonStepKind.complete);
-      // "Урок пройден!" headline
       expect(find.text('Урок пройден!'), findsOneWidget);
-      // XP shown: 3×15 + 5 = 50
       expect(find.textContaining('+50 XP'), findsWidgets);
-      // MascotSlot present
       expect(find.byType(MascotSlot), findsOneWidget);
-      // FeaturedButton "Готово"
       expect(find.text('Готово'), findsOneWidget);
 
       expect(errors, isEmpty, reason: 'no layout errors on complete step');
@@ -355,8 +486,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      container.read(lessonProvider.notifier).beginLesson();
+      for (var i = 0; i < 4; i++) {
+        container.read(lessonProvider.notifier).advanceTheory();
+      }
       container.read(lessonProvider.notifier)
-        ..beginLesson()
         ..selectOption(1)
         ..checkAnswer()
         ..continueLesson()
@@ -368,7 +502,6 @@ void main() {
         ..continueLesson();
       await tester.pumpAndSettle();
 
-      // Complete screen may require scroll to reach "Готово".
       await tester.scrollUntilVisible(
         find.text('Готово'),
         100,
@@ -389,8 +522,9 @@ void main() {
       expect(find.text('CoursesScreen'), findsOneWidget);
     });
 
-    testWidgets('complete screen builds with no framework/layout errors',
-        (tester) async {
+    testWidgets('complete screen builds with no framework/layout errors', (
+      tester,
+    ) async {
       final errors = <FlutterErrorDetails>[];
       final prev = FlutterError.onError;
       FlutterError.onError = errors.add;
@@ -404,8 +538,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      container.read(lessonProvider.notifier).beginLesson();
+      for (var i = 0; i < 4; i++) {
+        container.read(lessonProvider.notifier).advanceTheory();
+      }
       container.read(lessonProvider.notifier)
-        ..beginLesson()
         ..selectOption(1)
         ..checkAnswer()
         ..continueLesson()
@@ -417,26 +554,44 @@ void main() {
         ..continueLesson();
       await tester.pumpAndSettle();
 
-      expect(errors, isEmpty,
-          reason: 'no layout errors on complete step build');
+      expect(
+        errors,
+        isEmpty,
+        reason: 'no layout errors on complete step build',
+      );
     });
 
-    testWidgets('PrimaryButton does not use Material default purple',
-        (tester) async {
-      // Runtime check: ElevatedButton backing PrimaryButton must not inherit
-      // the Material purple default — it should be AppColors.ink.
+    testWidgets('theory step builds with no framework/layout errors', (
+      tester,
+    ) async {
+      final errors = <FlutterErrorDetails>[];
+      final prev = FlutterError.onError;
+      FlutterError.onError = errors.add;
+      addTearDown(() => FlutterError.onError = prev);
+
       final container = await _pumpLesson(tester);
       container.read(lessonProvider.notifier).beginLesson();
+      await tester.pumpAndSettle();
+
+      expect(errors, isEmpty, reason: 'no layout errors on theory step');
+    });
+
+    testWidgets('PrimaryButton does not use Material default purple', (
+      tester,
+    ) async {
+      final container = await _pumpLesson(tester);
+      container.read(lessonProvider.notifier).beginLesson();
+      for (var i = 0; i < 4; i++) {
+        container.read(lessonProvider.notifier).advanceTheory();
+      }
       await tester.pumpAndSettle();
 
       final buttons = tester.widgetList<ElevatedButton>(
         find.byType(ElevatedButton),
       );
       for (final btn in buttons) {
-        final bgColor =
-            btn.style?.backgroundColor?.resolve(<WidgetState>{});
+        final bgColor = btn.style?.backgroundColor?.resolve(<WidgetState>{});
         if (bgColor != null) {
-          // Should never be Material default purple.
           expect(
             bgColor == const Color(0xFF6200EE) ||
                 bgColor == const Color(0xFF3700B3),

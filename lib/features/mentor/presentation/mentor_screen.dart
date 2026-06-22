@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:admity/core/theme/app_colors.dart';
 import 'package:admity/core/theme/app_tokens.dart';
@@ -6,10 +7,12 @@ import 'package:admity/features/mentor/application/mentor_notifier.dart';
 import 'package:admity/features/mentor/domain/chat_message.dart';
 import 'package:admity/features/mentor/presentation/event_review_screen.dart';
 import 'package:admity/features/mentor/presentation/topic_plan_screen.dart';
+import 'package:admity/shared/widgets/anim.dart';
 import 'package:admity/shared/widgets/app_scaffold.dart';
 import 'package:admity/shared/widgets/featured_button.dart';
 import 'package:admity/shared/widgets/mascot_slot.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // ── Mentor Screen ─────────────────────────────────────────────────────────────
@@ -62,7 +65,8 @@ class _MentorScreenState extends ConsumerState<MentorScreen> {
   @override
   Widget build(BuildContext context) {
     final mentor = ref.watch(mentorProvider);
-    final tokens = Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
 
     // Auto-scroll when new messages arrive.
     ref.listen(mentorProvider.select((s) => s.messages.length), (prev, next) {
@@ -85,8 +89,10 @@ class _MentorScreenState extends ConsumerState<MentorScreen> {
               itemCount: mentor.messages.length,
               itemBuilder: (context, i) {
                 return _MessageBubble(
+                  key: ValueKey(mentor.messages[i].id),
                   message: mentor.messages[i],
                   tokens: tokens,
+                  index: i,
                 );
               },
             ),
@@ -158,8 +164,8 @@ class _MentorAppBar extends StatelessWidget implements PreferredSizeWidget {
               Text(
                 'Ералы',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppColors.ink,
-                    ),
+                  color: AppColors.ink,
+                ),
               ),
               Text(
                 'AI-наставник',
@@ -176,20 +182,31 @@ class _MentorAppBar extends StatelessWidget implements PreferredSizeWidget {
 // ── Message bubble ────────────────────────────────────────────────────────────
 
 class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message, required this.tokens});
+  const _MessageBubble({
+    required this.message,
+    required this.tokens,
+    required this.index,
+    super.key,
+  });
 
   final ChatMessage message;
   final AppTokens tokens;
 
+  /// Position in the list — used to clamp the stagger delay so only the last
+  /// few bubbles actually animate (earlier bubbles appear instantly).
+  final int index;
+
   @override
   Widget build(BuildContext context) {
     final isUser = message.isUser;
+    final reduceAnim = reduceMotion(context);
 
-    return Padding(
+    final bubble = Padding(
       padding: EdgeInsets.only(bottom: tokens.gapMd),
       child: Row(
-        mainAxisAlignment:
-            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isUser) ...[
@@ -215,8 +232,8 @@ class _MessageBubble extends StatelessWidget {
               child: Text(
                 message.text,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: isUser ? AppColors.white : AppColors.ink,
-                    ),
+                  color: isUser ? AppColors.white : AppColors.ink,
+                ),
               ),
             ),
           ),
@@ -224,26 +241,120 @@ class _MessageBubble extends StatelessWidget {
         ],
       ),
     );
+
+    if (reduceAnim) return bubble;
+
+    // Slide from right for user messages, from left for assistant.
+    // Only animate the last bubble (newest) to avoid animating history.
+    return bubble
+        .animate(key: ValueKey(message.id))
+        .fadeSlideIn(duration: kAnimEntranceDuration);
   }
 }
 
 // ── Typing indicator ──────────────────────────────────────────────────────────
 
-class _TypingIndicator extends StatelessWidget {
+/// Animated three-dot typing indicator shown while Ералы is loading a reply.
+class _TypingIndicator extends StatefulWidget {
   const _TypingIndicator();
 
   @override
+  State<_TypingIndicator> createState() => _TypingIndicatorState();
+}
+
+class _TypingIndicatorState extends State<_TypingIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Only repeat when motion is allowed — an unconditional repeat() makes
+    // pumpAndSettle() hang forever in widget tests.
+    if (!MediaQuery.of(context).disableAnimations && !_controller.isAnimating) {
+      unawaited(_controller.repeat());
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const MascotSlot(size: 24, tag: 'typing'),
-        const SizedBox(width: 8),
-        Text(
-          'Ералы печатает...',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-      ],
+    final reduceAnim = MediaQuery.of(context).disableAnimations;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const MascotSlot(size: 24, tag: 'typing'),
+          const SizedBox(width: 8),
+          _TypingDots(controller: _controller, reduceAnim: reduceAnim),
+        ],
+      ),
+    );
+  }
+}
+
+class _TypingDots extends StatelessWidget {
+  const _TypingDots({
+    required this.controller,
+    required this.reduceAnim,
+  });
+
+  final AnimationController controller;
+  final bool reduceAnim;
+
+  @override
+  Widget build(BuildContext context) {
+    if (reduceAnim) {
+      return Text(
+        'Ералы думает...',
+        style: Theme.of(context).textTheme.bodySmall,
+      );
+    }
+
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (i) {
+            // Each dot peaks at a different phase: 0, 1/3, 2/3.
+            final phase = (controller.value - i / 3.0) % 1.0;
+            // Map phase 0..0.5 to up, 0.5..1 to down using a sine curve.
+            final t = math.sin(phase * math.pi * 2);
+            final offsetY = -4.0 * ((t + 1) / 2); // 0 → -4 → 0
+            return Transform.translate(
+              offset: Offset(0, offsetY),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Container(
+                  width: 7,
+                  height: 7,
+                  decoration: const BoxDecoration(
+                    color: AppColors.inkSecondary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            );
+          }),
+        );
+      },
     );
   }
 }
@@ -265,7 +376,8 @@ class _ContextButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final showEventButton = mentor.proposedEvents.isNotEmpty &&
+    final showEventButton =
+        mentor.proposedEvents.isNotEmpty &&
         mentor.mode == ChatMode.eventPlanning;
     final showPlanButton =
         mentor.topicPlan != null && mentor.mode == ChatMode.showingPlan;
@@ -343,8 +455,8 @@ class _InputBar extends StatelessWidget {
               decoration: InputDecoration(
                 hintText: 'Напиши Ералы...',
                 hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppColors.inkSecondary,
-                    ),
+                  color: AppColors.inkSecondary,
+                ),
                 filled: true,
                 fillColor: AppColors.surfaceTint,
                 contentPadding: EdgeInsets.symmetric(
@@ -361,8 +473,10 @@ class _InputBar extends StatelessWidget {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(tokens.radiusMd),
-                  borderSide:
-                      const BorderSide(color: AppColors.primary, width: 1.5),
+                  borderSide: const BorderSide(
+                    color: AppColors.primary,
+                    width: 1.5,
+                  ),
                 ),
               ),
             ),

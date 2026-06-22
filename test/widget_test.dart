@@ -1,6 +1,9 @@
 import 'package:admity/app.dart';
 import 'package:admity/core/theme/app_tokens.dart';
 import 'package:admity/features/home/presentation/home_screen.dart';
+import 'package:admity/features/profile/application/profile_notifier.dart';
+import 'package:admity/features/profile/data/profile_repository.dart';
+import 'package:admity/features/profile/domain/profile_model.dart';
 import 'package:admity/features/splash/presentation/splash_screen.dart';
 import 'package:admity/shared/widgets/app_bottom_nav.dart';
 import 'package:flutter/material.dart';
@@ -56,17 +59,20 @@ void main() {
     expect(find.text('Сегодняшние задачи'), findsOneWidget);
   });
 
-  testWidgets('home screen todo checkbox toggles done state', (tester) async {
+  testWidgets('tapping a task opens its edit/delete sheet', (tester) async {
     await tester.pumpWidget(_themed(const HomeScreen()));
     await tester.pumpAndSettle();
 
     const firstTodoText = 'Пройти урок по математике';
     expect(find.text(firstTodoText), findsOneWidget);
 
+    // Tapping a task row opens the read/edit/delete sheet.
+    await tester.ensureVisible(find.text(firstTodoText));
+    await tester.pumpAndSettle();
     await tester.tap(find.text(firstTodoText));
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.check), findsWidgets);
+    expect(find.text('Удалить задачу'), findsOneWidget);
   });
 
   testWidgets('splash screen builds without errors', (tester) async {
@@ -105,7 +111,17 @@ void main() {
     FlutterError.onError = errors.add;
     addTearDown(() => FlutterError.onError = prev);
 
-    await tester.pumpWidget(const ProviderScope(child: AdmityApp()));
+    // Seed a completed-onboarding profile so the splash routes to /home
+    // (not /onboarding), and use an in-memory repo so no path_provider /
+    // Hive platform channel is hit during the full-app boot.
+    final repo = InMemoryProfileRepository();
+    await repo.saveProfile(const StudentProfile(onboardingComplete: true));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [profileRepositoryProvider.overrideWithValue(repo)],
+        child: const AdmityApp(),
+      ),
+    );
     // Pump past splash (1500 ms timer).
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();

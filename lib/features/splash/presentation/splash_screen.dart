@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:admity/core/theme/app_colors.dart';
+import 'package:admity/features/profile/application/profile_notifier.dart';
 import 'package:admity/shared/rive/rive_assets.dart';
 import 'package:admity/shared/rive/rive_loader.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rive/rive.dart';
 
@@ -12,19 +14,21 @@ import 'package:rive/rive.dart';
 //   triggers — play   (starts light-sweep across "Admity" then fly-up)
 // Until the asset lands the static text renders and a timer drives navigation.
 
+// TODO(motion): light sweep + fly-up
+
 /// Splash screen (DESIGN_SYSTEM.md §7.1).
 ///
-/// Phase 7 wiring: loads splash.riv, fires the [kSplashTriggerPlay] trigger,
-/// and navigates to /home after the animation duration elapses.
-/// reduceMotion skips to /home after a brief static pause.
-class SplashScreen extends StatefulWidget {
+/// After animation completes, loads the profile and routes:
+///   - onboardingComplete == true → /home
+///   - otherwise → /onboarding
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> {
   RiveWidgetController? _controller;
   bool _riveReady = false;
 
@@ -77,8 +81,22 @@ class _SplashScreenState extends State<SplashScreen> {
 
   void _scheduleNavigation(Duration delay) {
     unawaited(
-      Future<void>.delayed(delay, () {
-        if (mounted) context.go('/home');
+      Future<void>.delayed(delay, () async {
+        if (!mounted) return;
+        try {
+          final profile = await ref
+              .read(profileRepositoryProvider)
+              .loadProfile();
+          if (!mounted) return;
+          if (profile.onboardingComplete) {
+            context.go('/home');
+          } else {
+            context.go('/onboarding');
+          }
+        } on Object catch (_) {
+          // Any error — default to onboarding so the user can set up their profile.
+          if (mounted) context.go('/onboarding');
+        }
       }),
     );
   }
@@ -94,10 +112,9 @@ class _SplashScreenState extends State<SplashScreen> {
     final Widget staticText = Center(
       child: Text(
         'Admity',
-        style: Theme.of(context)
-            .textTheme
-            .displayLarge
-            ?.copyWith(color: AppColors.ink),
+        style: Theme.of(
+          context,
+        ).textTheme.displayLarge?.copyWith(color: AppColors.ink),
       ),
     );
 

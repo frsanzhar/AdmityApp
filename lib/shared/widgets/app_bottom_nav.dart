@@ -24,7 +24,13 @@ class AppNavItem {
 /// The centre tab (index 2 — Ералы) is displayed with [AppColors.primary]
 /// accent treatment.  All tabs are individually touch-target ≥ 48 px.
 ///
-/// Reusable API:
+/// ## Animation (non-breaking addition)
+/// The newly-selected tab icon scales up and the colour cross-fades from grey
+/// to [AppColors.primary] using implicit animations.  The previously-selected
+/// tab animates out in reverse.  Suppressed when
+/// `MediaQuery.disableAnimations` is true (falls back to instant switch).
+///
+/// Reusable API (unchanged):
 /// - [selectedIndex] — currently active tab index.
 /// - [onTap] — called with the tapped index.
 /// - [items] — list of [AppNavItem]s (must have exactly 5 for the design).
@@ -83,16 +89,13 @@ class _NavTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color iconColor;
-    final Color labelColor;
+    final disableAnim = MediaQuery.of(context).disableAnimations;
 
-    if (item.isAccent) {
-      iconColor = isSelected ? AppColors.primary : AppColors.inkSecondary;
-      labelColor = iconColor;
-    } else {
-      iconColor = isSelected ? AppColors.primary : AppColors.inkSecondary;
-      labelColor = iconColor;
-    }
+    final iconColor = isSelected ? AppColors.primary : AppColors.inkSecondary;
+    final labelColor = iconColor;
+
+    // Duration for colour / scale cross-fade.
+    const animDuration = Duration(milliseconds: 200);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -102,8 +105,12 @@ class _NavTab extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // Icon — accent pill for the selected accent tab, animated icon
+            // scale + colour cross-fade for all other tabs.
             if (item.isAccent && isSelected)
-              Container(
+              AnimatedContainer(
+                duration: disableAnim ? Duration.zero : animDuration,
+                curve: Curves.easeOutCubic,
                 width: 44,
                 height: 30,
                 decoration: BoxDecoration(
@@ -117,21 +124,39 @@ class _NavTab extends StatelessWidget {
                 ),
               )
             else
-              Icon(
-                isSelected ? item.activeIcon : item.icon,
-                color: iconColor,
-                size: 22,
+              AnimatedScale(
+                scale: isSelected ? 1.18 : 1.0,
+                duration: disableAnim ? Duration.zero : animDuration,
+                curve: Curves.easeOutBack,
+                child: AnimatedSwitcher(
+                  duration: disableAnim ? Duration.zero : animDuration,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: child,
+                  ),
+                  child: Icon(
+                    isSelected ? item.activeIcon : item.icon,
+                    // Key forces AnimatedSwitcher to treat icon change as swap.
+                    key: ValueKey<bool>(isSelected),
+                    color: iconColor,
+                    size: 22,
+                  ),
+                ),
               ),
             const SizedBox(height: 3),
-            Text(
-              item.label,
+            AnimatedDefaultTextStyle(
+              duration: disableAnim ? Duration.zero : animDuration,
+              curve: Curves.easeOutCubic,
               style: TextStyle(
                 fontSize: 10,
-                fontWeight: FontWeight.w600,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
                 color: labelColor,
                 height: 1,
               ),
-              overflow: TextOverflow.ellipsis,
+              child: Text(
+                item.label,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),

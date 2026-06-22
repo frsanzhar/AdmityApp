@@ -200,6 +200,25 @@ class ProfileNotifier extends Notifier<ProfileState> {
     newList[idx] = updated;
     state = state.copyWith(packages: newList);
   }
+
+  Future<void> toggleDocumentItem({
+    required String packageId,
+    required String itemId,
+  }) async {
+    final idx = state.packages.indexWhere((p) => p.id == packageId);
+    if (idx < 0) return;
+    final pkg = state.packages[idx];
+    final itemIdx = pkg.items.indexWhere((i) => i.id == itemId);
+    if (itemIdx < 0) return;
+    final item = pkg.items[itemIdx];
+    final updatedItems = [...pkg.items];
+    updatedItems[itemIdx] = item.copyWith(isAttached: !item.isAttached);
+    final updated = pkg.copyWith(items: updatedItems);
+    await _repo.savePackage(updated);
+    final newList = [...state.packages];
+    newList[idx] = updated;
+    state = state.copyWith(packages: newList);
+  }
 }
 
 // ── Public provider ───────────────────────────────────────────────────────────

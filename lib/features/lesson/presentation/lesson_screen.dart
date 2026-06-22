@@ -1,3 +1,24 @@
+/// LessonScreen — Brilliant-style multi-step lesson flow (DESIGN_SYSTEM.md §7.4).
+///
+/// ## Step flow (requirement 3)
+/// intro → THEORY (explanatory cards) → questions → feedback → complete
+///
+/// [LessonStepKind.theory] is the new step.  Theory cards are scrollable
+/// explanation pages (2–4 cards) shown before the questions.  Each card
+/// renders a headline + body text, optional emoji, and a «Далее» PrimaryButton
+/// that advances through cards one at a time.  After the last card the user
+/// taps «К вопросам» (also PrimaryButton) to enter the question phase.
+///
+/// ## Layout rules (CLAUDE.md)
+/// AppScaffold > Column(.min for top bar) > Expanded > SingleChildScrollView
+/// > Column(mainAxisSize: .min).
+/// Never uses CrossAxisAlignment.stretch inside a scroll.
+///
+/// ## Seeded theory
+/// Real theory text for the sample "Сравнение вероятностей" lesson is baked
+/// in below — Cyrillic prose that covers the topic.
+library;
+
 import 'package:admity/core/theme/app_colors.dart';
 import 'package:admity/core/theme/app_tokens.dart';
 import 'package:admity/shared/rive/rive_assets.dart';
@@ -10,11 +31,25 @@ import 'package:admity/shared/widgets/primary_button.dart';
 import 'package:admity/shared/widgets/progress_ring.dart';
 import 'package:admity/shared/widgets/topic_diagram_slot.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rive/rive.dart';
 
 // ── Domain models ─────────────────────────────────────────────────────────────
+
+/// A single theory card shown in the THEORY step.
+class TheoryCardData {
+  const TheoryCardData({
+    required this.headline,
+    required this.body,
+    this.emoji,
+  });
+
+  final String headline;
+  final String body;
+  final String? emoji;
+}
 
 /// A single multiple-choice question in the lesson.
 class LessonQuestion {
@@ -32,7 +67,9 @@ class LessonQuestion {
 }
 
 /// Which high-level step the lesson is currently on.
-enum LessonStepKind { intro, question, feedback, complete }
+///
+/// Step order: intro → theory → question → feedback → complete.
+enum LessonStepKind { intro, theory, question, feedback, complete }
 
 /// Immutable lesson state — all transitions are pure.
 class LessonState {
@@ -44,17 +81,19 @@ class LessonState {
     required this.xp,
     required this.stepKind,
     required this.isExplanationExpanded,
+    required this.currentTheoryCardIndex,
   });
 
   factory LessonState.initial() => const LessonState(
-        currentQuestionIndex: 0,
-        selectedOptionIndex: -1,
-        isChecked: false,
-        correctCount: 0,
-        xp: 0,
-        stepKind: LessonStepKind.intro,
-        isExplanationExpanded: false,
-      );
+    currentQuestionIndex: 0,
+    selectedOptionIndex: -1,
+    isChecked: false,
+    correctCount: 0,
+    xp: 0,
+    stepKind: LessonStepKind.intro,
+    isExplanationExpanded: false,
+    currentTheoryCardIndex: 0,
+  );
 
   final int currentQuestionIndex;
 
@@ -68,6 +107,9 @@ class LessonState {
   final LessonStepKind stepKind;
   final bool isExplanationExpanded;
 
+  /// Index of the currently shown theory card (0-based).
+  final int currentTheoryCardIndex;
+
   bool get hasSelection => selectedOptionIndex >= 0;
 
   LessonState copyWith({
@@ -78,6 +120,7 @@ class LessonState {
     int? xp,
     LessonStepKind? stepKind,
     bool? isExplanationExpanded,
+    int? currentTheoryCardIndex,
   }) {
     return LessonState(
       currentQuestionIndex: currentQuestionIndex ?? this.currentQuestionIndex,
@@ -88,9 +131,53 @@ class LessonState {
       stepKind: stepKind ?? this.stepKind,
       isExplanationExpanded:
           isExplanationExpanded ?? this.isExplanationExpanded,
+      currentTheoryCardIndex:
+          currentTheoryCardIndex ?? this.currentTheoryCardIndex,
     );
   }
 }
+
+// ── Seeded theory cards ───────────────────────────────────────────────────────
+
+/// Theory cards for «Сравнение вероятностей».
+const _theoryCards = <TheoryCardData>[
+  TheoryCardData(
+    headline: 'Что такое вероятность?',
+    emoji: '🎲',
+    body:
+        'Вероятность — это число от 0 до 1, которое описывает, насколько '
+        'вероятно наступление события. Число 0 означает, что событие '
+        'невозможно, а число 1 означает, что оно обязательно произойдёт. '
+        'Все события «между» имеют вероятность строго больше 0 и меньше 1.',
+  ),
+  TheoryCardData(
+    headline: 'Классическая формула',
+    emoji: '📐',
+    body:
+        'P(A) = m / n, где m — количество благоприятных исходов, '
+        'n — общее количество равновозможных исходов. '
+        'Пример: бросаем монету. n = 2 (орёл и решка), m = 1 (орёл). '
+        'Значит P(орёл) = 1/2 = 0,5.',
+  ),
+  TheoryCardData(
+    headline: 'Сравнение вероятностей',
+    emoji: '⚖️',
+    body:
+        'Вероятности сравниваются так же, как обычные дроби. '
+        'P(A) > P(B) значит, что событие A произойдёт чаще, чем B. '
+        'Например: вероятность вытащить красный шар из мешка (3 красных '
+        'из 10) = 3/10 = 0,3, а синий = 7/10 = 0,7. Синий вероятнее.',
+  ),
+  TheoryCardData(
+    headline: 'Достоверные и невозможные события',
+    emoji: '🎯',
+    body:
+        'Достоверное событие происходит всегда (P = 1). '
+        'Пример: при броске кубика выпадет число от 1 до 6 — это достоверно. '
+        'Невозможное событие не происходит никогда (P = 0). '
+        'Пример: на том же кубике выпадет 7.',
+  ),
+];
 
 // ── Seeded questions ──────────────────────────────────────────────────────────
 
@@ -104,7 +191,8 @@ const _lessonQuestions = <LessonQuestion>[
         'Поэтому вероятность орла = 1/2 = 0.5.',
   ),
   LessonQuestion(
-    question: 'В мешке 3 красных и 7 синих шара. Какова вероятность '
+    question:
+        'В мешке 3 красных и 7 синих шара. Какова вероятность '
         'вытащить красный?',
     options: ['3/10', '7/10', '1/3', '1/7'],
     correctIndex: 0,
@@ -140,9 +228,22 @@ class LessonNotifier extends Notifier<LessonState> {
   @override
   LessonState build() => LessonState.initial();
 
-  /// Start the lesson (intro → first question).
+  /// Start the lesson (intro → theory step, card 0).
   void beginLesson() {
-    state = state.copyWith(stepKind: LessonStepKind.question);
+    state = state.copyWith(
+      stepKind: LessonStepKind.theory,
+      currentTheoryCardIndex: 0,
+    );
+  }
+
+  /// Advance to the next theory card or, after the last card, to questions.
+  void advanceTheory() {
+    final nextCard = state.currentTheoryCardIndex + 1;
+    if (nextCard >= _theoryCards.length) {
+      state = state.copyWith(stepKind: LessonStepKind.question);
+    } else {
+      state = state.copyWith(currentTheoryCardIndex: nextCard);
+    }
   }
 
   /// Select an answer option before checking.
@@ -170,7 +271,6 @@ class LessonNotifier extends Notifier<LessonState> {
   void continueLesson() {
     final nextIndex = state.currentQuestionIndex + 1;
     if (nextIndex >= _lessonQuestions.length) {
-      // Award completion bonus and move to complete screen.
       state = state.copyWith(
         xp: state.xp + lessonCompletionBonus,
         stepKind: LessonStepKind.complete,
@@ -194,17 +294,17 @@ class LessonNotifier extends Notifier<LessonState> {
   }
 }
 
-final lessonProvider =
-    NotifierProvider<LessonNotifier, LessonState>(LessonNotifier.new);
+final lessonProvider = NotifierProvider<LessonNotifier, LessonState>(
+  LessonNotifier.new,
+);
 
 // ── Screen ─────────────────────────────────────────────────────────────────────
 
-/// Lesson screen — Brilliant-style multi-step flow (DESIGN_SYSTEM.md §7.4).
+/// LessonScreen — Brilliant-style multi-step flow.
 ///
-/// Steps: intro → question(s) → feedback → complete.
-/// Layout rule: AppScaffold > SingleChildScrollView > Column(mainAxisSize: .min).
-/// Accent: AppColors.primary (progress ring + selected option border).
-/// FeaturedButton used ONLY for intro begin CTA and lesson-complete «Готово».
+/// Step flow: intro → theory → questions → feedback → complete.
+/// Layout: AppScaffold > Column > [top bar] > Expanded > SingleChildScrollView
+///   > Column(mainAxisSize: .min).
 class LessonScreen extends ConsumerWidget {
   const LessonScreen({super.key});
 
@@ -238,6 +338,8 @@ class LessonScreen extends ConsumerWidget {
     switch (state.stepKind) {
       case LessonStepKind.intro:
         return _IntroStep(state: state, ref: ref);
+      case LessonStepKind.theory:
+        return _TheoryStep(state: state, ref: ref);
       case LessonStepKind.question:
         return _QuestionStep(state: state, ref: ref);
       case LessonStepKind.feedback:
@@ -257,11 +359,27 @@ class _LessonTopBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tokens = Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
-    final totalSteps = _lessonQuestions.length;
-    final completedSteps = state.stepKind == LessonStepKind.complete
-        ? totalSteps
-        : state.currentQuestionIndex;
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+
+    // Progress counts theory cards + questions.
+    final totalTheory = _theoryCards.length;
+    final totalQuestions = _lessonQuestions.length;
+    final totalSteps = totalTheory + totalQuestions;
+
+    int completedSteps;
+    switch (state.stepKind) {
+      case LessonStepKind.intro:
+        completedSteps = 0;
+      case LessonStepKind.theory:
+        completedSteps = state.currentTheoryCardIndex;
+      case LessonStepKind.question:
+      case LessonStepKind.feedback:
+        completedSteps = totalTheory + state.currentQuestionIndex;
+      case LessonStepKind.complete:
+        completedSteps = totalSteps;
+    }
+
     final progress = totalSteps > 0 ? completedSteps / totalSteps : 0.0;
 
     return Padding(
@@ -271,7 +389,6 @@ class _LessonTopBar extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          // Close button
           GestureDetector(
             onTap: () => context.go('/courses'),
             behavior: HitTestBehavior.opaque,
@@ -290,7 +407,6 @@ class _LessonTopBar extends ConsumerWidget {
             ),
           ),
           SizedBox(width: tokens.gapMd),
-          // Linear progress bar
           Expanded(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
@@ -305,14 +421,13 @@ class _LessonTopBar extends ConsumerWidget {
             ),
           ),
           SizedBox(width: tokens.gapMd),
-          // Step counter label
           Text(
             state.stepKind == LessonStepKind.complete
                 ? '$totalSteps/$totalSteps'
-                : '${state.currentQuestionIndex}/$totalSteps',
+                : '$completedSteps/$totalSteps',
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: AppColors.inkSecondary,
-                ),
+              color: AppColors.inkSecondary,
+            ),
           ),
         ],
       ),
@@ -330,7 +445,8 @@ class _IntroStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
 
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -341,31 +457,44 @@ class _IntroStep extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(height: tokens.gapXl),
-          // Display title
           Text(
             'Сравнение вероятностей',
             style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                  color: AppColors.ink,
-                ),
+              color: AppColors.ink,
+            ),
             textAlign: TextAlign.center,
-          ),
+          ).animate().fadeIn(duration: 350.ms).slideY(begin: -0.06, end: 0),
           SizedBox(height: tokens.gapSm),
           Text(
             'Научись сравнивать шансы событий и понимать, '
             'что является достоверным, невозможным или случайным.',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: AppColors.inkSecondary,
-                ),
+              color: AppColors.inkSecondary,
+            ),
             textAlign: TextAlign.center,
+          ).animate().fadeIn(
+            delay: 80.ms,
+            duration: 300.ms,
           ),
           SizedBox(height: tokens.gapXxl),
-          // 3D illustration placeholder
-          const TopicDiagramSlot(size: 160),
+          const TopicDiagramSlot(size: 160)
+              .animate()
+              .fadeIn(delay: 120.ms, duration: 350.ms)
+              .scale(
+                begin: const Offset(0.9, 0.9),
+                end: const Offset(1, 1),
+                delay: 120.ms,
+                duration: 350.ms,
+              ),
           SizedBox(height: tokens.gapXxl),
-          // Lesson stats row
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              _StatPill(
+                icon: Icons.menu_book_outlined,
+                label: '${_theoryCards.length} карточки теории',
+              ),
+              SizedBox(width: tokens.gapMd),
               _StatPill(
                 icon: Icons.quiz_outlined,
                 label: '${_lessonQuestions.length} вопроса',
@@ -376,13 +505,13 @@ class _IntroStep extends StatelessWidget {
                 label: '+50 XP',
               ),
             ],
-          ),
+          ).animate().fadeIn(delay: 200.ms, duration: 250.ms),
           SizedBox(height: tokens.gapXxl),
-          // Featured CTA — only for intro begin
+          // Featured CTA — begin the lesson (intro is featured action)
           FeaturedButton(
             label: 'Начать урок',
             onPressed: () => ref.read(lessonProvider.notifier).beginLesson(),
-          ),
+          ).animate().fadeIn(delay: 260.ms, duration: 250.ms),
           SizedBox(height: tokens.gapXl),
         ],
       ),
@@ -398,7 +527,8 @@ class _StatPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: tokens.gapMd,
@@ -416,8 +546,8 @@ class _StatPill extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: AppColors.ink,
-                ),
+              color: AppColors.ink,
+            ),
           ),
         ],
       ),
@@ -425,7 +555,137 @@ class _StatPill extends StatelessWidget {
   }
 }
 
-// ── Step 2: Question ──────────────────────────────────────────────────────────
+// ── Step 2: Theory ─────────────────────────────────────────────────────────────
+
+/// THEORY step: shows one card at a time with «Далее» to advance.
+/// After the last card the button label changes to «К вопросам».
+class _TheoryStep extends StatelessWidget {
+  const _TheoryStep({required this.state, required this.ref});
+
+  final LessonState state;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    final card = _theoryCards[state.currentTheoryCardIndex];
+    final isLast = state.currentTheoryCardIndex == _theoryCards.length - 1;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: tokens.screenPadding,
+        vertical: tokens.gapLg,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(height: tokens.gapSm),
+
+          // Card counter pill
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: tokens.gapMd,
+              vertical: tokens.gapXs,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(tokens.radiusSm),
+            ),
+            child: Text(
+              'Теория  ${state.currentTheoryCardIndex + 1} / ${_theoryCards.length}',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: AppColors.primary,
+              ),
+            ),
+          ).animate().fadeIn(duration: 200.ms),
+
+          SizedBox(height: tokens.gapXl),
+
+          // Theory card
+          _TheoryCardWidget(card: card)
+              .animate(key: ValueKey('theory_${state.currentTheoryCardIndex}'))
+              .fadeIn(duration: 300.ms)
+              .slideX(begin: 0.05, end: 0, duration: 300.ms),
+
+          SizedBox(height: tokens.gapXxl),
+
+          // Progress dots
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(_theoryCards.length, (i) {
+              final isActive = i == state.currentTheoryCardIndex;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: isActive ? 20 : 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: isActive ? AppColors.primary : AppColors.border,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              );
+            }),
+          ),
+
+          SizedBox(height: tokens.gapXxl),
+
+          // Advance button (PrimaryButton — normal action, §8)
+          PrimaryButton(
+            label: isLast ? 'К вопросам' : 'Далее',
+            onPressed: () => ref.read(lessonProvider.notifier).advanceTheory(),
+          ).animate().fadeIn(delay: 100.ms, duration: 250.ms),
+
+          SizedBox(height: tokens.gapXl),
+        ],
+      ),
+    );
+  }
+}
+
+/// A single theory card card widget.
+class _TheoryCardWidget extends StatelessWidget {
+  const _TheoryCardWidget({required this.card});
+
+  final TheoryCardData card;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+
+    return AppCard(
+      color: AppColors.surfaceTint,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (card.emoji != null)
+            Text(
+              card.emoji!,
+              style: const TextStyle(fontSize: 40),
+            ),
+          if (card.emoji != null) SizedBox(height: tokens.gapMd),
+          Text(
+            card.headline,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              color: AppColors.ink,
+            ),
+          ),
+          SizedBox(height: tokens.gapMd),
+          Text(
+            card.body,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: AppColors.inkSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Step 3: Question ──────────────────────────────────────────────────────────
 
 class _QuestionStep extends StatelessWidget {
   const _QuestionStep({required this.state, required this.ref});
@@ -435,7 +695,8 @@ class _QuestionStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
     final question = _lessonQuestions[state.currentQuestionIndex];
 
     return Padding(
@@ -447,7 +708,6 @@ class _QuestionStep extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(height: tokens.gapSm),
-          // Question label
           Container(
             padding: EdgeInsets.symmetric(
               horizontal: tokens.gapMd,
@@ -460,35 +720,39 @@ class _QuestionStep extends StatelessWidget {
             child: Text(
               'Вопрос ${state.currentQuestionIndex + 1} из ${_lessonQuestions.length}',
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: AppColors.primary,
-                  ),
+                color: AppColors.primary,
+              ),
             ),
-          ),
+          ).animate().fadeIn(duration: 200.ms),
           SizedBox(height: tokens.gapXl),
-          // Question text
           Text(
-            question.question,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                question.question,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   color: AppColors.ink,
                 ),
-            textAlign: TextAlign.center,
-          ),
+                textAlign: TextAlign.center,
+              )
+              .animate(key: ValueKey('q_${state.currentQuestionIndex}'))
+              .fadeIn(duration: 280.ms)
+              .slideY(begin: -0.04, end: 0),
           SizedBox(height: tokens.gapXxl),
-          // Answer option cards
           ...List.generate(question.options.length, (i) {
             return Padding(
               padding: EdgeInsets.only(bottom: tokens.gapMd),
-              child: _AnswerCard(
-                label: question.options[i],
-                isSelected: state.selectedOptionIndex == i,
-                isLocked: false,
-                onTap: () =>
-                    ref.read(lessonProvider.notifier).selectOption(i),
-              ),
+              child:
+                  _AnswerCard(
+                    label: question.options[i],
+                    isSelected: state.selectedOptionIndex == i,
+                    isLocked: false,
+                    onTap: () =>
+                        ref.read(lessonProvider.notifier).selectOption(i),
+                  ).animate().fadeIn(
+                    delay: Duration(milliseconds: 40 + i * 50),
+                    duration: 240.ms,
+                  ),
             );
           }),
           SizedBox(height: tokens.gapLg),
-          // Check button — disabled until an option is selected
           PrimaryButton(
             label: 'Проверить',
             onPressed: state.hasSelection
@@ -519,7 +783,8 @@ class _AnswerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
 
     final borderColor = isSelected ? AppColors.primary : AppColors.border;
     final bgColor = isSelected
@@ -540,7 +805,6 @@ class _AnswerCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Selection indicator circle
             AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               width: 22,
@@ -549,8 +813,9 @@ class _AnswerCard extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: isSelected ? AppColors.primary : Colors.transparent,
                 border: Border.all(
-                  color:
-                      isSelected ? AppColors.primary : AppColors.inkSecondary,
+                  color: isSelected
+                      ? AppColors.primary
+                      : AppColors.inkSecondary,
                   width: 1.5,
                 ),
               ),
@@ -567,10 +832,9 @@ class _AnswerCard extends StatelessWidget {
               child: Text(
                 label,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: isSelected ? AppColors.primary : AppColors.ink,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.w500,
-                    ),
+                  color: isSelected ? AppColors.primary : AppColors.ink,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                ),
               ),
             ),
           ],
@@ -580,7 +844,7 @@ class _AnswerCard extends StatelessWidget {
   }
 }
 
-// ── Step 3: Feedback ──────────────────────────────────────────────────────────
+// ── Step 4: Feedback ──────────────────────────────────────────────────────────
 
 class _FeedbackStep extends StatelessWidget {
   const _FeedbackStep({required this.state, required this.ref});
@@ -590,12 +854,10 @@ class _FeedbackStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
     final question = _lessonQuestions[state.currentQuestionIndex];
     final isCorrect = state.selectedOptionIndex == question.correctIndex;
-
-    // Phase 7: Rive ✓/✗ feedback burst above the banner.
-    // TODO(rive-asset): assets/rive/lesson_feedback.riv — see kFeedbackRivAsset.
 
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -605,23 +867,17 @@ class _FeedbackStep extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Rive feedback burst (correct = green burst, incorrect = red shake).
-          // The burst widget renders SizedBox.shrink() when asset is absent,
-          // so no extra gap is added in tests or when reduceMotion is set.
           _RiveFeedbackBurst(isCorrect: isCorrect),
-          // ✓ / ✗ feedback banner
           _FeedbackBanner(isCorrect: isCorrect),
           SizedBox(height: tokens.gapXl),
-          // Question text (recap)
           Text(
             question.question,
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: AppColors.ink,
-                ),
+              color: AppColors.ink,
+            ),
             textAlign: TextAlign.center,
           ),
           SizedBox(height: tokens.gapXl),
-          // Answer options (locked, with correct highlighted)
           ...List.generate(question.options.length, (i) {
             return Padding(
               padding: EdgeInsets.only(bottom: tokens.gapMd),
@@ -633,7 +889,6 @@ class _FeedbackStep extends StatelessWidget {
             );
           }),
           SizedBox(height: tokens.gapLg),
-          // "Почему?" expandable explanation
           _WhyExpander(
             explanation: question.explanation,
             isExpanded: state.isExplanationExpanded,
@@ -641,11 +896,9 @@ class _FeedbackStep extends StatelessWidget {
                 ref.read(lessonProvider.notifier).toggleExplanation(),
           ),
           SizedBox(height: tokens.gapXl),
-          // Continue button (dark primary — normal action)
           PrimaryButton(
             label: 'Продолжить',
-            onPressed: () =>
-                ref.read(lessonProvider.notifier).continueLesson(),
+            onPressed: () => ref.read(lessonProvider.notifier).continueLesson(),
           ),
           SizedBox(height: tokens.gapXl),
         ],
@@ -661,7 +914,8 @@ class _FeedbackBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
     final color = isCorrect ? AppColors.successGreen : AppColors.errorRed;
     final bgColor = isCorrect
         ? AppColors.successGreen.withValues(alpha: 0.1)
@@ -687,8 +941,8 @@ class _FeedbackBanner extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: color,
-                ),
+              color: color,
+            ),
           ),
           if (isCorrect) ...[
             const Spacer(),
@@ -704,14 +958,14 @@ class _FeedbackBanner extends StatelessWidget {
               child: Text(
                 '+$lessonXpPerCorrect XP',
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: AppColors.white,
-                    ),
+                  color: AppColors.white,
+                ),
               ),
             ),
           ],
         ],
       ),
-    );
+    ).animate().fadeIn(duration: 250.ms).slideY(begin: -0.04, end: 0);
   }
 }
 
@@ -728,7 +982,8 @@ class _FeedbackAnswerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
 
     Color borderColor;
     Color bgColor;
@@ -768,7 +1023,10 @@ class _FeedbackAnswerCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(tokens.radiusLg),
-        border: Border.all(color: borderColor, width: isCorrect || isSelected ? 2 : 1),
+        border: Border.all(
+          color: borderColor,
+          width: isCorrect || isSelected ? 2 : 1,
+        ),
         boxShadow: tokens.cardShadow,
       ),
       child: Row(
@@ -777,11 +1035,11 @@ class _FeedbackAnswerCard extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: textColor,
-                    fontWeight: (isCorrect || isSelected)
-                        ? FontWeight.w600
-                        : FontWeight.w500,
-                  ),
+                color: textColor,
+                fontWeight: (isCorrect || isSelected)
+                    ? FontWeight.w600
+                    : FontWeight.w500,
+              ),
             ),
           ),
           if (trailingIcon != null) ...[
@@ -807,7 +1065,8 @@ class _WhyExpander extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
 
     return AppCard(
       padding: EdgeInsets.zero,
@@ -820,7 +1079,7 @@ class _WhyExpander extends StatelessWidget {
             child: Padding(
               padding: EdgeInsets.all(tokens.cardPadding),
               child: Row(
-                      children: [
+                children: [
                   const Icon(
                     Icons.lightbulb_outline_rounded,
                     color: AppColors.goldKey,
@@ -830,8 +1089,8 @@ class _WhyExpander extends StatelessWidget {
                   Text(
                     'Почему?',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: AppColors.ink,
-                        ),
+                      color: AppColors.ink,
+                    ),
                   ),
                   const Spacer(),
                   Icon(
@@ -856,10 +1115,10 @@ class _WhyExpander extends StatelessWidget {
               child: Text(
                 explanation,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppColors.inkSecondary,
-                    ),
+                  color: AppColors.inkSecondary,
+                ),
               ),
-            ),
+            ).animate().fadeIn(duration: 200.ms),
         ],
       ),
     );
@@ -869,11 +1128,6 @@ class _WhyExpander extends StatelessWidget {
 // ── Phase 7: Rive motion widgets ─────────────────────────────────────────────
 
 /// Small Rive burst that plays correct/incorrect feedback once.
-///
-/// State Machine contract: machine=[kFeedbackMachineName]
-///   triggers — correct, incorrect
-/// Falls back to an empty SizedBox when the asset is absent or reduceMotion
-/// is enabled (the existing [_FeedbackBanner] already carries the visual cue).
 // TODO(rive-asset): assets/rive/lesson_feedback.riv
 class _RiveFeedbackBurst extends StatefulWidget {
   const _RiveFeedbackBurst({required this.isCorrect});
@@ -888,10 +1142,10 @@ class _RiveFeedbackBurstState extends State<_RiveFeedbackBurst> {
   void _onController(RiveWidgetController ctrl) {
     final sm = ctrl.stateMachine;
     if (widget.isCorrect) {
-      // ignore: deprecated_member_use // SMI inputs deprecated in rive 0.14.x; assets not yet migrated.
+      // ignore: deprecated_member_use -- SMI inputs deprecated in Rive 0.14.x; assets not yet migrated
       sm.trigger(kFeedbackTriggerCorrect)?.fire();
     } else {
-      // ignore: deprecated_member_use // Assets not yet migrated to Data Binding.
+      // ignore: deprecated_member_use -- SMI inputs deprecated in Rive 0.14.x; assets not yet migrated
       sm.trigger(kFeedbackTriggerIncorrect)?.fire();
     }
   }
@@ -899,13 +1153,8 @@ class _RiveFeedbackBurstState extends State<_RiveFeedbackBurst> {
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.of(context).disableAnimations;
-    // When asset is absent or reduceMotion, render nothing — no height claimed.
-    // The existing _FeedbackBanner already shows ✓/✗ so the burst is purely
-    // additive motion; removing it degrades gracefully.
     if (reduceMotion) return const SizedBox.shrink();
 
-    // RiveStateMachineSlot falls through to staticFallback=SizedBox.shrink()
-    // when the .riv asset is not yet bundled, so no gap is reserved in tests.
     return RiveStateMachineSlot(
       assetPath: kFeedbackRivAsset,
       machineName: kFeedbackMachineName,
@@ -917,13 +1166,7 @@ class _RiveFeedbackBurstState extends State<_RiveFeedbackBurst> {
   }
 }
 
-/// Wraps a [child] with a Rive confetti layer that plays the celebrate trigger
-/// once on first build.
-///
-/// State Machine contract: machine=[kLessonCompleteMachineName]
-///   triggers — celebrate
-/// Falls back to rendering [child] alone when the asset is absent or
-/// reduceMotion is enabled.
+/// Wraps [child] with a Rive confetti layer.
 // TODO(rive-asset): assets/rive/lesson_complete.riv
 class _RiveLessonComplete extends StatefulWidget {
   const _RiveLessonComplete({required this.child});
@@ -936,7 +1179,7 @@ class _RiveLessonComplete extends StatefulWidget {
 
 class _RiveLessonCompleteState extends State<_RiveLessonComplete> {
   void _onController(RiveWidgetController ctrl) {
-    // ignore: deprecated_member_use // SMI inputs deprecated in rive 0.14.x; assets not yet migrated.
+    // ignore: deprecated_member_use -- SMI inputs deprecated in Rive 0.14.x; assets not yet migrated
     ctrl.stateMachine.trigger(kLessonCompleteTriggerCelebrate)?.fire();
   }
 
@@ -949,7 +1192,6 @@ class _RiveLessonCompleteState extends State<_RiveLessonComplete> {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Confetti layer — covers entire slot, behind mascot.
           if (!reduceMotion)
             Positioned.fill(
               child: RiveStateMachineSlot(
@@ -962,7 +1204,6 @@ class _RiveLessonCompleteState extends State<_RiveLessonComplete> {
                 fit: Fit.cover,
               ),
             ),
-          // Mascot on top.
           widget.child,
         ],
       ),
@@ -970,7 +1211,7 @@ class _RiveLessonCompleteState extends State<_RiveLessonComplete> {
   }
 }
 
-// ── Step 4: Complete ──────────────────────────────────────────────────────────
+// ── Step 5: Complete ──────────────────────────────────────────────────────────
 
 class _CompleteStep extends StatelessWidget {
   const _CompleteStep({required this.state});
@@ -979,11 +1220,9 @@ class _CompleteStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
     final totalQuestions = _lessonQuestions.length;
-
-    // Phase 7: Rive lesson-complete confetti + mascot celebrating.
-    // TODO(rive-asset): assets/rive/lesson_complete.riv — see kLessonCompleteRivAsset.
 
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -994,7 +1233,6 @@ class _CompleteStep extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(height: tokens.gapXxl),
-          // Rive confetti overlay + mascot celebrating.
           const _RiveLessonComplete(
             child: MascotSlot(
               tag: 'lesson-complete',
@@ -1002,37 +1240,33 @@ class _CompleteStep extends StatelessWidget {
             ),
           ),
           SizedBox(height: tokens.gapXxl),
-          // Headline
           Text(
             'Урок пройден!',
             style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                  color: AppColors.ink,
-                ),
+              color: AppColors.ink,
+            ),
             textAlign: TextAlign.center,
-          ),
+          ).animate().fadeIn(duration: 350.ms).slideY(begin: 0.06, end: 0),
           SizedBox(height: tokens.gapMd),
           Text(
             'Отличная работа! Ты завершил урок о вероятностях.',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: AppColors.inkSecondary,
-                ),
+              color: AppColors.inkSecondary,
+            ),
             textAlign: TextAlign.center,
-          ),
+          ).animate().fadeIn(delay: 80.ms, duration: 300.ms),
           SizedBox(height: tokens.gapXxl),
-          // XP earned — prominent display
           _XpCard(xp: state.xp),
           SizedBox(height: tokens.gapXl),
-          // Score summary
           _ScoreSummary(
             correctCount: state.correctCount,
             totalCount: totalQuestions,
           ),
           SizedBox(height: tokens.gapXxl),
-          // Featured CTA for lesson completion — the finish is a featured action
           FeaturedButton(
             label: 'Готово',
             onPressed: () => context.go('/courses'),
-          ),
+          ).animate().fadeIn(delay: 160.ms, duration: 250.ms),
           SizedBox(height: tokens.gapXl),
         ],
       ),
@@ -1047,7 +1281,8 @@ class _XpCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
 
     return AppCard(
       child: Row(
@@ -1071,15 +1306,15 @@ class _XpCard extends StatelessWidget {
               Text(
                 'Заработано XP',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.inkSecondary,
-                    ),
+                  color: AppColors.inkSecondary,
+                ),
               ),
               SizedBox(height: tokens.gapXs),
               Text(
                 '+$xp XP',
                 style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                      color: AppColors.successGreen,
-                    ),
+                  color: AppColors.successGreen,
+                ),
               ),
             ],
           ),
@@ -1100,7 +1335,8 @@ class _ScoreSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
     final pct = totalCount > 0 ? correctCount / totalCount : 0.0;
 
     return AppCard(
@@ -1113,9 +1349,9 @@ class _ScoreSummary extends StatelessWidget {
             child: Text(
               '${(pct * 100).round()}%',
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: AppColors.primary,
-                    fontSize: 12,
-                  ),
+                color: AppColors.primary,
+                fontSize: 12,
+              ),
             ),
           ),
           SizedBox(width: tokens.gapLg),
@@ -1126,15 +1362,15 @@ class _ScoreSummary extends StatelessWidget {
               Text(
                 'Правильных ответов',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.inkSecondary,
-                    ),
+                  color: AppColors.inkSecondary,
+                ),
               ),
               SizedBox(height: tokens.gapXs),
               Text(
                 '$correctCount из $totalCount',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: AppColors.ink,
-                    ),
+                  color: AppColors.ink,
+                ),
               ),
             ],
           ),

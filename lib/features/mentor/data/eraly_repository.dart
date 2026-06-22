@@ -136,40 +136,111 @@ class EralyRepository {
 
   String _offlineChatFallback(List<Map<String, String>> messages) {
     final last = messages.isNotEmpty ? messages.last['text'] ?? '' : '';
-    if (last.toLowerCase().contains('ielts')) {
-      return 'Отличный выбор! Давай составим план подготовки к IELTS. '
-          'Сначала расскажи: какие учебные материалы у тебя есть?';
+    final lower = last.toLowerCase();
+    final turnCount = messages.length;
+
+    // --- Topic plan triggers ---
+    if (lower.contains('ielts')) {
+      return 'IELTS — отличная цель! Давай составим персональный план. '
+          'Для начала: какие материалы у тебя уже есть? '
+          '(учебники, приложения, курсы — перечисли всё)';
     }
-    if (last.toLowerCase().contains('мероприят') ||
-        last.toLowerCase().contains('событи') ||
-        last.toLowerCase().contains('event')) {
-      return 'Я могу помочь спланировать мероприятия. '
-          'Назови тему или цель — и я предложу несколько вариантов.';
+    if (lower.contains('sat')) {
+      return 'SAT — серьёзный шаг! Я помогу разбить подготовку на чёткие уроки. '
+          'Расскажи, какими ресурсами ты пользуешься?';
     }
-    return 'Привет! Я Ералы — твой AI-наставник. '
-        'Чем могу помочь сегодня?';
+    if (lower.contains('ент') || lower.contains('unified')) {
+      return 'ЕНТ — ключевой экзамен. Хочешь составить поурочный план? '
+          'Напиши, сколько времени у тебя есть до экзамена.';
+    }
+    if (lower.contains('план') ||
+        lower.contains('study') ||
+        lower.contains('подготовк')) {
+      return 'Конечно, помогу составить план! Назови тему или экзамен, '
+          'и я задам несколько вопросов, чтобы сделать план под тебя.';
+    }
+
+    // --- Event/calendar triggers ---
+    if (lower.contains('мероприят') ||
+        lower.contains('событи') ||
+        lower.contains('event') ||
+        lower.contains('запланир') ||
+        lower.contains('календар')) {
+      return 'С удовольствием помогу! Напиши тему или цель мероприятий — '
+          'я предложу несколько конкретных дат и могу поставить их в календарь.';
+    }
+
+    // --- Scholarship / university ---
+    if (lower.contains('стипенди') || lower.contains('scholarship')) {
+      return 'Стипендии — моя любимая тема! Расскажи: '
+          'ты смотришь на казахстанские программы или зарубежные? '
+          'Это поможет мне точнее подобрать варианты.';
+    }
+    if (lower.contains('универ') ||
+        lower.contains('university') ||
+        lower.contains('college') ||
+        lower.contains('поступ')) {
+      return 'Поступление — большой шаг, и я рядом. '
+          'В какую страну или университет ты целишься? '
+          'Или пока только изучаешь варианты?';
+    }
+
+    // --- Greeting ---
+    if (turnCount <= 2 ||
+        lower.contains('привет') ||
+        lower.contains('hello') ||
+        lower.contains('hi ') ||
+        lower == 'hi') {
+      return 'Привет! Я Ералы — твой AI-наставник по поступлению. '
+          'Могу помочь с тремя вещами:\n'
+          '1. Составить план подготовки к экзамену (IELTS, SAT, ЕНТ).\n'
+          '2. Запланировать мероприятия в календаре.\n'
+          '3. Ответить на вопросы про стипендии и университеты.\n'
+          'С чего начнём?';
+    }
+
+    // --- Generic follow-up ---
+    const followUps = [
+      'Интересно! Расскажи подробнее — я хочу понять, чем именно помочь.',
+      'Хороший вопрос. Уточни, пожалуйста: ты спрашиваешь про экзамены, поступление или что-то другое?',
+      'Понял. Чтобы дать точный ответ, скажи: это для ЕНТ, международного экзамена или для чего-то ещё?',
+    ];
+    // Rotate through follow-ups based on message count.
+    return followUps[turnCount % followUps.length];
   }
 
   List<ProposedEvent> _offlineEvents(String topic) {
-    final base = DateTime.now();
+    final base = DateTime.now().copyWith(
+      hour: 10,
+      minute: 0,
+      second: 0,
+      millisecond: 0,
+      microsecond: 0,
+    );
     return [
       ProposedEvent(
-        id: 'evt_1',
-        title: 'Подготовка к $topic',
+        id: 'evt_offline_1',
+        title: 'Старт: $topic',
         scheduledAt: base.add(const Duration(days: 1)),
-        description: 'Первая сессия подготовки',
+        description:
+            'Первое знакомство с темой — изучи ключевые понятия и '
+            'составь список вопросов.',
       ),
       ProposedEvent(
-        id: 'evt_2',
-        title: 'Практика $topic',
+        id: 'evt_offline_2',
+        title: 'Практика: $topic',
         scheduledAt: base.add(const Duration(days: 3)),
-        description: 'Практическое занятие',
+        description:
+            'Практическое занятие — реши 10–15 задач или '
+            'сделай пробный тест.',
       ),
       ProposedEvent(
-        id: 'evt_3',
-        title: 'Повторение $topic',
+        id: 'evt_offline_3',
+        title: 'Повторение: $topic',
         scheduledAt: base.add(const Duration(days: 7)),
-        description: 'Повторение пройденного',
+        description:
+            'Итоговое повторение — закрепи слабые места и '
+            'проверь прогресс.',
       ),
     ];
   }
@@ -178,7 +249,8 @@ class EralyRepository {
     return TopicPlan(
       topic: topic,
       notes:
-          'Офлайн-план. Подключитесь к интернету для персонализированного плана.',
+          'Базовый офлайн-план. Подключитесь к интернету, чтобы Ералы '
+          'составил план под ваши материалы и расписание.',
       lessons: [
         PlanLesson(
           index: 1,
@@ -187,18 +259,23 @@ class EralyRepository {
         ),
         PlanLesson(
           index: 2,
-          title: 'Основные концепции $topic',
+          title: 'Ключевые концепции $topic',
           durationMinutes: 90,
         ),
         const PlanLesson(
           index: 3,
-          title: 'Практика и упражнения',
+          title: 'Практические упражнения',
           durationMinutes: 60,
         ),
         const PlanLesson(
           index: 4,
-          title: 'Итоговое повторение',
+          title: 'Разбор ошибок и слабых мест',
           durationMinutes: 45,
+        ),
+        const PlanLesson(
+          index: 5,
+          title: 'Пробный тест и итоговое повторение',
+          durationMinutes: 60,
         ),
       ],
     );

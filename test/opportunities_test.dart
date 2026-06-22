@@ -6,6 +6,8 @@ import 'package:admity/features/opportunities/presentation/opportunities_provide
 import 'package:admity/features/opportunities/presentation/opportunities_screen.dart';
 import 'package:admity/features/opportunities/presentation/scholarship_apply_screen.dart';
 import 'package:admity/features/opportunities/presentation/scholarship_detail_screen.dart';
+import 'package:admity/features/profile/application/profile_notifier.dart';
+import 'package:admity/features/profile/domain/profile_model.dart';
 import 'package:admity/shared/widgets/featured_button.dart';
 import 'package:admity/shared/widgets/mascot_slot.dart';
 import 'package:flutter/material.dart';
@@ -22,6 +24,35 @@ Widget _themed(Widget widget) {
       home: Scaffold(body: widget),
     ),
   );
+}
+
+/// Wraps [widget] in a ProviderScope that overrides [profileProvider] with a
+/// pre-built [ProfileState] so we can test personalisation without real storage.
+Widget _themedWithProfile(
+  Widget widget, {
+  StudentProfile profile = StudentProfile.empty,
+}) {
+  return ProviderScope(
+    overrides: [
+      profileProvider.overrideWith(
+        () => _FakeProfileNotifier(ProfileState(profile: profile)),
+      ),
+    ],
+    child: MaterialApp(
+      theme: ThemeData(extensions: [AppTokens.defaults()]),
+      home: Scaffold(body: widget),
+    ),
+  );
+}
+
+/// Minimal fake notifier — extends [ProfileNotifier] and overrides [build] to
+/// return a fixed [ProfileState] without touching storage or network.
+class _FakeProfileNotifier extends ProfileNotifier {
+  _FakeProfileNotifier(this._fixed);
+  final ProfileState _fixed;
+
+  @override
+  ProfileState build() => _fixed;
 }
 
 Widget _routerWrapped(Widget widget) {
@@ -107,8 +138,10 @@ void main() {
         seedScholarships,
         const OpportunityFilter(city: 'астана'),
       );
-      expect(result.every((s) => s.city.toLowerCase().contains('астана')),
-          isTrue);
+      expect(
+        result.every((s) => s.city.toLowerCase().contains('астана')),
+        isTrue,
+      );
       expect(result.isNotEmpty, isTrue);
     });
 
@@ -126,7 +159,9 @@ void main() {
         const OpportunityFilter(accessibility: Accessibility.hard),
       );
       expect(
-          result.every((s) => s.accessibility == Accessibility.hard), isTrue);
+        result.every((s) => s.accessibility == Accessibility.hard),
+        isTrue,
+      );
     });
 
     test('combined filter: city + field narrows correctly', () {
@@ -138,8 +173,7 @@ void main() {
         ),
       );
       expect(result.every((s) => s.city == 'Астана'), isTrue);
-      expect(
-          result.every((s) => s.field == AcademicField.engineering), isTrue);
+      expect(result.every((s) => s.field == AcademicField.engineering), isTrue);
     });
 
     test('filter with no matches returns empty list', () {
@@ -174,8 +208,10 @@ void main() {
         seedUniversities,
         const OpportunityFilter(accessibility: Accessibility.easy),
       );
-      expect(result.every((u) => u.accessibility == Accessibility.easy),
-          isTrue);
+      expect(
+        result.every((u) => u.accessibility == Accessibility.easy),
+        isTrue,
+      );
     });
   });
 
@@ -186,8 +222,10 @@ void main() {
     });
 
     test('field filter returns only matching ideas', () {
-      final result =
-          filterProjectIdeas(seedProjectIdeas, AcademicField.informatics);
+      final result = filterProjectIdeas(
+        seedProjectIdeas,
+        AcademicField.informatics,
+      );
       expect(result.every((p) => p.field == AcademicField.informatics), isTrue);
       expect(result.isNotEmpty, isTrue);
     });
@@ -224,8 +262,11 @@ void main() {
       await tester.pumpWidget(_themed(const OpportunitiesScreen()));
       await tester.pumpAndSettle();
 
-      expect(errors, isEmpty,
-          reason: 'no swallowed layout errors on OpportunitiesScreen');
+      expect(
+        errors,
+        isEmpty,
+        reason: 'no swallowed layout errors on OpportunitiesScreen',
+      );
     });
 
     testWidgets('all four section tabs are visible', (tester) async {
@@ -295,8 +336,9 @@ void main() {
       expect(find.text('STEM-ярмарка Казахстана'), findsOneWidget);
     });
 
-    testWidgets('switching to Идеи проектов shows project ideas',
-        (tester) async {
+    testWidgets('switching to Идеи проектов shows project ideas', (
+      tester,
+    ) async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
@@ -386,6 +428,309 @@ void main() {
     });
   });
 
+  // ── Personalised project ideas (req 1) ────────────────────────────────────────
+
+  group('personalizedProjectIdeasProvider unit tests', () {
+    test(
+      'empty interests returns all ideas with hasProfileInterests=false',
+      () {
+        final container = ProviderContainer(
+          overrides: [
+            profileProvider.overrideWith(
+              () => _FakeProfileNotifier(
+                const ProfileState(),
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final result = container.read(personalizedProjectIdeasProvider);
+        expect(result.hasProfileInterests, isFalse);
+        expect(result.matchedInterest, isNull);
+        expect(result.ideas.length, seedProjectIdeas.length);
+      },
+    );
+
+    test('informatics-mapped interest ranks informatics ideas first', () {
+      final container = ProviderContainer(
+        overrides: [
+          profileProvider.overrideWith(
+            () => _FakeProfileNotifier(
+              const ProfileState(
+                profile: StudentProfile(interests: ['Программирование']),
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final result = container.read(personalizedProjectIdeasProvider);
+      expect(result.hasProfileInterests, isTrue);
+      expect(result.matchedInterest, 'Программирование');
+      expect(result.ideas.first.field, AcademicField.informatics);
+    });
+
+    test(
+      'unrecognised interest returns all ideas but hasProfileInterests=true',
+      () {
+        final container = ProviderContainer(
+          overrides: [
+            profileProvider.overrideWith(
+              () => _FakeProfileNotifier(
+                const ProfileState(
+                  profile: StudentProfile(interests: ['Кулинария']),
+                ),
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final result = container.read(personalizedProjectIdeasProvider);
+        expect(result.hasProfileInterests, isTrue);
+        expect(result.ideas.length, seedProjectIdeas.length);
+      },
+    );
+  });
+
+  group('personalizedProjectIdeas widget tests', () {
+    testWidgets('shows "по твоему интересу" banner when interests match', (
+      tester,
+    ) async {
+      final errors = <FlutterErrorDetails>[];
+      final prev = FlutterError.onError;
+      FlutterError.onError = errors.add;
+      addTearDown(() => FlutterError.onError = prev);
+
+      final container = ProviderContainer(
+        overrides: [
+          profileProvider.overrideWith(
+            () => _FakeProfileNotifier(
+              const ProfileState(
+                profile: StudentProfile(interests: ['Информатика']),
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: ThemeData(extensions: [AppTokens.defaults()]),
+            home: const Scaffold(body: OpportunitiesScreen()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Switch to Project Ideas tab
+      await tester.tap(find.text('Идеи проектов'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('по твоему интересу'), findsOneWidget);
+      expect(
+        errors,
+        isEmpty,
+        reason: 'no layout errors on project ideas with interests',
+      );
+    });
+
+    testWidgets('shows fill-profile prompt when interests empty', (
+      tester,
+    ) async {
+      final errors = <FlutterErrorDetails>[];
+      final prev = FlutterError.onError;
+      FlutterError.onError = errors.add;
+      addTearDown(() => FlutterError.onError = prev);
+
+      await tester.pumpWidget(
+        _themedWithProfile(const OpportunitiesScreen()),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Идеи проектов'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Добавь интересы'), findsOneWidget);
+      expect(errors, isEmpty);
+    });
+  });
+
+  // ── Location-based events (req 2) ─────────────────────────────────────────────
+
+  group('localEventsProvider unit tests', () {
+    test('no city returns all events unranked', () {
+      final container = ProviderContainer(
+        overrides: [
+          profileProvider.overrideWith(
+            () => _FakeProfileNotifier(
+              const ProfileState(),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final result = container.read(localEventsProvider);
+      expect(result.profileCity, isNull);
+      expect(result.events.length, seedEvents.length);
+    });
+
+    test('matching city moves local events to front', () {
+      final container = ProviderContainer(
+        overrides: [
+          profileProvider.overrideWith(
+            () => _FakeProfileNotifier(
+              const ProfileState(
+                profile: StudentProfile(city: 'Алматы'),
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final result = container.read(localEventsProvider);
+      expect(result.profileCity, 'Алматы');
+      // Local events come first
+      expect(
+        result.events.first.city.toLowerCase().contains('алматы'),
+        isTrue,
+      );
+    });
+
+    test('city with no matching events returns all events', () {
+      final container = ProviderContainer(
+        overrides: [
+          profileProvider.overrideWith(
+            () => _FakeProfileNotifier(
+              const ProfileState(
+                profile: StudentProfile(city: 'Нур-Султан99'),
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final result = container.read(localEventsProvider);
+      expect(result.events.length, seedEvents.length);
+    });
+  });
+
+  group('location-based events widget tests', () {
+    testWidgets('shows "рядом с тобой" banner when city is set', (
+      tester,
+    ) async {
+      final errors = <FlutterErrorDetails>[];
+      final prev = FlutterError.onError;
+      FlutterError.onError = errors.add;
+      addTearDown(() => FlutterError.onError = prev);
+
+      final container = ProviderContainer(
+        overrides: [
+          profileProvider.overrideWith(
+            () => _FakeProfileNotifier(
+              const ProfileState(
+                profile: StudentProfile(city: 'Алматы'),
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: ThemeData(extensions: [AppTokens.defaults()]),
+            home: const Scaffold(body: OpportunitiesScreen()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Мероприятия'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('рядом с тобой'), findsOneWidget);
+      expect(find.textContaining('Алматы'), findsWidgets);
+      expect(
+        errors,
+        isEmpty,
+        reason: 'no layout errors on events tab with city',
+      );
+    });
+
+    testWidgets('shows fill-profile prompt when city not set', (tester) async {
+      final errors = <FlutterErrorDetails>[];
+      final prev = FlutterError.onError;
+      FlutterError.onError = errors.add;
+      addTearDown(() => FlutterError.onError = prev);
+
+      await tester.pumpWidget(
+        _themedWithProfile(const OpportunitiesScreen()),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Мероприятия'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Укажи свой город'), findsOneWidget);
+      expect(errors, isEmpty);
+    });
+
+    testWidgets(
+      'events tab builds with NO layout errors (blank-screen guard)',
+      (tester) async {
+        final errors = <FlutterErrorDetails>[];
+        final prev = FlutterError.onError;
+        FlutterError.onError = errors.add;
+        addTearDown(() => FlutterError.onError = prev);
+
+        await tester.pumpWidget(_themed(const OpportunitiesScreen()));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Мероприятия'));
+        await tester.pumpAndSettle();
+
+        expect(
+          errors,
+          isEmpty,
+          reason: 'no swallowed layout errors on events tab',
+        );
+      },
+    );
+
+    testWidgets(
+      'project ideas tab builds with NO layout errors (blank-screen guard)',
+      (tester) async {
+        final errors = <FlutterErrorDetails>[];
+        final prev = FlutterError.onError;
+        FlutterError.onError = errors.add;
+        addTearDown(() => FlutterError.onError = prev);
+
+        await tester.pumpWidget(_themed(const OpportunitiesScreen()));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Идеи проектов'));
+        await tester.pumpAndSettle();
+
+        expect(
+          errors,
+          isEmpty,
+          reason: 'no swallowed layout errors on project ideas tab',
+        );
+      },
+    );
+  });
+
   // ── Widget tests: ScholarshipDetailScreen ─────────────────────────────────────
 
   group('ScholarshipDetailScreen widget tests', () {
@@ -400,12 +745,16 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(errors, isEmpty,
-          reason: 'no layout errors on ScholarshipDetailScreen');
+      expect(
+        errors,
+        isEmpty,
+        reason: 'no layout errors on ScholarshipDetailScreen',
+      );
     });
 
-    testWidgets('shows scholarship name, coverage, and how-to sections',
-        (tester) async {
+    testWidgets('shows scholarship name, coverage, and how-to sections', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _themed(const ScholarshipDetailScreen(scholarshipId: 'bolashak')),
       );
@@ -461,8 +810,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(errors, isEmpty,
-          reason: 'no layout errors on ScholarshipApplyScreen');
+      expect(
+        errors,
+        isEmpty,
+        reason: 'no layout errors on ScholarshipApplyScreen',
+      );
     });
 
     testWidgets('form fields are visible', (tester) async {
@@ -479,7 +831,9 @@ void main() {
       expect(find.text('Отправить заявку'), findsOneWidget);
     });
 
-    testWidgets('submitting empty form shows validation errors', (tester) async {
+    testWidgets('submitting empty form shows validation errors', (
+      tester,
+    ) async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
@@ -537,8 +891,9 @@ void main() {
       expect(container.read(applicationFormProvider).isSuccess, isTrue);
     });
 
-    testWidgets('success state shows MascotSlot and success message',
-        (tester) async {
+    testWidgets('success state shows MascotSlot and success message', (
+      tester,
+    ) async {
       final errors = <FlutterErrorDetails>[];
       final prev = FlutterError.onError;
       FlutterError.onError = errors.add;

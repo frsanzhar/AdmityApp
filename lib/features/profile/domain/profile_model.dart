@@ -125,21 +125,21 @@ class StudentProfile {
 
   /// Serialises to a raw JSON map (code-free persistence — no codegen).
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'grade': grade,
-        'city': city,
-        'gpa_band': gpaBand,
-        'gpa': gpa,
-        'interests': interests,
-        'ielts_score': ieltsScore,
-        'sat_score': satScore,
-        'toefl_score': toeflScore,
-        'career_result': careerResult,
-        'onboarding_complete': onboardingComplete,
-        'target_universities': targetUniversities,
-        'target_majors': targetMajors,
-        'languages': languages,
-      };
+    'name': name,
+    'grade': grade,
+    'city': city,
+    'gpa_band': gpaBand,
+    'gpa': gpa,
+    'interests': interests,
+    'ielts_score': ieltsScore,
+    'sat_score': satScore,
+    'toefl_score': toeflScore,
+    'career_result': careerResult,
+    'onboarding_complete': onboardingComplete,
+    'target_universities': targetUniversities,
+    'target_majors': targetMajors,
+    'languages': languages,
+  };
 }
 
 // ── ProfileNote ───────────────────────────────────────────────────────────────
@@ -182,11 +182,11 @@ class ProfileNote {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'text': text,
-        'created_at': createdAt.toIso8601String(),
-        'updated_at': updatedAt?.toIso8601String(),
-      };
+    'id': id,
+    'text': text,
+    'created_at': createdAt.toIso8601String(),
+    'updated_at': updatedAt?.toIso8601String(),
+  };
 }
 
 // ── DocumentPackage ───────────────────────────────────────────────────────────
@@ -244,12 +244,12 @@ class DocumentPackage {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'description': description,
-        'items': items.map((e) => e.toJson()).toList(),
-        'created_at': createdAt.toIso8601String(),
-      };
+    'id': id,
+    'name': name,
+    'description': description,
+    'items': items.map((e) => e.toJson()).toList(),
+    'created_at': createdAt.toIso8601String(),
+  };
 }
 
 // ── DocumentItem ──────────────────────────────────────────────────────────────
@@ -307,12 +307,12 @@ class DocumentItem {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'label': label,
-        'file_path': filePath,
-        'mime_type': mimeType,
-        'is_attached': isAttached,
-      };
+    'id': id,
+    'label': label,
+    'file_path': filePath,
+    'mime_type': mimeType,
+    'is_attached': isAttached,
+  };
 }
 
 // ── Helper ────────────────────────────────────────────────────────────────────

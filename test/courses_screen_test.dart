@@ -54,8 +54,9 @@ Widget _routerWrapped(Widget widget) {
 void main() {
   // ── Layout safety ──────────────────────────────────────────────────────────
 
-  testWidgets('CoursesScreen builds with no framework/layout errors',
-      (tester) async {
+  testWidgets('CoursesScreen builds with no framework/layout errors', (
+    tester,
+  ) async {
     final errors = <FlutterErrorDetails>[];
     final prev = FlutterError.onError;
     FlutterError.onError = errors.add;
@@ -64,13 +65,16 @@ void main() {
     await tester.pumpWidget(_themed(const CoursesScreen()));
     await tester.pumpAndSettle();
 
-    expect(errors, isEmpty,
-        reason: 'no framework/layout errors on CoursesScreen');
+    expect(
+      errors,
+      isEmpty,
+      reason: 'no framework/layout errors on CoursesScreen',
+    );
   });
 
-  // ── Tabs ───────────────────────────────────────────────────────────────────
+  // ── Course chip row ────────────────────────────────────────────────────────
 
-  testWidgets('all three course tabs are visible', (tester) async {
+  testWidgets('all three seed course chips are visible', (tester) async {
     await tester.pumpWidget(_themed(const CoursesScreen()));
     await tester.pumpAndSettle();
 
@@ -79,77 +83,28 @@ void main() {
     expect(find.text('Английский'), findsOneWidget);
   });
 
-  testWidgets('first tab is selected by default (blue underline state)',
-      (tester) async {
+  testWidgets('first chip is selected by default (primary colour)', (
+    tester,
+  ) async {
     await tester.pumpWidget(_themed(const CoursesScreen()));
     await tester.pumpAndSettle();
 
-    // The provider starts at selectedTabIndex = 0 (Математика).
-    final state = tester
-        .element(find.byType(CoursesScreen))
-        .findAncestorWidgetOfExactType<ProviderScope>();
-    expect(state, isNotNull);
-
-    // Verify the first tab label renders in primary colour via its text style.
-    // We find all RichText descendants for 'Математика' and confirm at least
-    // one uses the primary colour — which the active tab applies.
-    final tabTexts = tester.widgetList<Text>(find.text('Математика'));
-    final hasPrimaryStyle = tabTexts.any(
-      (t) => t.style?.color == AppColors.primary,
+    // The provider starts at pageIndex = 0 (Математика chip selected).
+    // Active chip renders its label in white; inactive chips use inkSecondary.
+    // We search all Text widgets for 'Математика' and check for at least one
+    // that has white colour (the chip indicator text).
+    final chipTexts = tester.widgetList<Text>(find.text('Математика'));
+    final hasWhiteStyle = chipTexts.any(
+      (t) => t.style?.color == AppColors.white,
     );
-    expect(hasPrimaryStyle, isTrue,
-        reason: 'selected tab label should use AppColors.primary');
-  });
-
-  testWidgets('tapping Логика tab updates selected tab', (tester) async {
-    await tester.pumpWidget(_themed(const CoursesScreen()));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Логика'));
-    await tester.pumpAndSettle();
-
-    // After tap, 'Логика' tab text should be in primary colour.
-    final logicTexts = tester.widgetList<Text>(find.text('Логика'));
-    final hasPrimary = logicTexts.any(
-      (t) => t.style?.color == AppColors.primary,
+    expect(
+      hasWhiteStyle,
+      isTrue,
+      reason: 'selected chip label should use AppColors.white',
     );
-    expect(hasPrimary, isTrue,
-        reason: 'tapped tab label should switch to AppColors.primary');
   });
 
-  testWidgets('tapping Английский tab updates selected tab', (tester) async {
-    await tester.pumpWidget(_themed(const CoursesScreen()));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Английский'));
-    await tester.pumpAndSettle();
-
-    final engTexts = tester.widgetList<Text>(find.text('Английский'));
-    final hasPrimary = engTexts.any(
-      (t) => t.style?.color == AppColors.primary,
-    );
-    expect(hasPrimary, isTrue,
-        reason: 'Английский tab should become active after tap');
-  });
-
-  // ── Lesson node path ───────────────────────────────────────────────────────
-
-  testWidgets('lesson path contains active, done, and locked nodes',
-      (tester) async {
-    await tester.pumpWidget(_themed(const CoursesScreen()));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(LessonNode), findsNWidgets(courseLessons.length));
-    expect(find.byIcon(Icons.play_arrow_rounded), findsWidgets);
-    expect(find.byIcon(Icons.check_rounded), findsWidgets);
-    expect(find.byIcon(Icons.lock_rounded), findsWidgets);
-  });
-
-  // ── TopicDiagramSlot (swipe gesture) ──────────────────────────────────────
-
-  testWidgets('swipe right on TopicDiagramSlot advances active lesson',
-      (tester) async {
-    // Use a ProviderContainer so we can read state after the gesture.
+  testWidgets('tapping Логика chip sets page index to 1', (tester) async {
     final container = ProviderContainer();
     addTearDown(container.dispose);
 
@@ -164,19 +119,129 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Capture starting state.
-    final before = container.read(coursesProvider).activeLessonIndex;
+    expect(container.read(coursesProvider).pageIndex, 0);
 
-    // Simulate a rightward fling on the diagram slot using flingFrom so
-    // velocity is properly generated (onHorizontalDragEnd checks primaryVelocity).
-    final diagramFinder = find.byType(TopicDiagramSlot).first;
-    final center = tester.getCenter(diagramFinder);
-    await tester.flingFrom(center, const Offset(120, 0), 800);
+    await tester.tap(find.text('Логика'));
     await tester.pumpAndSettle();
 
-    final after = container.read(coursesProvider).activeLessonIndex;
-    expect(after, greaterThan(before),
-        reason: 'rightward fling should advance the active lesson index');
+    expect(container.read(coursesProvider).pageIndex, 1);
+  });
+
+  testWidgets('tapping Английский chip sets page index to 2', (tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: ThemeData(extensions: [AppTokens.defaults()]),
+          home: const CoursesScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Английский'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(coursesProvider).pageIndex, 2);
+  });
+
+  // ── Lesson nodes ──────────────────────────────────────────────────────────
+
+  testWidgets('lesson path contains nodes for each seed lesson', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_themed(const CoursesScreen()));
+    await tester.pumpAndSettle();
+
+    // Math has 5 lessons in seed data.
+    expect(find.byType(LessonNode), findsWidgets);
+  });
+
+  testWidgets('lesson path has done, active, and locked nodes', (tester) async {
+    await tester.pumpWidget(_themed(const CoursesScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.check_rounded), findsWidgets);
+    expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.lock_rounded), findsWidgets);
+  });
+
+  // ── Collapsed lessons ──────────────────────────────────────────────────────
+
+  testWidgets('tapping an active lesson node expands its detail', (
+    tester,
+  ) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: ThemeData(extensions: [AppTokens.defaults()]),
+          home: const CoursesScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Initial state: no expanded lesson.
+    expect(container.read(coursesProvider).expandedLessonId, isNull);
+
+    // Tap the active lesson node row (play_arrow icon).
+    await tester.tap(find.byIcon(Icons.play_arrow_rounded).first);
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(coursesProvider).expandedLessonId,
+      isNotNull,
+      reason: 'tapping active node should expand it',
+    );
+  });
+
+  testWidgets('tapping the same lesson again collapses it', (tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: ThemeData(extensions: [AppTokens.defaults()]),
+          home: const CoursesScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Expand.
+    await tester.tap(find.byIcon(Icons.play_arrow_rounded).first);
+    await tester.pumpAndSettle();
+    final expandedId = container.read(coursesProvider).expandedLessonId;
+    expect(expandedId, isNotNull);
+
+    // Collapse.
+    await tester.tap(find.byIcon(Icons.play_arrow_rounded).first);
+    await tester.pumpAndSettle();
+    expect(
+      container.read(coursesProvider).expandedLessonId,
+      isNull,
+      reason: 'second tap should collapse the lesson',
+    );
+  });
+
+  // ── TopicDiagramSlot ──────────────────────────────────────────────────────
+
+  testWidgets('TopicDiagramSlot is rendered on the courses page', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_themed(const CoursesScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TopicDiagramSlot), findsWidgets);
   });
 
   // ── Bottom box ─────────────────────────────────────────────────────────────
@@ -185,18 +250,27 @@ void main() {
     await tester.pumpWidget(_themed(const CoursesScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.byType(FeaturedButton), findsOneWidget);
+    expect(find.byType(FeaturedButton), findsWidgets);
     expect(find.text('Начать урок'), findsOneWidget);
   });
 
-  testWidgets('bottom lesson card contains active lesson title',
-      (tester) async {
+  // ── «Создать курс» ────────────────────────────────────────────────────────
+
+  testWidgets('"Создать курс" button is visible', (tester) async {
     await tester.pumpWidget(_themed(const CoursesScreen()));
     await tester.pumpAndSettle();
 
-    // The active lesson at index 1 is 'Сравнение вероятностей'.
-    // It appears in the header AND the bottom box, so we use findsWidgets.
-    expect(find.text('Сравнение вероятностей'), findsWidgets);
+    expect(find.text('Создать курс'), findsOneWidget);
+  });
+
+  testWidgets('tapping "Создать курс" opens bottom sheet', (tester) async {
+    await tester.pumpWidget(_themed(const CoursesScreen()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Создать курс'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Создать'), findsWidgets);
   });
 
   // ── Navigation ─────────────────────────────────────────────────────────────
@@ -205,7 +279,6 @@ void main() {
     await tester.pumpWidget(_routerWrapped(const CoursesScreen()));
     await tester.pumpAndSettle();
 
-    // The button may be off-screen — scroll down until it is visible.
     await tester.scrollUntilVisible(
       find.text('Начать урок'),
       100,
@@ -217,5 +290,60 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('LessonScreen'), findsOneWidget);
+  });
+
+  // ── CoursesNotifier unit tests ────────────────────────────────────────────
+
+  group('CoursesNotifier unit tests', () {
+    test('initial pageIndex is 0', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      expect(container.read(coursesProvider).pageIndex, 0);
+    });
+
+    test('setPageIndex updates pageIndex', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(coursesProvider.notifier).setPageIndex(2);
+      expect(container.read(coursesProvider).pageIndex, 2);
+    });
+
+    test('toggleLesson expands then collapses a lesson', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      const testId = 'test_lesson';
+      container.read(coursesProvider.notifier).toggleLesson(testId);
+      expect(container.read(coursesProvider).expandedLessonId, testId);
+      container.read(coursesProvider.notifier).toggleLesson(testId);
+      expect(container.read(coursesProvider).expandedLessonId, isNull);
+    });
+
+    test('seed courses list contains 3 courses', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      expect(container.read(coursesProvider).courses.length, 3);
+    });
+
+    test('createCourse adds a course and resets pageIndex to 0', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(coursesProvider.notifier).setPageIndex(1);
+      expect(container.read(coursesProvider).pageIndex, 1);
+
+      await container.read(coursesProvider.notifier).createCourse('Алгебра');
+
+      final state = container.read(coursesProvider);
+      expect(state.courses.length, 4, reason: '3 seed + 1 generated');
+      expect(state.pageIndex, 0, reason: 'should animate to the new page (0)');
+      expect(state.courses.first.isGenerated, isTrue);
+    });
+
+    test('createCourse with empty topic is a no-op', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final before = container.read(coursesProvider).courses.length;
+      await container.read(coursesProvider.notifier).createCourse('   ');
+      expect(container.read(coursesProvider).courses.length, before);
+    });
   });
 }

@@ -26,7 +26,8 @@ class _EventReviewScreenState extends ConsumerState<EventReviewScreen> {
   Widget build(BuildContext context) {
     final mentor = ref.watch(mentorProvider);
     final notifier = ref.read(mentorProvider.notifier);
-    final tokens = Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
     final events = mentor.proposedEvents;
 
     return AppScaffold(
@@ -36,8 +37,8 @@ class _EventReviewScreenState extends ConsumerState<EventReviewScreen> {
         title: Text(
           'Проверить мероприятия',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: AppColors.ink,
-              ),
+            color: AppColors.ink,
+          ),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: AppColors.ink),
@@ -66,8 +67,8 @@ class _EventReviewScreenState extends ConsumerState<EventReviewScreen> {
                 child: Text(
                   'Нет предложенных мероприятий',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.inkSecondary,
-                      ),
+                    color: AppColors.inkSecondary,
+                  ),
                 ),
               ),
             ),
@@ -112,8 +113,8 @@ class _EventCard extends StatelessWidget {
             Text(
               event.title,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: AppColors.ink,
-                  ),
+                color: AppColors.ink,
+              ),
             ),
             if (event.description.isNotEmpty) ...[
               SizedBox(height: tokens.gapXs),
@@ -135,8 +136,8 @@ class _EventCard extends StatelessWidget {
                   child: Text(
                     _formatDate(event.scheduledAt),
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: AppColors.inkSecondary,
-                        ),
+                      color: AppColors.inkSecondary,
+                    ),
                   ),
                 ),
                 GestureDetector(
@@ -154,8 +155,8 @@ class _EventCard extends StatelessWidget {
                     child: Text(
                       'Изменить время',
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: AppColors.primary,
-                          ),
+                        color: AppColors.primary,
+                      ),
                     ),
                   ),
                 ),
@@ -194,8 +195,18 @@ class _EventCard extends StatelessWidget {
   /// Formats date in RU style without intl package to avoid blank-screen risk.
   static String _formatDate(DateTime dt) {
     const months = [
-      'янв', 'фев', 'мар', 'апр', 'май', 'июн',
-      'июл', 'авг', 'сен', 'окт', 'ноя', 'дек',
+      'янв',
+      'фев',
+      'мар',
+      'апр',
+      'май',
+      'июн',
+      'июл',
+      'авг',
+      'сен',
+      'окт',
+      'ноя',
+      'дек',
     ];
     final m = months[dt.month - 1];
     final h = dt.hour.toString().padLeft(2, '0');

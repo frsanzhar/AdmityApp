@@ -39,15 +39,15 @@ class MentorState {
   });
 
   factory MentorState.initial() => const MentorState(
-        messages: [],
-        mode: ChatMode.general,
-        isLoading: false,
-        proposedEvents: [],
-        calendarEvents: [],
-        questionnaire: PlanQuestionnaire(),
-        topicPlan: null,
-        pendingTopic: null,
-      );
+    messages: [],
+    mode: ChatMode.general,
+    isLoading: false,
+    proposedEvents: [],
+    calendarEvents: [],
+    questionnaire: PlanQuestionnaire(),
+    topicPlan: null,
+    pendingTopic: null,
+  );
 
   final List<ChatMessage> messages;
   final ChatMode mode;
@@ -101,17 +101,19 @@ String _newId() {
 }
 
 class MentorNotifier extends Notifier<MentorState> {
-
   @override
   MentorState build() {
     // Greet the user on first load.
     final greeting = ChatMessage(
       id: _newId(),
       role: 'assistant',
-      text: 'Привет! Я Ералы — твой AI-наставник. '
-          'Могу помочь спланировать события в календаре, '
-          'составить план подготовки к экзамену или просто ответить на вопросы. '
-          'Чем займёмся?',
+      text:
+          'Привет! Я Ералы — твой AI-наставник по поступлению.\n\n'
+          'Могу помочь с тремя вещами:\n'
+          '1. Составить план подготовки к экзамену (IELTS, SAT, ЕНТ).\n'
+          '2. Запланировать мероприятия в твоём календаре.\n'
+          '3. Ответить на вопросы про стипендии и университеты.\n\n'
+          'С чего начнём?',
       timestamp: DateTime.now(),
     );
     return MentorState.initial().copyWith(messages: [greeting]);
@@ -217,7 +219,9 @@ class MentorNotifier extends Notifier<MentorState> {
     // Detect intent: event planning
     if (_isEventIntent(lower)) {
       state = state.copyWith(mode: ChatMode.eventPlanning, isLoading: true);
-      _appendAssistant('Отлично! Дай мне секунду — предложу несколько мероприятий...');
+      _appendAssistant(
+        'Отлично! Дай мне секунду — предложу несколько мероприятий...',
+      );
       final events = await _repo.proposeEvents(topic: text);
       state = state.copyWith(
         proposedEvents: events,
@@ -340,7 +344,14 @@ class MentorNotifier extends Notifier<MentorState> {
   }
 
   static String? _extractPlanTopic(String lower) {
-    const planTriggers = ['план', 'подготовк', 'study plan', 'ielts', 'sat', 'ент'];
+    const planTriggers = [
+      'план',
+      'подготовк',
+      'study plan',
+      'ielts',
+      'sat',
+      'ент',
+    ];
     if (planTriggers.any(lower.contains)) {
       // Heuristic: return the whole message as the "topic seed"
       return lower.trim();
@@ -373,5 +384,6 @@ class MentorNotifier extends Notifier<MentorState> {
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 
-final mentorProvider =
-    NotifierProvider<MentorNotifier, MentorState>(MentorNotifier.new);
+final mentorProvider = NotifierProvider<MentorNotifier, MentorState>(
+  MentorNotifier.new,
+);

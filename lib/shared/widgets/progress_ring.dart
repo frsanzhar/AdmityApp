@@ -6,6 +6,13 @@ import 'package:flutter/material.dart';
 /// Circular progress ring (0.0 → 1.0) using [CustomPainter].
 ///
 /// Matches the "82%" progress ring style in the Brilliant references.
+///
+/// ## Animation (non-breaking addition)
+/// The arc sweeps from the previous value to the new one using an implicit
+/// [TweenAnimationBuilder].  When `MediaQuery.disableAnimations` is true the
+/// value is applied instantly (no tween).
+///
+/// All existing constructor parameters are unchanged.
 class ProgressRing extends StatelessWidget {
   const ProgressRing({
     required this.progress,
@@ -29,17 +36,47 @@ class ProgressRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox.square(
-      dimension: size,
-      child: CustomPaint(
-        painter: _RingPainter(
-          progress: progress.clamp(0.0, 1.0),
-          strokeWidth: strokeWidth,
-          progressColor: progressColor ?? AppColors.primary,
-          trackColor: trackColor ?? AppColors.border,
+    final effectiveProgress = progress.clamp(0.0, 1.0);
+    final disableAnim = MediaQuery.of(context).disableAnimations;
+
+    final effectiveProgressColor = progressColor ?? AppColors.primary;
+    final effectiveTrackColor = trackColor ?? AppColors.border;
+
+    if (disableAnim) {
+      // Static path — no animation overhead.
+      return SizedBox.square(
+        dimension: size,
+        child: CustomPaint(
+          painter: _RingPainter(
+            progress: effectiveProgress,
+            strokeWidth: strokeWidth,
+            progressColor: effectiveProgressColor,
+            trackColor: effectiveTrackColor,
+          ),
+          child: child != null ? Center(child: child) : null,
         ),
-        child: child != null ? Center(child: child) : null,
-      ),
+      );
+    }
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: effectiveProgress),
+      duration: const Duration(milliseconds: 700),
+      curve: Curves.easeOutCubic,
+      builder: (context, animatedProgress, innerChild) {
+        return SizedBox.square(
+          dimension: size,
+          child: CustomPaint(
+            painter: _RingPainter(
+              progress: animatedProgress,
+              strokeWidth: strokeWidth,
+              progressColor: effectiveProgressColor,
+              trackColor: effectiveTrackColor,
+            ),
+            child: innerChild,
+          ),
+        );
+      },
+      child: child != null ? Center(child: child) : null,
     );
   }
 }

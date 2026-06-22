@@ -17,7 +17,8 @@ class TopicPlanScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
 
     return AppScaffold(
       appBar: AppBar(
@@ -26,8 +27,8 @@ class TopicPlanScreen extends StatelessWidget {
         title: Text(
           'План: ${plan.topic}',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: AppColors.ink,
-              ),
+            color: AppColors.ink,
+          ),
           overflow: TextOverflow.ellipsis,
         ),
         leading: IconButton(
@@ -45,8 +46,8 @@ class TopicPlanScreen extends StatelessWidget {
             Text(
               plan.topic,
               style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    color: AppColors.ink,
-                  ),
+                color: AppColors.ink,
+              ),
             ),
             SizedBox(height: tokens.gapSm),
             Text(
@@ -69,10 +70,9 @@ class TopicPlanScreen extends StatelessWidget {
                     Expanded(
                       child: Text(
                         plan.notes,
-                        style:
-                            Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: AppColors.inkSecondary,
-                                ),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.inkSecondary,
+                        ),
                       ),
                     ),
                   ],
@@ -138,9 +138,9 @@ class _LessonCard extends StatelessWidget {
                 Text(
                   lesson.title,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.ink,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: AppColors.ink,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 SizedBox(height: tokens.gapXs),
                 Row(
@@ -170,10 +170,10 @@ class _LessonCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           lesson.resource!,
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: AppColors.primary,
-                                  ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: AppColors.primary,
+                              ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
