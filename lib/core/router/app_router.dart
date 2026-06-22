@@ -1,3 +1,4 @@
+import 'package:admity/features/career/presentation/daily_career_test_screen.dart';
 import 'package:admity/features/courses/presentation/courses_screen.dart';
 import 'package:admity/features/home/presentation/home_screen.dart';
 import 'package:admity/features/lesson/presentation/lesson_screen.dart';
@@ -9,10 +10,10 @@ import 'package:admity/features/opportunities/presentation/opportunities_screen.
 import 'package:admity/features/opportunities/presentation/scholarship_apply_screen.dart';
 import 'package:admity/features/opportunities/presentation/scholarship_detail_screen.dart';
 import 'package:admity/features/opportunities/presentation/university_detail_screen.dart';
-import 'package:admity/features/profile/presentation/career_test_screen.dart';
 import 'package:admity/features/profile/presentation/profile_edit_screen.dart';
 import 'package:admity/features/profile/presentation/profile_screen.dart';
 import 'package:admity/features/splash/presentation/splash_screen.dart';
+import 'package:admity/features/universities/presentation/universities_screen.dart';
 import 'package:admity/shared/widgets/app_bottom_nav.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -24,8 +25,10 @@ GoRouter createRouter() {
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       // Animated onboarding — full-screen, shown when profile is incomplete.
       GoRoute(path: '/onboarding', builder: (context, state) => const OnboardingScreen()),
-      // Career-orientation test — full-screen, launched from Profile.
-      GoRoute(path: '/career-test', builder: (context, state) => const CareerTestScreen()),
+      // Daily career-orientation test — full-screen, a new test each day.
+      GoRoute(path: '/career-test', builder: (context, state) => const DailyCareerTestScreen()),
+      // Full "Вузы" page — universities pulled out of Возможности.
+      GoRoute(path: '/universities', builder: (context, state) => const UniversitiesScreen()),
       // Full-screen lesson route — outside the tab shell so it covers the bottom nav.
       GoRoute(path: '/lesson', builder: (context, state) => const LessonScreen()),
       // Full-screen scholarship detail + apply routes — outside the tab shell.
