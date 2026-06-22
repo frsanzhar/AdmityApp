@@ -1,14 +1,17 @@
-/// Profile screen — §7.7 DESIGN_SYSTEM.md (revamped).
+/// Profile screen — §7.7 DESIGN_SYSTEM.md.
 ///
-/// Sections:
-///   1. Мои данные — view/edit toggle via pencil icon in header.
-///   2. Профориентация — tappable card navigating to /career-test.
-///   3. Пакет документов — seeded default KZ pack, checkbox-toggle items.
+/// Layout:
+///   1. Identity header — name, career badge, daily goal.  Pencil icon opens
+///      ProfileEditScreen (/profile/edit).  "Мои данные" form is NOT shown here.
+///   2. Профориентация card — navigates to /career-test.
+///   3. Пакет документов — pre-seeded KZ pack; each item shows attach/confirm
+///      button (file_picker); missing items clearly distinguish from attached.
 ///
-/// Anti-slop rules (CLAUDE.md):
+/// Anti-slop rules (DESIGN_SYSTEM.md §8 / CLAUDE.md):
 ///   - AppScaffold > SingleChildScrollView > Column(mainAxisSize: .min)
 ///   - NEVER CrossAxisAlignment.stretch inside a scroll view
 ///   - Colors only AppColors, font only Onest via theme
+///   - One accent per screen (AppColors.primary / cobalt)
 library;
 
 import 'dart:async';
@@ -22,6 +25,7 @@ import 'package:admity/shared/widgets/app_scaffold.dart';
 import 'package:admity/shared/widgets/mascot_slot.dart';
 import 'package:admity/shared/widgets/primary_button.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -33,53 +37,18 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  bool _isEditing = false;
   bool _seeded = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeSeedPackage());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeSeed());
   }
 
-  Future<void> _maybeSeedPackage() async {
+  Future<void> _maybeSeed() async {
     if (_seeded) return;
-    final s = ref.read(profileProvider);
-    if (!s.isLoading && s.packages.isEmpty) {
-      _seeded = true;
-      await _seedDefaultPackage();
-    } else if (!s.isLoading) {
-      _seeded = true;
-    }
-  }
-
-  Future<void> _seedDefaultPackage() async {
-    final notifier = ref.read(profileProvider.notifier);
-    await notifier.addPackage(
-      name: 'Стандартный пакет КЗ',
-      description: 'Типовой набор документов для поступления в вузы Казахстана',
-    );
-
-    // After adding the package, seed its items.
-    final pkgs = ref.read(profileProvider).packages;
-    if (pkgs.isEmpty) return;
-    final pkgId = pkgs.first.id;
-
-    const items = [
-      'Удостоверение личности / Свидетельство о рождении',
-      'Аттестат / Транскрипт оценок',
-      'Медицинская справка 086-У',
-      'Фотографии 3×4 (6 шт.)',
-      'Сертификат ЕНТ / ЕГЭ',
-      'Сертификат IELTS / TOEFL / SAT (при наличии)',
-      'Мотивационное письмо',
-      'Рекомендательные письма (2 шт.)',
-      'Заявление о поступлении',
-    ];
-
-    for (final label in items) {
-      await notifier.addItemToPackage(packageId: pkgId, label: label);
-    }
+    _seeded = true;
+    await ref.read(profileProvider.notifier).ensureDefaultPackageSeeded();
   }
 
   @override
@@ -88,14 +57,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final tokens =
         Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
 
-    // Seed once packages are loaded and empty.
-    if (!_seeded && !state.isLoading && state.packages.isEmpty) {
+    // Also seed once the loading state resolves (handles the async race).
+    if (!_seeded && !state.isLoading) {
       _seeded = true;
       WidgetsBinding.instance.addPostFrameCallback(
-        (_) => _seedDefaultPackage(),
+        (_) => ref.read(profileProvider.notifier).ensureDefaultPackageSeeded(),
       );
-    } else if (!_seeded && !state.isLoading) {
-      _seeded = true;
     }
 
     return AppScaffold(
@@ -103,80 +70,81 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ? const Center(
               child: CircularProgressIndicator(color: AppColors.primary),
             )
-          : SingleChildScrollView(
-              padding: EdgeInsets.symmetric(
-                horizontal: tokens.screenPadding,
-                vertical: tokens.gapXl,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _ProfileHeader(
-                    profile: state.profile,
-                    tokens: tokens,
-                    isEditing: _isEditing,
-                    onToggleEdit: () =>
-                        setState(() => _isEditing = !_isEditing),
-                  ),
-                  SizedBox(height: tokens.gapXxl),
+          : SafeArea(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(
+                  horizontal: tokens.screenPadding,
+                  vertical: tokens.gapXl,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── 1. Identity header ─────────────────────────────────
+                    _IdentityHeader(
+                          profile: state.profile,
+                          tokens: tokens,
+                        )
+                        .animate()
+                        .fadeIn(duration: 350.ms)
+                        .slideY(
+                          begin: 0.06,
+                          end: 0,
+                          duration: 350.ms,
+                          curve: Curves.easeOutCubic,
+                        ),
+                    SizedBox(height: tokens.gapXxl),
 
-                  // ── Section: Мои данные ────────────────────────────────
-                  _SectionTitle(title: 'Мои данные', tokens: tokens),
-                  SizedBox(height: tokens.gapMd),
-                  if (_isEditing)
-                    _SelfDataEditForm(
-                      profile: state.profile,
+                    // ── 2. Career test CTA ─────────────────────────────────
+                    _CareerTestCard(
+                      careerResult: state.profile.careerResult,
                       tokens: tokens,
-                      onSaved: () => setState(() => _isEditing = false),
-                    )
-                  else
-                    _SelfDataView(profile: state.profile, tokens: tokens),
-                  SizedBox(height: tokens.gapXxl),
+                    ).animate().fadeIn(
+                      delay: 80.ms,
+                      duration: 350.ms,
+                    ),
+                    SizedBox(height: tokens.gapXxl),
 
-                  // ── Career test CTA ────────────────────────────────────
-                  _CareerTestCard(
-                    careerResult: state.profile.careerResult,
-                    tokens: tokens,
-                  ),
-                  SizedBox(height: tokens.gapXxl),
+                    // ── 3. Пакет документов ────────────────────────────────
+                    _SectionHeader(
+                      title: 'Пакет документов',
+                      subtitle:
+                          'Отмечай документы по мере готовности и прикрепляй файлы',
+                      tokens: tokens,
+                    ),
+                    SizedBox(height: tokens.gapMd),
+                    _PackagesSection(
+                      packages: state.packages,
+                      tokens: tokens,
+                    ).animate().fadeIn(delay: 160.ms, duration: 350.ms),
 
-                  // ── Section: Пакет документов ──────────────────────────
-                  _SectionTitle(title: 'Пакет документов', tokens: tokens),
-                  SizedBox(height: tokens.gapSm),
-                  Text(
-                    'Отмечай документы по мере готовности и отправляй разом',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  SizedBox(height: tokens.gapMd),
-                  _PackagesSection(packages: state.packages, tokens: tokens),
-
-                  SizedBox(height: tokens.gapXxl),
-                ],
+                    SizedBox(height: tokens.gapXxl),
+                  ],
+                ),
               ),
             ),
     );
   }
 }
 
-// ── Header ────────────────────────────────────────────────────────────────────
+// ── Identity header ───────────────────────────────────────────────────────────
 
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({
+/// Compact identity card: mascot + name + career badge + daily goal.
+/// The pencil icon navigates to /profile/edit (full editor).
+/// "Мои данные" inline form is intentionally absent from this screen.
+class _IdentityHeader extends ConsumerWidget {
+  const _IdentityHeader({
     required this.profile,
     required this.tokens,
-    required this.isEditing,
-    required this.onToggleEdit,
   });
 
   final StudentProfile profile;
   final AppTokens tokens;
-  final bool isEditing;
-  final VoidCallback onToggleEdit;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
+    final displayName = profile.name?.isNotEmpty == true ? profile.name! : null;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -192,25 +160,46 @@ class _ProfileHeader extends StatelessWidget {
                 'Профиль',
                 style: textTheme.headlineLarge?.copyWith(color: AppColors.ink),
               ),
-              Text(
-                'Настройки и документы',
-                style: textTheme.bodySmall,
-              ),
+              if (displayName != null) ...[
+                SizedBox(height: tokens.gapXs),
+                Text(
+                  displayName,
+                  style: textTheme.bodyLarge?.copyWith(
+                    color: AppColors.inkSecondary,
+                  ),
+                ),
+              ] else ...[
+                SizedBox(height: tokens.gapXs),
+                Text(
+                  'Добавь данные о себе →',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+              // Career badge
               if (profile.careerResult != null) ...[
                 SizedBox(height: tokens.gapXs),
-                _CareerResultBadge(result: profile.careerResult!),
+                _CareerBadge(result: profile.careerResult!),
+              ],
+              // Daily goal chip
+              if (profile.dailyGoalMinutes != null) ...[
+                SizedBox(height: tokens.gapXs),
+                _GoalChip(minutes: profile.dailyGoalMinutes!),
               ],
             ],
           ),
         ),
+        // Pencil → opens full edit screen
         SizedBox(
           width: 44,
           height: 44,
           child: IconButton(
-            onPressed: onToggleEdit,
+            onPressed: () => context.push('/profile/edit'),
             padding: EdgeInsets.zero,
-            icon: Icon(
-              isEditing ? Icons.close_rounded : Icons.edit_outlined,
+            tooltip: 'Редактировать данные',
+            icon: const Icon(
+              Icons.edit_outlined,
               color: AppColors.primary,
               size: 22,
             ),
@@ -221,8 +210,8 @@ class _ProfileHeader extends StatelessWidget {
   }
 }
 
-class _CareerResultBadge extends StatelessWidget {
-  const _CareerResultBadge({required this.result});
+class _CareerBadge extends StatelessWidget {
+  const _CareerBadge({required this.result});
   final String result;
 
   @override
@@ -232,7 +221,7 @@ class _CareerResultBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
       ),
       child: Text(
         result,
@@ -244,351 +233,60 @@ class _CareerResultBadge extends StatelessWidget {
   }
 }
 
-// ── Section title ─────────────────────────────────────────────────────────────
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title, required this.tokens});
-  final String title;
-  final AppTokens tokens;
+class _GoalChip extends StatelessWidget {
+  const _GoalChip({required this.minutes});
+  final int minutes;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: Theme.of(
-        context,
-      ).textTheme.headlineMedium?.copyWith(color: AppColors.ink),
-    );
-  }
-}
-
-// ── Self-data view (read-only) ────────────────────────────────────────────────
-
-class _SelfDataView extends StatelessWidget {
-  const _SelfDataView({required this.profile, required this.tokens});
-  final StudentProfile profile;
-  final AppTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _DataRow(label: 'Имя', value: profile.name, tokens: tokens),
-          _Divider(tokens: tokens),
-          _DataRow(label: 'Класс', value: profile.grade, tokens: tokens),
-          _Divider(tokens: tokens),
-          _DataRow(label: 'Город', value: profile.city, tokens: tokens),
-          _Divider(tokens: tokens),
-          _DataRow(
-            label: 'Средний балл',
-            value: profile.gpa ?? profile.gpaBand,
-            tokens: tokens,
-          ),
-          _Divider(tokens: tokens),
-          _DataRow(
-            label: 'Направления',
-            value: profile.targetMajors.isEmpty
-                ? null
-                : profile.targetMajors.join(', '),
-            tokens: tokens,
-          ),
-          _Divider(tokens: tokens),
-          _DataRow(
-            label: 'Интересы',
-            value: profile.interests.isEmpty
-                ? null
-                : profile.interests.join(', '),
-            tokens: tokens,
-          ),
-          _Divider(tokens: tokens),
-          _DataRow(label: 'IELTS', value: profile.ieltsScore, tokens: tokens),
-          _Divider(tokens: tokens),
-          _DataRow(label: 'SAT', value: profile.satScore, tokens: tokens),
-          _Divider(tokens: tokens),
-          _DataRow(label: 'TOEFL', value: profile.toeflScore, tokens: tokens),
-        ],
-      ),
-    );
-  }
-}
-
-class _DataRow extends StatelessWidget {
-  const _DataRow({
-    required this.label,
-    required this.value,
-    required this.tokens,
-  });
-
-  final String label;
-  final String? value;
-  final AppTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: tokens.gapSm),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: textTheme.labelLarge?.copyWith(
-                color: AppColors.inkSecondary,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value ?? '—',
-              style: textTheme.bodyLarge?.copyWith(
-                color: value != null ? AppColors.ink : AppColors.inkSecondary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Divider extends StatelessWidget {
-  const _Divider({required this.tokens});
-  final AppTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    return const Divider(
-      height: 1,
-      thickness: 1,
-      color: AppColors.border,
-    );
-  }
-}
-
-// ── Self-data edit form ───────────────────────────────────────────────────────
-
-class _SelfDataEditForm extends ConsumerStatefulWidget {
-  const _SelfDataEditForm({
-    required this.profile,
-    required this.tokens,
-    required this.onSaved,
-  });
-
-  final StudentProfile profile;
-  final AppTokens tokens;
-  final VoidCallback onSaved;
-
-  @override
-  ConsumerState<_SelfDataEditForm> createState() => _SelfDataEditFormState();
-}
-
-class _SelfDataEditFormState extends ConsumerState<_SelfDataEditForm> {
-  late final TextEditingController _nameCtrl;
-  late final TextEditingController _gradeCtrl;
-  late final TextEditingController _cityCtrl;
-  late final TextEditingController _gpaCtrl;
-  late final TextEditingController _majorsCtrl;
-  late final TextEditingController _interestsCtrl;
-  late final TextEditingController _ieltsCtrl;
-  late final TextEditingController _satCtrl;
-  late final TextEditingController _toeflCtrl;
-
-  @override
-  void initState() {
-    super.initState();
-    final p = widget.profile;
-    _nameCtrl = TextEditingController(text: p.name ?? '');
-    _gradeCtrl = TextEditingController(text: p.grade ?? '');
-    _cityCtrl = TextEditingController(text: p.city ?? '');
-    _gpaCtrl = TextEditingController(text: p.gpa ?? p.gpaBand ?? '');
-    _majorsCtrl = TextEditingController(text: p.targetMajors.join(', '));
-    _interestsCtrl = TextEditingController(text: p.interests.join(', '));
-    _ieltsCtrl = TextEditingController(text: p.ieltsScore ?? '');
-    _satCtrl = TextEditingController(text: p.satScore ?? '');
-    _toeflCtrl = TextEditingController(text: p.toeflScore ?? '');
-  }
-
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _gradeCtrl.dispose();
-    _cityCtrl.dispose();
-    _gpaCtrl.dispose();
-    _majorsCtrl.dispose();
-    _interestsCtrl.dispose();
-    _ieltsCtrl.dispose();
-    _satCtrl.dispose();
-    _toeflCtrl.dispose();
-    super.dispose();
-  }
-
-  List<String> _split(String v) =>
-      v.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
-
-  String? _nonEmpty(String v) => v.trim().isEmpty ? null : v.trim();
-
-  void _save() {
-    final updated = widget.profile.copyWith(
-      name: _nonEmpty(_nameCtrl.text),
-      grade: _nonEmpty(_gradeCtrl.text),
-      city: _nonEmpty(_cityCtrl.text),
-      gpa: _nonEmpty(_gpaCtrl.text),
-      targetMajors: _split(_majorsCtrl.text),
-      interests: _split(_interestsCtrl.text),
-      ieltsScore: _nonEmpty(_ieltsCtrl.text),
-      satScore: _nonEmpty(_satCtrl.text),
-      toeflScore: _nonEmpty(_toeflCtrl.text),
-    );
-    unawaited(ref.read(profileProvider.notifier).saveProfile(updated));
-    FocusScope.of(context).unfocus();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Данные сохранены'),
-        backgroundColor: AppColors.successGreen,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(widget.tokens.radiusMd),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(
+          Icons.timer_outlined,
+          size: 14,
+          color: AppColors.inkSecondary,
         ),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-    widget.onSaved();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isSaving = ref.watch(profileProvider.select((s) => s.isSaving));
-    final tokens = widget.tokens;
-
-    return AppCard(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _EditField(
-            label: 'Имя',
-            hint: 'Как тебя зовут?',
-            controller: _nameCtrl,
-          ),
-          SizedBox(height: tokens.gapMd),
-          _EditField(label: 'Класс', hint: '11 класс', controller: _gradeCtrl),
-          SizedBox(height: tokens.gapMd),
-          _EditField(
-            label: 'Город',
-            hint: 'Алматы, Астана...',
-            controller: _cityCtrl,
-          ),
-          SizedBox(height: tokens.gapMd),
-          _EditField(
-            label: 'Средний балл / ГПА',
-            hint: '4.8',
-            controller: _gpaCtrl,
-            keyboardType: TextInputType.number,
-          ),
-          SizedBox(height: tokens.gapMd),
-          _EditField(
-            label: 'Направления (через запятую)',
-            hint: 'IT, Медицина...',
-            controller: _majorsCtrl,
-          ),
-          SizedBox(height: tokens.gapMd),
-          _EditField(
-            label: 'Интересы (через запятую)',
-            hint: 'Математика, Дизайн...',
-            controller: _interestsCtrl,
-          ),
-          SizedBox(height: tokens.gapMd),
-          _EditField(
-            label: 'IELTS балл',
-            hint: '7.0',
-            controller: _ieltsCtrl,
-            keyboardType: TextInputType.number,
-          ),
-          SizedBox(height: tokens.gapMd),
-          _EditField(
-            label: 'SAT балл',
-            hint: '1400',
-            controller: _satCtrl,
-            keyboardType: TextInputType.number,
-          ),
-          SizedBox(height: tokens.gapMd),
-          _EditField(
-            label: 'TOEFL балл',
-            hint: '100',
-            controller: _toeflCtrl,
-            keyboardType: TextInputType.number,
-          ),
-          SizedBox(height: tokens.gapXl),
-          PrimaryButton(
-            label: 'Сохранить',
-            onPressed: isSaving ? null : _save,
-            isLoading: isSaving,
-          ),
-        ],
-      ),
+        const SizedBox(width: 4),
+        Text(
+          'Цель: $minutes мин/день',
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppColors.inkSecondary),
+        ),
+      ],
     );
   }
 }
 
-class _EditField extends StatelessWidget {
-  const _EditField({
-    required this.label,
-    required this.hint,
-    required this.controller,
-    this.keyboardType,
+// ── Section header ────────────────────────────────────────────────────────────
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    required this.tokens,
+    this.subtitle,
   });
 
-  final String label;
-  final String hint;
-  final TextEditingController controller;
-  final TextInputType? keyboardType;
+  final String title;
+  final String? subtitle;
+  final AppTokens tokens;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
-          style: textTheme.labelLarge?.copyWith(color: AppColors.ink),
+          title,
+          style: textTheme.headlineMedium?.copyWith(color: AppColors.ink),
         ),
-        const SizedBox(height: 6),
-        TextField(
-          controller: controller,
-          keyboardType: keyboardType,
-          style: textTheme.bodyLarge?.copyWith(color: AppColors.ink),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: textTheme.bodyLarge?.copyWith(
-              color: AppColors.inkSecondary,
-            ),
-            filled: true,
-            fillColor: AppColors.surfaceTint,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 12,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.border),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.border),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.primary, width: 2),
-            ),
-          ),
-        ),
+        if (subtitle != null) ...[
+          SizedBox(height: tokens.gapXs),
+          Text(subtitle!, style: textTheme.bodySmall),
+        ],
       ],
     );
   }
@@ -633,7 +331,7 @@ class _CareerTestCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Пройти тест на профориентацию',
+                  'Тест на профориентацию',
                   style: textTheme.titleLarge?.copyWith(color: AppColors.ink),
                 ),
                 SizedBox(height: tokens.gapXs),
@@ -661,9 +359,7 @@ class _CareerTestCard extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Тест на профориентацию'),
         content: const Text(
           'Тест займёт 10–15 минут. Отвечай честно — так результат будет точнее.',
@@ -750,13 +446,13 @@ class _PackagesSectionState extends ConsumerState<_PackagesSection> {
             itemCount: packages.length,
             separatorBuilder: (context, index) =>
                 SizedBox(height: tokens.gapMd),
-            itemBuilder: (context, i) =>
+            itemBuilder: (_, i) =>
                 _PackageCard(pkg: packages[i], tokens: tokens),
           ),
           SizedBox(height: tokens.gapMd),
         ],
 
-        // Create new package
+        // Create new package card
         AppCard(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -801,8 +497,7 @@ class _PackageCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
-
-    final checkedCount = pkg.items.where((i) => i.isAttached).length;
+    final attached = pkg.items.where((i) => i.isAttached).length;
     final total = pkg.items.length;
 
     return AppCard(
@@ -810,6 +505,7 @@ class _PackageCard extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Package name + delete
           Row(
             children: [
               Expanded(
@@ -833,25 +529,29 @@ class _PackageCard extends ConsumerWidget {
               ),
             ],
           ),
+
           if (pkg.description != null) ...[
             SizedBox(height: tokens.gapXs),
             Text(pkg.description!, style: textTheme.bodySmall),
           ],
+
           if (total > 0) ...[
             SizedBox(height: tokens.gapSm),
+            // Progress label
             Text(
-              '$checkedCount / $total готово',
+              '$attached / $total подтверждено',
               style: textTheme.labelLarge?.copyWith(
-                color: checkedCount == total
+                color: attached == total
                     ? AppColors.successGreen
                     : AppColors.inkSecondary,
               ),
             ),
             SizedBox(height: tokens.gapXs),
+            // Progress bar
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                value: total > 0 ? checkedCount / total : 0,
+                value: total > 0 ? attached / total : 0,
                 minHeight: 4,
                 backgroundColor: AppColors.border,
                 valueColor: const AlwaysStoppedAnimation<Color>(
@@ -859,23 +559,28 @@ class _PackageCard extends ConsumerWidget {
                 ),
               ),
             ),
-          ],
-          SizedBox(height: tokens.gapMd),
-          ...pkg.items.map(
-            (item) => _DocumentCheckRow(
-              item: item,
-              packageId: pkg.id,
-              tokens: tokens,
+            SizedBox(height: tokens.gapMd),
+            // Document rows
+            ...pkg.items.map(
+              (item) => _DocumentRow(
+                item: item,
+                packageId: pkg.id,
+                tokens: tokens,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 }
 
-class _DocumentCheckRow extends ConsumerWidget {
-  const _DocumentCheckRow({
+/// A single document row inside a package card.
+///
+/// Shows attached status clearly: green check + file name when attached;
+/// grey outline + "Прикрепить" button when missing.
+class _DocumentRow extends ConsumerWidget {
+  const _DocumentRow({
     required this.item,
     required this.packageId,
     required this.tokens,
@@ -887,45 +592,191 @@ class _DocumentCheckRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return GestureDetector(
-      onTap: () => unawaited(
-        ref
-            .read(profileProvider.notifier)
-            .toggleDocumentItem(
-              packageId: packageId,
-              itemId: item.id,
+    final textTheme = Theme.of(context).textTheme;
+    final isAttached = item.isAttached;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: tokens.gapXs),
+      child: Row(
+        children: [
+          // Status icon
+          Icon(
+            isAttached
+                ? Icons.check_circle_rounded
+                : Icons.radio_button_unchecked_rounded,
+            color: isAttached ? AppColors.successGreen : AppColors.inkSecondary,
+            size: 22,
+          ),
+          SizedBox(width: tokens.gapSm),
+
+          // Label + file name
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.label,
+                  style: textTheme.bodyLarge?.copyWith(
+                    color: isAttached ? AppColors.inkSecondary : AppColors.ink,
+                    decoration: isAttached
+                        ? TextDecoration.none
+                        : TextDecoration.none,
+                  ),
+                ),
+                if (isAttached && item.filePath != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    _fileName(item.filePath!),
+                    style: textTheme.bodySmall?.copyWith(
+                      color: AppColors.successGreen,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
             ),
+          ),
+
+          SizedBox(width: tokens.gapSm),
+
+          // Attach / re-attach button
+          _AttachButton(
+            isAttached: isAttached,
+            onTap: () async {
+              final picked = await ref
+                  .read(profileProvider.notifier)
+                  .attachFileToItem(
+                    packageId: packageId,
+                    itemId: item.id,
+                  );
+              // If file picker returned nothing but we still want to mark
+              // this as confirmed via toggle, do nothing extra — user must
+              // pick a file to confirm.
+              if (!picked) {
+                // User cancelled — no action.
+              }
+            },
+            tokens: tokens,
+          ),
+        ],
       ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: tokens.gapXs),
+    );
+  }
+
+  String _fileName(String path) {
+    final parts = path.replaceAll(r'\', '/').split('/');
+    return parts.isNotEmpty ? parts.last : path;
+  }
+}
+
+class _AttachButton extends StatelessWidget {
+  const _AttachButton({
+    required this.isAttached,
+    required this.onTap,
+    required this.tokens,
+  });
+
+  final bool isAttached;
+  final VoidCallback onTap;
+  final AppTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isAttached
+              ? AppColors.successGreen.withValues(alpha: 0.08)
+              : AppColors.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(tokens.radiusSm),
+          border: Border.all(
+            color: isAttached
+                ? AppColors.successGreen.withValues(alpha: 0.3)
+                : AppColors.primary.withValues(alpha: 0.3),
+          ),
+        ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              item.isAttached
-                  ? Icons.check_box_outlined
-                  : Icons.check_box_outline_blank,
-              color: item.isAttached
-                  ? AppColors.successGreen
-                  : AppColors.inkSecondary,
-              size: 22,
+              isAttached ? Icons.swap_horiz_rounded : Icons.attach_file_rounded,
+              size: 14,
+              color: isAttached ? AppColors.successGreen : AppColors.primary,
             ),
-            SizedBox(width: tokens.gapSm),
-            Expanded(
-              child: Text(
-                item.label,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: item.isAttached
-                      ? AppColors.inkSecondary
-                      : AppColors.ink,
-                  decoration: item.isAttached
-                      ? TextDecoration.lineThrough
-                      : TextDecoration.none,
-                ),
+            const SizedBox(width: 4),
+            Text(
+              isAttached ? 'Заменить' : 'Прикрепить',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                fontSize: 12,
+                color: isAttached ? AppColors.successGreen : AppColors.primary,
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Shared text field ─────────────────────────────────────────────────────────
+
+class _EditField extends StatelessWidget {
+  const _EditField({
+    required this.label,
+    required this.hint,
+    required this.controller,
+  });
+
+  final String label;
+  final String hint;
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: textTheme.labelLarge?.copyWith(color: AppColors.ink),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          style: textTheme.bodyLarge?.copyWith(color: AppColors.ink),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: textTheme.bodyLarge?.copyWith(
+              color: AppColors.inkSecondary,
+            ),
+            filled: true,
+            fillColor: AppColors.surfaceTint,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.primary, width: 2),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -152,7 +152,7 @@ void main() {
 
   group('CoursesScreen fly-down motion', () {
     testWidgets(
-        '"Начать урок" navigates to /lesson immediately (no blocking delay)',
+        '"Начать" navigates to /lesson immediately (no blocking delay)',
         (tester) async {
       final errors = <FlutterErrorDetails>[];
       final prev = FlutterError.onError;
@@ -160,20 +160,29 @@ void main() {
       addTearDown(() => FlutterError.onError = prev);
 
       await tester.pumpWidget(_routerWrapped(const CoursesScreen()));
+      // Pump a few frames to allow postFrameCallbacks and CoursesNotifier
+      // to initialise, then settle animations (disableAnimations=true globally).
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
       await tester.pumpAndSettle();
 
+      // CoursesScreen redesign: the "Start" CTA is the PrimaryButton labelled
+      // "Начать" (dark button) in the _LessonStartBox at the bottom of the
+      // scrollable course page. Scroll until it is visible.
       await tester.scrollUntilVisible(
-        find.text('Начать урок'),
+        find.text('Начать').first,
         100,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Начать урок'), warnIfMissed: false);
-      await tester.pumpAndSettle();
+      await tester.tap(find.text('Начать').first, warnIfMissed: false);
+      // Navigation via context.go('/lesson') is synchronous in GoRouter;
+      // just pump a couple of frames to let the route stack settle.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-      // Navigation must complete synchronously (no 700ms delay in production
-      // code since we removed the blocking delay).
+      // Navigation must have completed without delay.
       expect(find.text('LessonScreen'), findsOneWidget);
       expect(errors, isEmpty);
     });

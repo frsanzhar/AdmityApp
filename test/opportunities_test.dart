@@ -2,14 +2,18 @@ import 'package:admity/core/theme/app_tokens.dart';
 import 'package:admity/features/opportunities/data/opportunity_seed.dart';
 import 'package:admity/features/opportunities/domain/opportunity_filter.dart';
 import 'package:admity/features/opportunities/domain/opportunity_models.dart';
+import 'package:admity/features/opportunities/presentation/event_detail_screen.dart';
+import 'package:admity/features/opportunities/presentation/idea_detail_screen.dart';
 import 'package:admity/features/opportunities/presentation/opportunities_providers.dart';
 import 'package:admity/features/opportunities/presentation/opportunities_screen.dart';
 import 'package:admity/features/opportunities/presentation/scholarship_apply_screen.dart';
 import 'package:admity/features/opportunities/presentation/scholarship_detail_screen.dart';
+import 'package:admity/features/opportunities/presentation/university_detail_screen.dart';
 import 'package:admity/features/profile/application/profile_notifier.dart';
 import 'package:admity/features/profile/domain/profile_model.dart';
 import 'package:admity/shared/widgets/featured_button.dart';
 import 'package:admity/shared/widgets/mascot_slot.dart';
+import 'package:admity/shared/widgets/progress_ring.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -926,6 +930,396 @@ void main() {
       expect(find.text('Вернуться к стипендиям'), findsOneWidget);
 
       expect(errors, isEmpty, reason: 'no layout errors on success screen');
+    });
+  });
+
+  // ── Widget tests: UniversityDetailScreen ──────────────────────────────────────
+
+  group('UniversityDetailScreen widget tests', () {
+    testWidgets('builds with NO framework/layout errors (blank-screen guard)', (
+      tester,
+    ) async {
+      final errors = <FlutterErrorDetails>[];
+      final prev = FlutterError.onError;
+      FlutterError.onError = errors.add;
+      addTearDown(() => FlutterError.onError = prev);
+
+      await tester.pumpWidget(
+        _themed(const UniversityDetailScreen(universityId: 'nu')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        errors,
+        isEmpty,
+        reason: 'no swallowed layout errors on UniversityDetailScreen',
+      );
+    });
+
+    testWidgets('shows university name and key sections', (tester) async {
+      await tester.pumpWidget(
+        _themed(const UniversityDetailScreen(universityId: 'nu')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Назарбаев Университет'), findsWidgets);
+      expect(find.text('О университете'), findsOneWidget);
+      expect(find.text('Направления'), findsOneWidget);
+      expect(find.text('Шансы поступления'), findsOneWidget);
+      expect(find.text('Требования'), findsOneWidget);
+      expect(find.text('Стоимость и стипендии'), findsOneWidget);
+    });
+
+    testWidgets('shows ProgressRing for acceptance rate', (tester) async {
+      await tester.pumpWidget(
+        _themed(const UniversityDetailScreen(universityId: 'nu')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ProgressRing), findsOneWidget);
+    });
+
+    testWidgets('shows "Как поступить" steps section', (tester) async {
+      await tester.pumpWidget(
+        _themed(const UniversityDetailScreen(universityId: 'nu')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('Как поступить'),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Как поступить'), findsOneWidget);
+    });
+
+    testWidgets('shows FeaturedButton for website CTA', (tester) async {
+      await tester.pumpWidget(
+        _themed(const UniversityDetailScreen(universityId: 'nu')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.byType(FeaturedButton),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.byType(FeaturedButton), findsOneWidget);
+    });
+
+    testWidgets('unknown university id shows fallback', (tester) async {
+      await tester.pumpWidget(
+        _themed(const UniversityDetailScreen(universityId: 'unknown_xyz')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Университет не найден'), findsOneWidget);
+    });
+
+    testWidgets('tapping university card in list navigates to detail', (
+      tester,
+    ) async {
+      final router = GoRouter(
+        initialLocation: '/opportunities',
+        routes: [
+          GoRoute(
+            path: '/opportunities',
+            builder: (context, state) =>
+                const Scaffold(body: OpportunitiesScreen()),
+          ),
+          GoRoute(
+            path: '/opportunities/scholarship/:id',
+            builder: (context, state) =>
+                const Scaffold(body: Center(child: Text('ScholarshipDetail'))),
+          ),
+          GoRoute(
+            path: '/opportunities/university/:id',
+            builder: (context, state) => Scaffold(
+              body: Center(
+                child: Text('UniDetail:${state.pathParameters['id']}'),
+              ),
+            ),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp.router(
+            routerConfig: router,
+            theme: ThemeData(extensions: [AppTokens.defaults()]),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Switch to universities tab
+      await tester.tap(find.text('Университеты'));
+      await tester.pumpAndSettle();
+
+      // Tap the first university card (НУ)
+      await tester.tap(find.text('Назарбаев Университет'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('UniDetail:nu'), findsOneWidget);
+    });
+  });
+
+  // ── Widget tests: EventDetailScreen ──────────────────────────────────────────
+
+  group('EventDetailScreen widget tests', () {
+    testWidgets('builds with NO framework/layout errors (blank-screen guard)', (
+      tester,
+    ) async {
+      final errors = <FlutterErrorDetails>[];
+      final prev = FlutterError.onError;
+      FlutterError.onError = errors.add;
+      addTearDown(() => FlutterError.onError = prev);
+
+      await tester.pumpWidget(
+        _themed(const EventDetailScreen(eventId: 'stem_fair')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        errors,
+        isEmpty,
+        reason: 'no swallowed layout errors on EventDetailScreen',
+      );
+    });
+
+    testWidgets('shows event title, date, location and description', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _themed(const EventDetailScreen(eventId: 'stem_fair')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('STEM-ярмарка Казахстана'), findsWidgets);
+      expect(find.text('О мероприятии'), findsOneWidget);
+      expect(find.text('Как участвовать'), findsOneWidget);
+    });
+
+    testWidgets('shows prize section when event has prize', (tester) async {
+      await tester.pumpWidget(
+        _themed(const EventDetailScreen(eventId: 'stem_fair')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Призы'), findsOneWidget);
+    });
+
+    testWidgets('shows registration deadline banner', (tester) async {
+      await tester.pumpWidget(
+        _themed(const EventDetailScreen(eventId: 'stem_fair')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Дедлайн регистрации'), findsOneWidget);
+    });
+
+    testWidgets('PrimaryButton "Добавить в список" is present', (tester) async {
+      await tester.pumpWidget(
+        _themed(const EventDetailScreen(eventId: 'hackathon_kz')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('Добавить в список мероприятий'),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Добавить в список мероприятий'), findsOneWidget);
+    });
+
+    testWidgets('unknown event id shows fallback', (tester) async {
+      await tester.pumpWidget(
+        _themed(const EventDetailScreen(eventId: 'unknown_xyz')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Мероприятие не найдено'), findsOneWidget);
+    });
+
+    testWidgets('tapping event card in list navigates to detail', (
+      tester,
+    ) async {
+      final router = GoRouter(
+        initialLocation: '/opportunities',
+        routes: [
+          GoRoute(
+            path: '/opportunities',
+            builder: (context, state) =>
+                const Scaffold(body: OpportunitiesScreen()),
+          ),
+          GoRoute(
+            path: '/opportunities/scholarship/:id',
+            builder: (context, state) =>
+                const Scaffold(body: Center(child: Text('ScholarshipDetail'))),
+          ),
+          GoRoute(
+            path: '/opportunities/event/:id',
+            builder: (context, state) => Scaffold(
+              body: Center(
+                child: Text('EventDetail:${state.pathParameters['id']}'),
+              ),
+            ),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp.router(
+            routerConfig: router,
+            theme: ThemeData(extensions: [AppTokens.defaults()]),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Switch to events tab
+      await tester.tap(find.text('Мероприятия'));
+      await tester.pumpAndSettle();
+
+      // Tap the STEM-ярмарка card
+      await tester.tap(find.text('STEM-ярмарка Казахстана'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('EventDetail:stem_fair'), findsOneWidget);
+    });
+  });
+
+  // ── Widget tests: IdeaDetailScreen ───────────────────────────────────────────
+
+  group('IdeaDetailScreen widget tests', () {
+    testWidgets('builds with NO framework/layout errors (blank-screen guard)', (
+      tester,
+    ) async {
+      final errors = <FlutterErrorDetails>[];
+      final prev = FlutterError.onError;
+      FlutterError.onError = errors.add;
+      addTearDown(() => FlutterError.onError = prev);
+
+      await tester.pumpWidget(
+        _themed(const IdeaDetailScreen(ideaId: 'ml_ent')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        errors,
+        isEmpty,
+        reason: 'no swallowed layout errors on IdeaDetailScreen',
+      );
+    });
+
+    testWidgets('shows idea title, description, and key sections', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _themed(const IdeaDetailScreen(ideaId: 'ml_ent')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Предиктор ЕНТ-баллов'), findsWidgets);
+      expect(find.text('Что за проект'), findsOneWidget);
+      expect(find.text('Почему это твоё'), findsOneWidget);
+      expect(find.text('Шаги'), findsOneWidget);
+    });
+
+    testWidgets('shows "Что получишь в итоге" section', (tester) async {
+      await tester.pumpWidget(
+        _themed(const IdeaDetailScreen(ideaId: 'ml_ent')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('Что получишь в итоге'),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Что получишь в итоге'), findsOneWidget);
+    });
+
+    testWidgets('PrimaryButton "Сохранить идею" is present', (tester) async {
+      await tester.pumpWidget(
+        _themed(const IdeaDetailScreen(ideaId: 'ml_ent')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('Сохранить идею'),
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Сохранить идею'), findsOneWidget);
+    });
+
+    testWidgets('shows MascotSlot in the hero', (tester) async {
+      await tester.pumpWidget(
+        _themed(const IdeaDetailScreen(ideaId: 'eco_monitor')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MascotSlot), findsOneWidget);
+    });
+
+    testWidgets('unknown idea id shows fallback', (tester) async {
+      await tester.pumpWidget(
+        _themed(const IdeaDetailScreen(ideaId: 'unknown_xyz')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Идея проекта не найдена'), findsOneWidget);
+    });
+
+    testWidgets('tapping idea card in list navigates to detail', (
+      tester,
+    ) async {
+      final router = GoRouter(
+        initialLocation: '/opportunities',
+        routes: [
+          GoRoute(
+            path: '/opportunities',
+            builder: (context, state) =>
+                const Scaffold(body: OpportunitiesScreen()),
+          ),
+          GoRoute(
+            path: '/opportunities/scholarship/:id',
+            builder: (context, state) =>
+                const Scaffold(body: Center(child: Text('ScholarshipDetail'))),
+          ),
+          GoRoute(
+            path: '/opportunities/idea/:id',
+            builder: (context, state) => Scaffold(
+              body: Center(
+                child: Text('IdeaDetail:${state.pathParameters['id']}'),
+              ),
+            ),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp.router(
+            routerConfig: router,
+            theme: ThemeData(extensions: [AppTokens.defaults()]),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Switch to project ideas tab
+      await tester.tap(find.text('Идеи проектов'));
+      await tester.pumpAndSettle();
+
+      // Tap the first idea card
+      await tester.tap(find.text('Предиктор ЕНТ-баллов'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('IdeaDetail:ml_ent'), findsOneWidget);
     });
   });
 }

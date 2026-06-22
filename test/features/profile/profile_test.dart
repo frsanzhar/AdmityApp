@@ -1,36 +1,103 @@
-/// Tests for Profile feature — Phase 6.
+/// Tests for Profile feature — §7.7 DESIGN_SYSTEM.md.
 ///
 /// Test strategy:
-///   - [InMemoryProfileRepository] is injected via ProviderScope.overrides —
+///   - [InMemoryProfileRepository] injected via ProviderScope.overrides —
 ///     no device path, no Hive, no platform channels needed.
-///   - Unit tests cover: domain model JSON round-trip, repository CRUD.
-///   - Widget tests cover: screen builds without layout errors, CRUD flows.
+///   - Unit tests: domain model JSON round-trip, repository CRUD.
+///   - Widget tests:
+///       • ProfileScreen has no inline editable form
+///       • pencil navigates (route stub works)
+///       • default doc package is pre-loaded
+///       • adding a doc works
+///       • ProfileEditScreen: builds, has all fields, save persists
 library;
 
 import 'package:admity/core/theme/app_tokens.dart';
 import 'package:admity/features/profile/application/profile_notifier.dart';
 import 'package:admity/features/profile/data/profile_repository.dart';
 import 'package:admity/features/profile/domain/profile_model.dart';
+import 'package:admity/features/profile/presentation/profile_edit_screen.dart';
 import 'package:admity/features/profile/presentation/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
-// ── Test helper ───────────────────────────────────────────────────────────────
+// ── Test helpers ──────────────────────────────────────────────────────────────
 
 /// Wraps [child] with Admity theme + an [InMemoryProfileRepository] override.
 ///
-/// This is the key to avoiding a real device path: the production
-/// [HiveProfileRepository] is overridden before any provider builds.
-Widget _themed(Widget child, {InMemoryProfileRepository? repo}) {
+/// Uses [MaterialApp.router] with a minimal GoRouter so that
+/// `context.push('/profile/edit')` / `context.pop()` work correctly.
+///
+/// Route tree:
+///   /            → child  (e.g. ProfileScreen)
+///   /profile/edit → ProfileEditScreen
+Widget _themed(
+  Widget child, {
+  InMemoryProfileRepository? repo,
+}) {
   final effectiveRepo = repo ?? InMemoryProfileRepository();
+
+  final router = GoRouter(
+    initialLocation: '/',
+    routes: [
+      GoRoute(
+        path: '/',
+        builder: (context, state) => child,
+        routes: [
+          GoRoute(
+            path: 'profile/edit',
+            builder: (context, state) => const ProfileEditScreen(),
+          ),
+        ],
+      ),
+    ],
+  );
+
   return ProviderScope(
     overrides: [
       profileRepositoryProvider.overrideWithValue(effectiveRepo),
     ],
-    child: MaterialApp(
+    child: MaterialApp.router(
+      routerConfig: router,
       theme: ThemeData(extensions: [AppTokens.defaults()]),
-      home: child,
+    ),
+  );
+}
+
+/// Wraps [ProfileEditScreen] in a router where it is reachable via
+/// `/profile/edit` from a parent `/` stub. This allows `context.pop()` to
+/// succeed (pops back to the parent) without triggering "nothing to pop".
+///
+/// The test navigates to the edit screen immediately after pump.
+Widget _editScreenApp({InMemoryProfileRepository? repo}) {
+  final effectiveRepo = repo ?? InMemoryProfileRepository();
+
+  final router = GoRouter(
+    initialLocation: '/profile/edit',
+    routes: [
+      GoRoute(
+        path: '/',
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('ParentScreen'))),
+        routes: [
+          GoRoute(
+            path: 'profile/edit',
+            builder: (context, state) => const ProfileEditScreen(),
+          ),
+        ],
+      ),
+    ],
+  );
+
+  return ProviderScope(
+    overrides: [
+      profileRepositoryProvider.overrideWithValue(effectiveRepo),
+    ],
+    child: MaterialApp.router(
+      routerConfig: router,
+      theme: ThemeData(extensions: [AppTokens.defaults()]),
     ),
   );
 }
@@ -165,15 +232,26 @@ void main() {
     });
 
     test('DocumentItem copyWith preserves unmodified fields', () {
-      const item = DocumentItem(
-        id: 'i1',
-        label: 'Диплом',
-      );
+      const item = DocumentItem(id: 'i1', label: 'Диплом');
       final updated = item.copyWith(isAttached: true);
 
       expect(updated.id, 'i1');
       expect(updated.label, 'Диплом');
       expect(updated.isAttached, isTrue);
+    });
+
+    test('DocumentItem filePath and mimeType round-trip', () {
+      const item = DocumentItem(
+        id: 'i2',
+        label: 'Аттестат',
+        filePath: '/path/to/file.pdf',
+        mimeType: 'application/pdf',
+        isAttached: true,
+      );
+      final restored = DocumentItem.fromJson(item.toJson());
+      expect(restored.filePath, '/path/to/file.pdf');
+      expect(restored.mimeType, 'application/pdf');
+      expect(restored.isAttached, isTrue);
     });
   });
 
@@ -289,9 +367,7 @@ void main() {
     ProviderContainer makeContainer() {
       final repo = InMemoryProfileRepository();
       return ProviderContainer(
-        overrides: [
-          profileRepositoryProvider.overrideWithValue(repo),
-        ],
+        overrides: [profileRepositoryProvider.overrideWithValue(repo)],
       );
     }
 
@@ -299,12 +375,8 @@ void main() {
       final container = makeContainer();
       addTearDown(container.dispose);
 
-      // Immediately after build: isLoading = true (before microtask fires)
       expect(container.read(profileProvider).isLoading, isTrue);
-
-      // After microtask (the _load() call): isLoading = false
       await Future<void>.delayed(Duration.zero);
-
       expect(container.read(profileProvider).isLoading, isFalse);
     });
 
@@ -312,13 +384,10 @@ void main() {
       final container = makeContainer();
       addTearDown(container.dispose);
 
-      await Future<void>.delayed(Duration.zero); // wait for initial load
-
+      await Future<void>.delayed(Duration.zero);
       await container
           .read(profileProvider.notifier)
-          .saveProfile(
-            const StudentProfile(name: 'Айгерим', city: 'Алматы'),
-          );
+          .saveProfile(const StudentProfile(name: 'Айгерим', city: 'Алматы'));
 
       expect(container.read(profileProvider).profile.name, 'Айгерим');
       expect(container.read(profileProvider).profile.city, 'Алматы');
@@ -404,10 +473,7 @@ void main() {
       final pkgId = container.read(profileProvider).packages.first.id;
       await container
           .read(profileProvider.notifier)
-          .addItemToPackage(
-            packageId: pkgId,
-            label: 'Транскрипт',
-          );
+          .addItemToPackage(packageId: pkgId, label: 'Транскрипт');
 
       final pkg = container.read(profileProvider).packages.first;
       expect(pkg.items.length, 1);
@@ -424,10 +490,7 @@ void main() {
       final pkgId = container.read(profileProvider).packages.first.id;
       await container
           .read(profileProvider.notifier)
-          .addItemToPackage(
-            packageId: pkgId,
-            label: 'Рекомендация',
-          );
+          .addItemToPackage(packageId: pkgId, label: 'Рекомендация');
 
       final itemId = container
           .read(profileProvider)
@@ -438,10 +501,7 @@ void main() {
           .id;
       await container
           .read(profileProvider.notifier)
-          .removeItemFromPackage(
-            packageId: pkgId,
-            itemId: itemId,
-          );
+          .removeItemFromPackage(packageId: pkgId, itemId: itemId);
 
       expect(container.read(profileProvider).packages.first.items, isEmpty);
     });
@@ -453,108 +513,316 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       await container
           .read(profileProvider.notifier)
-          .addItemToPackage(
-            packageId: 'nonexistent',
-            label: 'Ignored',
-          );
+          .addItemToPackage(packageId: 'nonexistent', label: 'Ignored');
 
       expect(container.read(profileProvider).packages, isEmpty);
+    });
+
+    test('ensureDefaultPackageSeeded seeds if no packages', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(profileProvider).packages, isEmpty);
+
+      await container
+          .read(profileProvider.notifier)
+          .ensureDefaultPackageSeeded();
+
+      final pkgs = container.read(profileProvider).packages;
+      expect(pkgs.isNotEmpty, isTrue);
+      expect(pkgs.first.name, contains('Стандартный'));
+      // Default items include the required KZ documents.
+      expect(pkgs.first.items.isNotEmpty, isTrue);
+      expect(
+        pkgs.first.items.any((i) => i.label.contains('Удостоверение')),
+        isTrue,
+      );
+    });
+
+    test('ensureDefaultPackageSeeded is no-op when packages exist', () async {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+      await container
+          .read(profileProvider.notifier)
+          .addPackage(name: 'Existing');
+
+      await container
+          .read(profileProvider.notifier)
+          .ensureDefaultPackageSeeded();
+
+      // Should still have exactly one package, the existing one.
+      final pkgs = container.read(profileProvider).packages;
+      expect(pkgs.length, 1);
+      expect(pkgs.first.name, 'Existing');
     });
   });
 
   // ── 4. ProfileScreen widget tests ─────────────────────────────────────────
 
-  testWidgets('ProfileScreen builds with no framework/layout errors', (
-    tester,
-  ) async {
-    final errors = <FlutterErrorDetails>[];
-    final prev = FlutterError.onError;
-    FlutterError.onError = errors.add;
-    addTearDown(() => FlutterError.onError = prev);
+  group('ProfileScreen widget', () {
+    testWidgets('builds with no framework/layout errors', (tester) async {
+      final errors = <FlutterErrorDetails>[];
+      final prev = FlutterError.onError;
+      FlutterError.onError = errors.add;
+      addTearDown(() => FlutterError.onError = prev);
 
-    await tester.pumpWidget(_themed(const ProfileScreen()));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(_themed(const ProfileScreen()));
+      await tester.pumpAndSettle();
 
-    expect(
-      errors,
-      isEmpty,
-      reason: 'no framework/layout errors on ProfileScreen',
+      expect(
+        errors,
+        isEmpty,
+        reason: 'no framework/layout errors on ProfileScreen',
+      );
+    });
+
+    testWidgets('shows "Профиль" heading', (tester) async {
+      await tester.pumpWidget(_themed(const ProfileScreen()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Профиль'), findsOneWidget);
+    });
+
+    // KEY: The inline editable "Мои данные" form must NOT appear on the main screen.
+    testWidgets('does NOT show inline editable form ("Мои данные")', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_themed(const ProfileScreen()));
+      await tester.pumpAndSettle();
+
+      // The "Сохранить" button belongs to ProfileEditScreen — it must NOT appear
+      // on the main profile screen.
+      expect(find.text('Сохранить'), findsNothing);
+
+      // The "Мои данные" section title is on the edit screen, not here.
+      expect(find.text('Мои данные'), findsNothing);
+
+      // The main profile screen does NOT contain the edit-screen's field labels.
+      // (The "Новый пакет" card on the main screen has package-name TextFields,
+      //  but it does not have labels like "Имя", "Класс", "Город".)
+      expect(find.text('Имя'), findsNothing);
+      expect(find.text('Класс'), findsNothing);
+    });
+
+    testWidgets('shows pencil edit icon', (tester) async {
+      await tester.pumpWidget(_themed(const ProfileScreen()));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+    });
+
+    testWidgets('pencil icon navigates to ProfileEditScreen', (tester) async {
+      await tester.pumpWidget(_themed(const ProfileScreen()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.edit_outlined));
+      await tester.pumpAndSettle();
+
+      // After navigation, ProfileEditScreen should be present.
+      expect(find.byType(ProfileEditScreen), findsOneWidget);
+    });
+
+    testWidgets('shows MascotSlot in identity header', (tester) async {
+      await tester.pumpWidget(_themed(const ProfileScreen()));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byWidgetPredicate(
+          (w) => w.runtimeType.toString() == 'MascotSlot',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('shows career test card', (tester) async {
+      await tester.pumpWidget(_themed(const ProfileScreen()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Тест на профориентацию'), findsOneWidget);
+    });
+
+    testWidgets('shows "Пакет документов" section', (tester) async {
+      await tester.pumpWidget(_themed(const ProfileScreen()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Пакет документов'), findsOneWidget);
+    });
+
+    testWidgets('default doc package is preloaded with KZ documents', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_themed(const ProfileScreen()));
+      await tester.pumpAndSettle();
+
+      // After seeding, the standard package name appears.
+      expect(find.textContaining('Стандартный'), findsWidgets);
+
+      // At least one known KZ document label is present.
+      expect(find.textContaining('Удостоверение'), findsWidgets);
+    });
+
+    testWidgets(
+      'user can create a new package using the new package card',
+      (tester) async {
+        await tester.pumpWidget(_themed(const ProfileScreen()));
+        await tester.pumpAndSettle();
+
+        // The "Название пакета" label is a Text widget ABOVE the TextField.
+        // The TextField's hint is "Например: NU 2026", not the label text.
+        // Scroll until the "Создать пакет" button is visible, then find
+        // the TextFields that belong to the new-package card.
+        final createBtn = find.text('Создать пакет');
+        await tester.scrollUntilVisible(
+          createBtn,
+          100,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+
+        // On ProfileScreen the new-package card has exactly 2 TextFields:
+        // index 0 → Название пакета, index 1 → Описание.
+        // Use the first one (package name field).
+        await tester.enterText(find.byType(TextField).first, 'KBTU Pack');
+        await tester.pump();
+
+        await tester.ensureVisible(createBtn);
+        await tester.pump();
+        await tester.tap(createBtn);
+        await tester.pumpAndSettle();
+
+        // New package should appear in the list.
+        expect(find.text('KBTU Pack'), findsOneWidget);
+      },
     );
   });
 
-  testWidgets('ProfileScreen shows header title', (tester) async {
-    await tester.pumpWidget(_themed(const ProfileScreen()));
-    await tester.pumpAndSettle();
+  // ── 5. ProfileEditScreen widget tests ────────────────────────────────────
 
-    expect(find.text('Профиль'), findsOneWidget);
-  });
+  group('ProfileEditScreen widget', () {
+    testWidgets('builds with no framework/layout errors', (tester) async {
+      final errors = <FlutterErrorDetails>[];
+      final prev = FlutterError.onError;
+      FlutterError.onError = errors.add;
+      addTearDown(() => FlutterError.onError = prev);
 
-  testWidgets('ProfileScreen shows the self-data section (no notes)', (
-    tester,
-  ) async {
-    await tester.pumpWidget(_themed(const ProfileScreen()));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(_editScreenApp());
+      await tester.pumpAndSettle();
 
-    expect(find.text('Мои данные'), findsWidgets);
-    // "Заметки о себе" was intentionally removed.
-    expect(find.text('Заметки о себе'), findsNothing);
-  });
+      expect(
+        errors,
+        isEmpty,
+        reason: 'no framework/layout errors on ProfileEditScreen',
+      );
+    });
 
-  testWidgets('ProfileScreen has a pencil edit affordance', (tester) async {
-    await tester.pumpWidget(_themed(const ProfileScreen()));
-    await tester.pumpAndSettle();
+    testWidgets('shows "Мои данные" title', (tester) async {
+      await tester.pumpWidget(_editScreenApp());
+      await tester.pumpAndSettle();
 
-    // The header pencil toggles edit mode for "Мои данные".
-    expect(find.byIcon(Icons.edit_outlined), findsWidgets);
-  });
+      expect(find.text('Мои данные'), findsOneWidget);
+    });
 
-  testWidgets('ProfileScreen edit mode reveals a Save button', (tester) async {
-    await tester.pumpWidget(_themed(const ProfileScreen()));
-    await tester.pumpAndSettle();
+    testWidgets('shows all required edit fields', (tester) async {
+      await tester.pumpWidget(_editScreenApp());
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.edit_outlined).first);
-    await tester.pumpAndSettle();
+      // All fields should be present.
+      expect(find.text('Имя'), findsOneWidget);
+      expect(find.text('Класс'), findsOneWidget);
+      expect(find.text('Город'), findsOneWidget);
+      expect(find.text('Средний балл / ГПА'), findsOneWidget);
+      expect(find.text('Языки (через запятую)'), findsOneWidget);
+      expect(find.text('IELTS балл'), findsOneWidget);
+      expect(find.text('SAT балл'), findsOneWidget);
+      expect(find.text('TOEFL балл'), findsOneWidget);
+      // At least 8 TextFields.
+      expect(find.byType(TextField).evaluate().length, greaterThanOrEqualTo(8));
+    });
 
-    expect(find.text('Сохранить'), findsOneWidget);
-  });
+    testWidgets('shows Save button', (tester) async {
+      await tester.pumpWidget(_editScreenApp());
+      await tester.pumpAndSettle();
 
-  testWidgets('ProfileScreen shows MascotSlot in header', (tester) async {
-    await tester.pumpWidget(_themed(const ProfileScreen()));
-    await tester.pumpAndSettle();
+      expect(find.text('Сохранить'), findsOneWidget);
+    });
 
-    // MascotSlot widget is present in the header
-    expect(
-      find.byWidgetPredicate(
-        (w) => w.runtimeType.toString() == 'MascotSlot',
-      ),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets(
-    'ProfileScreen: editing a name and saving persists it',
-    (tester) async {
+    testWidgets('editing name and saving persists to repository', (
+      tester,
+    ) async {
       final repo = InMemoryProfileRepository();
-      await tester.pumpWidget(_themed(const ProfileScreen(), repo: repo));
+      // Use _editScreenApp so that context.pop() has a parent route to pop to.
+      await tester.pumpWidget(_editScreenApp(repo: repo));
       await tester.pumpAndSettle();
 
-      // Enter edit mode via the header pencil.
-      await tester.tap(find.byIcon(Icons.edit_outlined).first);
-      await tester.pumpAndSettle();
-
-      // Enter a name in the first field, then save.
-      await tester.enterText(find.byType(TextField).first, 'Айгерим');
+      // The first TextField on ProfileEditScreen is the "Имя" (name) field.
+      // ProfileEditScreen field order: name(0), grade(1), city(2), gpa(3),
+      // languages(4), majors(5), interests(6), ielts(7), sat(8), toefl(9).
+      await tester.enterText(find.byType(TextField).at(0), 'Айгерим');
       await tester.pump();
 
+      // Scroll the Save button into view before tapping.
       final saveBtn = find.text('Сохранить');
-      await tester.ensureVisible(saveBtn);
+      await tester.scrollUntilVisible(
+        saveBtn,
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pump();
-      await tester.tap(saveBtn);
-      await tester.pumpAndSettle();
+      await tester.tap(saveBtn, warnIfMissed: false);
+      // _save() calls saveProfile (async) then context.pop().
+      await tester.pump(); // trigger async chain
+      await tester.pump(const Duration(milliseconds: 100)); // repo save
+      await tester.pump(const Duration(milliseconds: 300)); // pop animation
 
-      // Save succeeded → persisted to the repository.
+      // Data must be persisted in the repo.
       final saved = await repo.loadProfile();
       expect(saved.name, 'Айгерим');
-    },
-  );
+    });
+
+    testWidgets('editing and saving all fields persists correctly', (
+      tester,
+    ) async {
+      final repo = InMemoryProfileRepository();
+      // Use _editScreenApp so that context.pop() has a parent route to pop to.
+      await tester.pumpWidget(_editScreenApp(repo: repo));
+      await tester.pumpAndSettle();
+
+      // ProfileEditScreen field order (index): name=0, grade=1, city=2,
+      // gpa=3, languages=4, majors=5, interests=6, ielts=7, sat=8, toefl=9.
+      // Enter text into each field then pump to let the controllers settle.
+      await tester.enterText(find.byType(TextField).at(0), 'Данияр');
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).at(1), '11 класс');
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).at(2), 'Алматы');
+      await tester.pump();
+
+      // Dismiss the keyboard before tapping Save (prevents keyboard from
+      // covering the button and causing the tap to be missed).
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+
+      // Scroll the Save button into view before tapping.
+      final saveBtn = find.text('Сохранить');
+      await tester.scrollUntilVisible(
+        saveBtn,
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(saveBtn, warnIfMissed: false);
+      // _save() calls saveProfile (async) then context.pop().
+      await tester.pump(); // trigger async chain
+      await tester.pump(const Duration(milliseconds: 100)); // repo save
+      await tester.pump(const Duration(milliseconds: 300)); // pop animation
+
+      final saved = await repo.loadProfile();
+      expect(saved.name, 'Данияр');
+      expect(saved.grade, '11 класс');
+      expect(saved.city, 'Алматы');
+    });
+  });
 }

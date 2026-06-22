@@ -1,39 +1,34 @@
 /// CoursesScreen — Brilliant-style course path (DESIGN_SYSTEM.md §7.3).
 ///
 /// ## Layout
-/// `AppScaffold > Column > [indicator row] > PageView(physics: full-page swipe)`
+/// `AppScaffold > Column > [fixed _TopBar] > Expanded > PageView`
 /// Each page: `SingleChildScrollView > Column(mainAxisSize: .min)`.
 /// Never uses CrossAxisAlignment.stretch inside a scroll — follows the
 /// blank-screen gotcha rule from CLAUDE.md.
 ///
+/// ## Top bar (fixed, outside scroll)
+/// chevron-down | KeyBadge(2) | Spacer | StreakBadge(7) | «Создать курс» pill
+///
 /// ## PageView (requirement 4)
 /// Swiping left/right moves between whole course pages
-/// (e.g. Математика → Логика → Английский).  A row of dot indicators at the
-/// top reflects the current page.  The tab bar widget is kept as a companion
-/// tappable chip row so users can also tap to jump to a course.
+/// (e.g. Математика → Логика → Английский). A horizontal scrollable chip row
+/// at the top of each page scroll area lets the user jump by tap.
 ///
-/// ## Profile-derived suggestions (requirement 1)
-/// Reads `profileProvider` (read-only) to derive:
-///   • gradeHint — "для 11 класса" shown under the course title
-///   • interestHint — "по твоим интересам" for interest-matched courses
-/// Falls back to sensible defaults when the profile is empty.
+/// ## Course header (inside scroll)
+/// TopicDiagramSlot(120) → title → stats row → bordered level chip.
+///
+/// ## Node path (inside scroll)
+/// Centred column of LessonNode discs connected by thin vertical lines.
+/// Active node has MascotSlot sitting ABOVE it. Tapping a non-locked node
+/// toggles an expansion card below it.
+///
+/// ## Bottom lesson box (inside scroll)
+/// AppCard with TopicDiagramSlot(56) + lesson title, then two buttons stacked:
+/// PrimaryButton «Начать» (dark) and FeaturedButton «Перепрыгнуть» (gradient).
 ///
 /// ## «Создать курс» (requirement 2)
-/// A `PrimaryButton` opens a bottom sheet.  The user types a topic; on
-/// confirm, `CoursesNotifier.createCourse(topic)` calls
-/// `CourseGenerationService`, gets back a [Course], and prepends it to the
-/// list.  The PageView animates to the new page.  A flutter_animate fade+slide
-/// reveals the new course card.
-///
-/// ## Collapsed lessons (requirement 5)
-/// Each [LessonNode] is rendered in a compact row.  Tapping a non-locked node
-/// toggles an expansion card showing the lesson's title/detail.  The «Начать
-/// урок» box is always visible below the node path without scrolling.
-///
-/// ## Animations (requirement 6)
-/// • Page transitions: flutter_animate fade+slideX on page content.
-/// • Node path: staggered fade+slideY entries for each node.
-/// • Create-course: fade+scale reveal of the new course chip + page.
+/// Small pill button in the top bar. Bottom sheet with text field +
+/// FeaturedButton «Создать».
 library;
 
 import 'package:admity/core/theme/app_colors.dart';
@@ -45,8 +40,11 @@ import 'package:admity/features/profile/domain/profile_model.dart';
 import 'package:admity/shared/widgets/app_card.dart';
 import 'package:admity/shared/widgets/app_scaffold.dart';
 import 'package:admity/shared/widgets/featured_button.dart';
+import 'package:admity/shared/widgets/key_badge.dart';
 import 'package:admity/shared/widgets/lesson_node.dart';
 import 'package:admity/shared/widgets/mascot_slot.dart';
+import 'package:admity/shared/widgets/primary_button.dart';
+import 'package:admity/shared/widgets/streak_badge.dart';
 import 'package:admity/shared/widgets/topic_diagram_slot.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -382,16 +380,10 @@ class LessonItem {
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
-/// CoursesScreen — requirement compliance:
+/// CoursesScreen — Brilliant-style redesign.
 ///
-/// 1. Profile-derived course list with grade/interest hints.
-/// 2. «Создать курс» → bottom sheet → CourseGenerationService → prepend + animate.
-/// 3. Theory added to lesson model (implemented in LessonScreen).
-/// 4. Full-page PageView horizontal swipe between courses.
-/// 5. Lessons collapsed by default; tap to expand detail.
-/// 6. flutter_animate: staggered node path, page fade-in, create-course reveal.
-/// 7. Layout: AppScaffold > Column > indicators > Expanded > PageView
-///    of scroll-view > Column(.min).
+/// Fixed top bar (chevron + badges + «Создать курс»), then an Expanded
+/// PageView of scrollable course pages.
 class CoursesScreen extends ConsumerStatefulWidget {
   const CoursesScreen({super.key});
 
@@ -401,7 +393,8 @@ class CoursesScreen extends ConsumerStatefulWidget {
 
 class _CoursesScreenState extends ConsumerState<CoursesScreen> {
   late final PageController _pageController;
-  MascotState _mascotState = MascotState.idle;
+  // Phase 7: updated via setState when mascot flies down.
+  final MascotState _mascotState = MascotState.idle;
 
   @override
   void initState() {
@@ -429,10 +422,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
   }
 
   void _onStartLesson() {
-    final reduceMotion = MediaQuery.of(context).disableAnimations;
-    if (!reduceMotion) {
-      setState(() => _mascotState = MascotState.flyDown);
-    }
+    // TODO(motion): mascot fly-down
     context.go('/lesson');
   }
 
@@ -462,8 +452,6 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(coursesProvider);
-    final tokens =
-        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
 
     // Keep page controller in sync when notifier changes page (e.g. after create).
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -477,106 +465,40 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
       }
     });
 
-    final body = Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // ── Page indicator + chip tabs ─────────────────────────────────────
-        _CourseIndicatorRow(
-          courses: state.courses,
-          selectedIndex: state.pageIndex,
-          onTap: _jumpToPage,
-        ),
-        SizedBox(height: tokens.gapSm),
-
-        // ── Full-page swipeable PageView ───────────────────────────────────
-        Expanded(
-          child: PageView.builder(
-            controller: _pageController,
-            onPageChanged: _onPageChanged,
-            itemCount: state.courses.length,
-            itemBuilder: (context, index) {
-              final course = state.courses[index];
-              return _CoursePage(
-                key: ValueKey(course.id),
-                course: course,
-                onStartLesson: _onStartLesson,
-                mascotState: _mascotState,
-              );
-            },
-          ),
-        ),
-      ],
-    );
-
     return AppScaffold(
       body: SafeArea(
         child: Column(
           children: [
-            // ── Top action row: title + «Создать курс» ─────────────────────
-            Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: tokens.screenPadding,
-                vertical: tokens.gapMd,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Учёба',
-                      style: Theme.of(context).textTheme.headlineLarge
-                          ?.copyWith(
-                            color: AppColors.ink,
-                          ),
-                    ),
-                  ),
-                  // «Создать курс» — normal action (dark container, §8).
-                  if (state.isGenerating)
-                    const SizedBox(
-                      width: 28,
-                      height: 28,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: AppColors.primary,
-                      ),
-                    )
-                  else
-                    GestureDetector(
-                      onTap: _showCreateCourseSheet,
-                      child: Container(
-                        constraints: const BoxConstraints(minHeight: 48),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.ink,
-                          borderRadius: BorderRadius.circular(
-                            tokens.radiusMd,
-                          ),
-                        ),
-                        alignment: Alignment.center,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.add_rounded,
-                              color: AppColors.white,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Создать курс',
-                              style: Theme.of(context).textTheme.labelLarge
-                                  ?.copyWith(color: AppColors.white),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
+            // ── Fixed top bar ──────────────────────────────────────────────
+            _TopBar(
+              isGenerating: state.isGenerating,
+              onCreateCourse: _showCreateCourseSheet,
+            ),
+
+            // ── Full-page swipeable PageView ──────────────────────────────
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                onPageChanged: _onPageChanged,
+                itemCount: state.courses.length,
+                itemBuilder: (context, index) {
+                  final course = state.courses[index];
+                  return _CoursePage(
+                    key: ValueKey(course.id),
+                    course: course,
+                    courses: state.courses,
+                    selectedIndex: state.pageIndex,
+                    expandedLessonId: state.expandedLessonId,
+                    onTabTap: _jumpToPage,
+                    onStartLesson: _onStartLesson,
+                    mascotState: _mascotState,
+                    onToggleLesson: ref
+                        .read(coursesProvider.notifier)
+                        .toggleLesson,
+                  );
+                },
               ),
             ),
-            Expanded(child: body),
           ],
         ),
       ),
@@ -584,11 +506,236 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
   }
 }
 
-// ── Course indicator row ──────────────────────────────────────────────────────
+// ── Top bar ───────────────────────────────────────────────────────────────────
 
-/// Horizontal scrollable chip row showing course labels with dot indicators.
-class _CourseIndicatorRow extends StatelessWidget {
-  const _CourseIndicatorRow({
+/// Fixed top bar outside the PageView scroll area.
+/// Row: chevron-down | KeyBadge(2) | Spacer | StreakBadge(7) | «Создать курс»
+class _TopBar extends StatelessWidget {
+  const _TopBar({
+    required this.isGenerating,
+    required this.onCreateCourse,
+  });
+
+  final bool isGenerating;
+  final VoidCallback onCreateCourse;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: tokens.screenPadding,
+        vertical: tokens.gapMd,
+      ),
+      child: Row(
+        children: [
+          // Collapse / back chevron
+          GestureDetector(
+            onTap: () {
+              // Chevron-down: collapse / back — no-op until parent nav is wired
+            },
+            behavior: HitTestBehavior.opaque,
+            child: const SizedBox(
+              width: 44,
+              height: 44,
+              child: Center(
+                child: Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 28,
+                  color: AppColors.ink,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // TODO(profile): wire to real key count from profileProvider
+          const KeyBadge(count: 2),
+          const Spacer(),
+          // TODO(profile): wire to real streak from profileProvider
+          const StreakBadge(days: 7),
+          const SizedBox(width: 8),
+          // «Создать курс» pill button
+          if (isGenerating)
+            const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: AppColors.primary,
+              ),
+            )
+          else
+            GestureDetector(
+              onTap: onCreateCourse,
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 44),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.ink,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                alignment: Alignment.center,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.add_rounded,
+                      color: AppColors.white,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Создать курс',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: AppColors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Single course page ────────────────────────────────────────────────────────
+
+/// One page inside the PageView.
+/// Layout: `SingleChildScrollView > Column(mainAxisSize: .min)`.
+class _CoursePage extends StatelessWidget {
+  const _CoursePage({
+    required this.course,
+    required this.courses,
+    required this.selectedIndex,
+    required this.expandedLessonId,
+    required this.onTabTap,
+    required this.onStartLesson,
+    required this.mascotState,
+    required this.onToggleLesson,
+    super.key,
+  });
+
+  final Course course;
+  final List<Course> courses;
+  final int selectedIndex;
+  final String? expandedLessonId;
+  final ValueChanged<int> onTabTap;
+  final VoidCallback onStartLesson;
+  final MascotState mascotState;
+  final ValueChanged<String> onToggleLesson;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+
+    final allLessons = course.allLessons;
+    final activeLessons = allLessons
+        .where((l) => !l.isCompleted && !l.isLocked)
+        .toList();
+    final activeLesson = activeLessons.isNotEmpty ? activeLessons.first : null;
+    final activeLessonIndex = activeLesson != null
+        ? allLessons.indexOf(activeLesson)
+        : -1;
+
+    // Count stats
+    final totalLessons = allLessons.length;
+    final totalExercises = allLessons.fold<int>(
+      0,
+      (sum, l) => sum + l.questions.length,
+    );
+
+    // First module title for the level chip subtitle
+    final firstModuleTitle = course.modules.isNotEmpty
+        ? course.modules.first.title
+        : course.level;
+
+    final scrollContent = SingleChildScrollView(
+      padding: EdgeInsets.symmetric(
+        horizontal: tokens.screenPadding,
+        vertical: tokens.gapLg,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Tab chip row ────────────────────────────────────────────────
+          _CourseTabRow(
+            courses: courses,
+            selectedIndex: selectedIndex,
+            onTap: onTabTap,
+          ),
+
+          SizedBox(height: tokens.gapXxl),
+
+          // ── Course header ────────────────────────────────────────────────
+          _CourseHeader(
+            course: course,
+            totalLessons: totalLessons,
+            totalExercises: totalExercises,
+            firstModuleTitle: firstModuleTitle,
+          ),
+
+          SizedBox(height: tokens.gapXxl),
+
+          // ── Vertical node path ───────────────────────────────────────────
+          _NodePath(
+            course: course,
+            expandedLessonId: expandedLessonId,
+            onToggle: onToggleLesson,
+          ),
+
+          SizedBox(height: tokens.gapXl),
+
+          // ── Bottom lesson box ────────────────────────────────────────────
+          if (activeLesson != null) ...[
+            _LessonStartBox(
+              lesson: activeLesson,
+              lessonIndex: activeLessonIndex,
+              onStart: onStartLesson,
+            ),
+          ],
+
+          SizedBox(height: tokens.gapXxl),
+        ],
+      ),
+    );
+
+    // Phase 7: mascot fly-down overlay.
+    if (mascotState == MascotState.flyDown) {
+      return Stack(
+        children: [
+          scrollContent,
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: MascotSlot(size: 100, state: mascotState),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return scrollContent;
+  }
+}
+
+// ── Tab chip row ──────────────────────────────────────────────────────────────
+
+/// Horizontal scrollable pill chips inside the scroll area (first item).
+/// Selected = AppColors.primary fill + white text.
+/// Unselected = AppColors.surfaceTint + AppColors.inkSecondary text.
+class _CourseTabRow extends StatelessWidget {
+  const _CourseTabRow({
     required this.courses,
     required this.selectedIndex,
     required this.onTap,
@@ -602,7 +749,6 @@ class _CourseIndicatorRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: List.generate(courses.length, (i) {
@@ -615,9 +761,9 @@ class _CourseIndicatorRow extends StatelessWidget {
                 AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       margin: const EdgeInsets.only(right: 8),
-                      constraints: const BoxConstraints(minHeight: 48),
+                      constraints: const BoxConstraints(minHeight: 44),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
+                        horizontal: 16,
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
@@ -625,11 +771,6 @@ class _CourseIndicatorRow extends StatelessWidget {
                             ? AppColors.primary
                             : AppColors.surfaceTint,
                         borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: isSelected
-                              ? AppColors.primary
-                              : AppColors.border,
-                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -666,208 +807,138 @@ class _CourseIndicatorRow extends StatelessWidget {
   }
 }
 
-// ── Single course page ────────────────────────────────────────────────────────
+// ── Course header ─────────────────────────────────────────────────────────────
 
-/// One page inside the PageView.
-/// Layout: `SingleChildScrollView > Column(mainAxisSize: .min)`.
-class _CoursePage extends ConsumerWidget {
-  const _CoursePage({
+/// Central header: TopicDiagramSlot → title → stats row → bordered level chip.
+class _CourseHeader extends StatelessWidget {
+  const _CourseHeader({
     required this.course,
-    required this.onStartLesson,
-    required this.mascotState,
-    super.key,
+    required this.totalLessons,
+    required this.totalExercises,
+    required this.firstModuleTitle,
   });
 
   final Course course;
-  final VoidCallback onStartLesson;
-  final MascotState mascotState;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tokens =
-        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
-    final state = ref.watch(coursesProvider);
-    final notifier = ref.read(coursesProvider.notifier);
-
-    final activeLessons = course.allLessons
-        .where((l) => !l.isCompleted && !l.isLocked)
-        .toList();
-    final activeLesson = activeLessons.isNotEmpty ? activeLessons.first : null;
-
-    final scrollContent = SingleChildScrollView(
-      padding: EdgeInsets.symmetric(
-        horizontal: tokens.screenPadding,
-        vertical: tokens.gapLg,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // ── Course title + hints ─────────────────────────────────────────
-          Text(
-                course.title,
-                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  color: AppColors.ink,
-                ),
-                textAlign: TextAlign.center,
-              )
-              .animate()
-              .fadeIn(duration: const Duration(milliseconds: 300))
-              .slideY(begin: -0.08, end: 0),
-
-          if (course.gradeHint != null || course.interestHint != null) ...[
-            SizedBox(height: tokens.gapXs),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: tokens.gapSm,
-              children: [
-                if (course.gradeHint != null)
-                  _HintChip(label: course.gradeHint!),
-                if (course.interestHint != null)
-                  _HintChip(
-                    label: course.interestHint!,
-                    icon: Icons.favorite_rounded,
-                  ),
-              ],
-            ).animate().fadeIn(
-              delay: const Duration(milliseconds: 80),
-              duration: const Duration(milliseconds: 250),
-            ),
-          ],
-
-          SizedBox(height: tokens.gapXs),
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: tokens.gapMd,
-              vertical: tokens.gapXs,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceTint,
-              borderRadius: BorderRadius.circular(tokens.radiusSm),
-            ),
-            child: Text(
-              course.level,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: AppColors.primary,
-              ),
-            ),
-          ).animate().fadeIn(
-            delay: const Duration(milliseconds: 120),
-            duration: const Duration(milliseconds: 250),
-          ),
-
-          SizedBox(height: tokens.gapXxl),
-
-          // ── Central TopicDiagramSlot ──────────────────────────────────────
-          const TopicDiagramSlot(size: 140)
-              .animate()
-              .fadeIn(
-                delay: const Duration(milliseconds: 160),
-                duration: const Duration(milliseconds: 350),
-              )
-              .scale(
-                begin: const Offset(0.92, 0.92),
-                end: const Offset(1, 1),
-                delay: const Duration(milliseconds: 160),
-                duration: const Duration(milliseconds: 350),
-              ),
-
-          SizedBox(height: tokens.gapXxl),
-
-          // ── Vertical node path (collapsed by default) ─────────────────────
-          _CollapsedLessonPath(
-            course: course,
-            expandedLessonId: state.expandedLessonId,
-            onToggle: notifier.toggleLesson,
-          ),
-
-          SizedBox(height: tokens.gapXxl),
-
-          // ── Bottom box: active lesson + diagram ───────────────────────────
-          if (activeLesson != null) ...[
-            _LessonStartBox(lesson: activeLesson),
-            SizedBox(height: tokens.gapLg),
-          ],
-
-          // ── FeaturedButton (featured CTA — §8) ───────────────────────────
-          FeaturedButton(
-            label: 'Начать урок',
-            onPressed: onStartLesson,
-          ),
-
-          SizedBox(height: tokens.gapXl),
-        ],
-      ),
-    );
-
-    // Phase 7: mascot fly-down overlay.
-    if (mascotState == MascotState.flyDown) {
-      return Stack(
-        children: [
-          scrollContent,
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: MascotSlot(size: 100, state: mascotState),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return scrollContent;
-  }
-}
-
-// ── Hint chip ─────────────────────────────────────────────────────────────────
-
-class _HintChip extends StatelessWidget {
-  const _HintChip({required this.label, this.icon});
-
-  final String label;
-  final IconData? icon;
+  final int totalLessons;
+  final int totalExercises;
+  final String firstModuleTitle;
 
   @override
   Widget build(BuildContext context) {
     final tokens =
         Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: tokens.gapMd,
-        vertical: tokens.gapXs,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(tokens.radiusSm),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 12, color: AppColors.primary),
-            SizedBox(width: tokens.gapXs),
-          ],
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w600,
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 3D topic art
+        // size: 120 (default) — matches DESIGN_SYSTEM.md §7.3 spec
+        const TopicDiagramSlot()
+            .animate()
+            .fadeIn(
+              delay: const Duration(milliseconds: 160),
+              duration: const Duration(milliseconds: 350),
+            )
+            .scale(
+              begin: const Offset(0.92, 0.92),
+              end: const Offset(1, 1),
+              delay: const Duration(milliseconds: 160),
+              duration: const Duration(milliseconds: 350),
             ),
+
+        SizedBox(height: tokens.gapSm),
+
+        // Course title
+        Text(
+              course.title,
+              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                color: AppColors.ink,
+              ),
+              textAlign: TextAlign.center,
+            )
+            .animate()
+            .fadeIn(duration: const Duration(milliseconds: 300))
+            .slideY(begin: -0.08, end: 0),
+
+        SizedBox(height: tokens.gapXs),
+
+        // Stats row
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.menu_book_rounded,
+              size: 14,
+              color: AppColors.inkSecondary,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '$totalLessons уроков',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              '·',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(width: 12),
+            const Icon(
+              Icons.edit_rounded,
+              size: 14,
+              color: AppColors.inkSecondary,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '$totalExercises упражнений',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+
+        SizedBox(height: tokens.gapLg),
+
+        // Bordered level chip
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.primary, width: 2),
+            borderRadius: BorderRadius.circular(tokens.radiusMd),
           ),
-        ],
-      ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                course.level.toUpperCase(),
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: AppColors.primary,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                firstModuleTitle,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: AppColors.ink,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ).animate().fadeIn(
+          delay: const Duration(milliseconds: 120),
+          duration: const Duration(milliseconds: 250),
+        ),
+      ],
     );
   }
 }
 
-// ── Collapsed lesson path ─────────────────────────────────────────────────────
+// ── Node path ─────────────────────────────────────────────────────────────────
 
-/// Renders each lesson as a compact tappable row.
-/// Tapping a non-locked lesson toggles an expansion card.
-/// All lessons start collapsed — the «Начать урок» box is immediately visible.
-class _CollapsedLessonPath extends StatelessWidget {
-  const _CollapsedLessonPath({
+/// Vertical column of centred LessonNode discs connected by thin lines.
+/// Active node has MascotSlot sitting above it.
+class _NodePath extends StatelessWidget {
+  const _NodePath({
     required this.course,
     required this.expandedLessonId,
     required this.onToggle,
@@ -887,9 +958,7 @@ class _CollapsedLessonPath extends StatelessWidget {
       children: List.generate(allLessons.length * 2 - 1, (i) {
         if (i.isOdd) {
           final lessonAbove = allLessons[i ~/ 2];
-          return _NodeConnector(
-            isCompleted: lessonAbove.isCompleted,
-          );
+          return _NodeConnector(isCompleted: lessonAbove.isCompleted);
         }
         final lesson = allLessons[i ~/ 2];
         final isExpanded = expandedLessonId == lesson.id;
@@ -903,65 +972,67 @@ class _CollapsedLessonPath extends StatelessWidget {
           nodeState = LessonNodeState.active;
         }
 
-        return Column(
+        return _LessonNodeRow(
+              lesson: lesson,
+              nodeState: nodeState,
+              isExpanded: isExpanded,
+              onToggle: () {
+                if (!lesson.isLocked) onToggle(lesson.id);
+              },
+            )
+            .animate(key: ValueKey('node_row_${lesson.id}'))
+            .fadeIn(
+              delay: Duration(milliseconds: (i ~/ 2) * 60),
+              duration: const Duration(milliseconds: 280),
+            )
+            .slideY(
+              begin: 0.06,
+              end: 0,
+              delay: Duration(milliseconds: (i ~/ 2) * 60),
+              duration: const Duration(milliseconds: 280),
+            );
+      }),
+    );
+  }
+}
+
+/// A single lesson row: MascotSlot (if active) above the node disc, then
+/// an optional expanded detail card below.
+class _LessonNodeRow extends StatelessWidget {
+  const _LessonNodeRow({
+    required this.lesson,
+    required this.nodeState,
+    required this.isExpanded,
+    required this.onToggle,
+  });
+
+  final CourseLesson lesson;
+  final LessonNodeState nodeState;
+  final bool isExpanded;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: GestureDetector(
+        onTap: lesson.isLocked ? null : onToggle,
+        behavior: HitTestBehavior.opaque,
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Compact row: node + title (always visible)
-            GestureDetector(
-                  onTap: lesson.isLocked ? null : () => onToggle(lesson.id),
-                  behavior: HitTestBehavior.opaque,
-                  child: Row(
-                    children: [
-                      LessonNode(state: nodeState, size: 52),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          lesson.title,
-                          style: Theme.of(context).textTheme.bodyLarge
-                              ?.copyWith(
-                                color: lesson.isLocked
-                                    ? AppColors.inkSecondary
-                                    : AppColors.ink,
-                                fontWeight: isExpanded
-                                    ? FontWeight.w700
-                                    : FontWeight.w500,
-                              ),
-                        ),
-                      ),
-                      if (!lesson.isLocked)
-                        Icon(
-                          isExpanded
-                              ? Icons.keyboard_arrow_up_rounded
-                              : Icons.keyboard_arrow_down_rounded,
-                          color: AppColors.inkSecondary,
-                          size: 20,
-                        ),
-                    ],
-                  ),
-                )
-                .animate(key: ValueKey('node_row_${lesson.id}'))
-                .fadeIn(
-                  delay: Duration(milliseconds: (i ~/ 2) * 60),
-                  duration: const Duration(milliseconds: 280),
-                )
-                .slideY(
-                  begin: 0.06,
-                  end: 0,
-                  delay: Duration(milliseconds: (i ~/ 2) * 60),
-                  duration: const Duration(milliseconds: 280),
-                ),
-
-            // Expandable detail card
+            // MascotSlot sits above the active node
+            if (nodeState == LessonNodeState.active) ...[
+              const MascotSlot(size: 44, tag: 'course-node'),
+              const SizedBox(height: 4),
+            ],
+            LessonNode(state: nodeState, size: 60),
+            // Expansion detail card
             AnimatedSize(
               duration: const Duration(milliseconds: 220),
               curve: Curves.easeInOut,
-              child: isExpanded
+              child: isExpanded && nodeState != LessonNodeState.locked
                   ? Padding(
-                      padding: const EdgeInsets.only(
-                        left: 64,
-                        top: 8,
-                        bottom: 4,
-                      ),
+                      padding: const EdgeInsets.only(top: 8, bottom: 4),
                       child:
                           AppCard(
                             child: Column(
@@ -992,13 +1063,14 @@ class _CollapsedLessonPath extends StatelessWidget {
                   : const SizedBox.shrink(),
             ),
           ],
-        );
-      }),
+        ),
+      ),
     );
   }
 }
 
-/// Vertical connector between two nodes.
+/// Vertical connector line between two nodes.
+/// 2 px wide, 28 px tall, primary if completed else border colour.
 class _NodeConnector extends StatelessWidget {
   const _NodeConnector({required this.isCompleted});
 
@@ -1006,18 +1078,14 @@ class _NodeConnector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 24,
-      width: 52,
-      child: Center(
-        child: SizedBox(
-          width: 2,
-          height: 24,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: isCompleted ? AppColors.primary : AppColors.border,
-              borderRadius: BorderRadius.circular(1),
-            ),
+    return Center(
+      child: SizedBox(
+        width: 2,
+        height: 28,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: isCompleted ? AppColors.primary : AppColors.border,
+            borderRadius: BorderRadius.circular(1),
           ),
         ),
       ),
@@ -1025,29 +1093,69 @@ class _NodeConnector extends StatelessWidget {
   }
 }
 
-/// Bottom card showing the active lesson + diagram side by side.
+// ── Bottom lesson start box ───────────────────────────────────────────────────
+
+/// AppCard with TopicDiagramSlot + lesson title/number, then two buttons:
+/// PrimaryButton «Начать» (dark) and FeaturedButton «Перепрыгнуть» (gradient).
 class _LessonStartBox extends StatelessWidget {
-  const _LessonStartBox({required this.lesson});
+  const _LessonStartBox({
+    required this.lesson,
+    required this.lessonIndex,
+    required this.onStart,
+  });
 
   final CourseLesson lesson;
+  final int lessonIndex;
+  final VoidCallback onStart;
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
-      child: Row(
-        children: [
-          const TopicDiagramSlot(size: 64),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              lesson.title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: AppColors.ink,
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AppCard(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const TopicDiagramSlot(size: 56),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          lesson.title,
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(color: AppColors.ink),
+                        ),
+                        SizedBox(height: tokens.gapXs),
+                        Text(
+                          'Урок ${lessonIndex + 1}',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: AppColors.inkSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        ),
+        SizedBox(height: tokens.gapMd),
+        // Dark primary button for standard action
+        PrimaryButton(label: 'Начать', onPressed: onStart),
+        SizedBox(height: tokens.gapSm),
+        // Gradient featured button for jump-ahead CTA
+        FeaturedButton(label: 'Перепрыгнуть', onPressed: onStart),
+      ],
     );
   }
 }

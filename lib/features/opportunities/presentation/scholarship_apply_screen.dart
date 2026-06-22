@@ -46,8 +46,8 @@ class ScholarshipApplyScreen extends ConsumerWidget {
         title: Text(
           'Подача заявки',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: AppColors.ink,
-              ),
+            color: AppColors.ink,
+          ),
         ),
         elevation: 0,
         surfaceTintColor: AppColors.white,
@@ -78,15 +78,15 @@ class _ApplicationForm extends ConsumerWidget {
           Text(
             'Заполните заявку',
             style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  color: AppColors.ink,
-                ),
+              color: AppColors.ink,
+            ),
           ),
           SizedBox(height: tokens.gapSm),
           Text(
             'Все поля обязательны. Данные хранятся локально.',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: AppColors.inkSecondary,
-                ),
+              color: AppColors.inkSecondary,
+            ),
           ),
           SizedBox(height: tokens.gapXl),
 
@@ -141,7 +141,8 @@ class _ApplicationForm extends ConsumerWidget {
                 const _FieldLabel(label: 'Мотивационное письмо'),
                 SizedBox(height: tokens.gapSm),
                 _AppTextField(
-                  hint: 'Расскажите, почему вы хотите получить эту стипендию '
+                  hint:
+                      'Расскажите, почему вы хотите получить эту стипендию '
                       'и как она поможет вашему обучению...',
                   onChanged: notifier.setMotivation,
                   errorText: formState.fieldErrors?['motivation'],
@@ -176,8 +177,8 @@ class _FieldLabel extends StatelessWidget {
     return Text(
       label,
       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-            color: AppColors.ink,
-          ),
+        color: AppColors.ink,
+      ),
     );
   }
 }
@@ -210,17 +211,17 @@ class _AppTextField extends StatelessWidget {
       keyboardType: keyboardType,
       textInputAction: textInputAction,
       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: AppColors.ink,
-          ),
+        color: AppColors.ink,
+      ),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: AppColors.inkSecondary,
-            ),
+          color: AppColors.inkSecondary,
+        ),
         errorText: errorText,
         errorStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.errorRed,
-            ),
+          color: AppColors.errorRed,
+        ),
         filled: true,
         fillColor: AppColors.surfaceTint,
         contentPadding: EdgeInsets.all(tokens.cardPadding),
@@ -272,8 +273,8 @@ class _SuccessScreen extends ConsumerWidget {
             Text(
               'Заявка отправлена!',
               style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                    color: AppColors.ink,
-                  ),
+                color: AppColors.ink,
+              ),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: tokens.gapMd),
@@ -281,8 +282,8 @@ class _SuccessScreen extends ConsumerWidget {
               'Мы сохранили твою заявку. Следи за статусом в разделе '
               '«Профиль → Документы».',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.inkSecondary,
-                  ),
+                color: AppColors.inkSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: tokens.gapXxl),
@@ -302,17 +303,13 @@ class _SuccessScreen extends ConsumerWidget {
                       children: [
                         Text(
                           'Заявка принята',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
+                          style: Theme.of(context).textTheme.titleLarge
                               ?.copyWith(color: AppColors.ink),
                         ),
                         SizedBox(height: tokens.gapXs),
                         Text(
                           'Данные сохранены локально',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
+                          style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: AppColors.inkSecondary),
                         ),
                       ],

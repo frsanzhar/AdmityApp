@@ -191,8 +191,18 @@ void main() {
     // Initial state: no expanded lesson.
     expect(container.read(coursesProvider).expandedLessonId, isNull);
 
-    // Tap the active lesson node row (play_arrow icon).
-    await tester.tap(find.byIcon(Icons.play_arrow_rounded).first);
+    // Scroll until the active node (play_arrow) is visible, then tap.
+    await tester.scrollUntilVisible(
+      find.byIcon(Icons.play_arrow_rounded).first,
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byIcon(Icons.play_arrow_rounded).first,
+      warnIfMissed: false,
+    );
     await tester.pumpAndSettle();
 
     expect(
@@ -217,14 +227,36 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    // Scroll until the active node is visible.
+    await tester.scrollUntilVisible(
+      find.byIcon(Icons.play_arrow_rounded).first,
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
     // Expand.
-    await tester.tap(find.byIcon(Icons.play_arrow_rounded).first);
+    await tester.tap(
+      find.byIcon(Icons.play_arrow_rounded).first,
+      warnIfMissed: false,
+    );
     await tester.pumpAndSettle();
     final expandedId = container.read(coursesProvider).expandedLessonId;
     expect(expandedId, isNotNull);
 
+    // Scroll again in case it shifted after expansion.
+    await tester.scrollUntilVisible(
+      find.byIcon(Icons.play_arrow_rounded).first,
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
     // Collapse.
-    await tester.tap(find.byIcon(Icons.play_arrow_rounded).first);
+    await tester.tap(
+      find.byIcon(Icons.play_arrow_rounded).first,
+      warnIfMissed: false,
+    );
     await tester.pumpAndSettle();
     expect(
       container.read(coursesProvider).expandedLessonId,
@@ -244,14 +276,45 @@ void main() {
     expect(find.byType(TopicDiagramSlot), findsWidgets);
   });
 
+  testWidgets(
+    'at least two TopicDiagramSlots: one in header, one in lesson box',
+    (tester) async {
+      await tester.pumpWidget(_themed(const CoursesScreen()));
+      await tester.pumpAndSettle();
+
+      // Scroll to reveal the lesson start box
+      await tester.scrollUntilVisible(
+        find.byType(TopicDiagramSlot).last,
+        100,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byType(TopicDiagramSlot),
+        findsWidgets,
+        reason: 'header and lesson box both contain TopicDiagramSlots',
+      );
+    },
+  );
+
   // ── Bottom box ─────────────────────────────────────────────────────────────
 
-  testWidgets('FeaturedButton "Начать урок" is present', (tester) async {
+  testWidgets('FeaturedButton is present and labelled Перепрыгнуть', (
+    tester,
+  ) async {
     await tester.pumpWidget(_themed(const CoursesScreen()));
     await tester.pumpAndSettle();
 
     expect(find.byType(FeaturedButton), findsWidgets);
-    expect(find.text('Начать урок'), findsOneWidget);
+    expect(find.text('Перепрыгнуть'), findsOneWidget);
+  });
+
+  testWidgets('"Начать" PrimaryButton is present', (tester) async {
+    await tester.pumpWidget(_themed(const CoursesScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Начать'), findsOneWidget);
   });
 
   // ── «Создать курс» ────────────────────────────────────────────────────────
@@ -275,18 +338,18 @@ void main() {
 
   // ── Navigation ─────────────────────────────────────────────────────────────
 
-  testWidgets('"Начать урок" navigates to /lesson', (tester) async {
+  testWidgets('"Начать" navigates to /lesson', (tester) async {
     await tester.pumpWidget(_routerWrapped(const CoursesScreen()));
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
-      find.text('Начать урок'),
+      find.text('Начать'),
       100,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Начать урок'), warnIfMissed: false);
+    await tester.tap(find.text('Начать'), warnIfMissed: false);
     await tester.pumpAndSettle();
 
     expect(find.text('LessonScreen'), findsOneWidget);

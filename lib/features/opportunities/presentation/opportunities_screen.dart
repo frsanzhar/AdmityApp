@@ -650,7 +650,10 @@ class _UniversitiesTab extends ConsumerWidget {
       separatorBuilder: (context, i) => SizedBox(height: tokens.gapMd),
       itemBuilder: (context, i) {
         final u = universities[i];
-        return _UniversityCard(university: u)
+        return _UniversityCard(
+              university: u,
+              onTap: () => context.go('/opportunities/university/${u.id}'),
+            )
             .animate()
             .fadeIn(
               delay: Duration(milliseconds: 60 * i),
@@ -670,9 +673,10 @@ class _UniversitiesTab extends ConsumerWidget {
 }
 
 class _UniversityCard extends StatelessWidget {
-  const _UniversityCard({required this.university});
+  const _UniversityCard({required this.university, this.onTap});
 
   final University university;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -680,6 +684,7 @@ class _UniversityCard extends StatelessWidget {
         Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
 
     return AppCard(
+      onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -766,6 +771,12 @@ class _UniversityCard extends StatelessWidget {
                   ),
                 ),
               ),
+              const Spacer(),
+              const Icon(
+                Icons.arrow_forward_rounded,
+                size: 16,
+                color: AppColors.primary,
+              ),
             ],
           ),
         ],
@@ -817,6 +828,7 @@ class _EventsTab extends ConsumerWidget {
                       isLocal:
                           city != null &&
                           e.city.toLowerCase().contains(city.toLowerCase()),
+                      onTap: () => context.go('/opportunities/event/${e.id}'),
                     )
                     .animate()
                     .fadeIn(
@@ -842,12 +854,14 @@ class _EventCard extends StatelessWidget {
   const _EventCard({
     required this.event,
     this.isLocal = false,
+    this.onTap,
   });
 
   final OpportunityEvent event;
 
   /// Whether this event is in the student's city — shows a "Рядом" badge.
   final bool isLocal;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -855,6 +869,7 @@ class _EventCard extends StatelessWidget {
         Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
 
     return AppCard(
+      onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -910,6 +925,23 @@ class _EventCard extends StatelessWidget {
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
               color: AppColors.inkSecondary,
             ),
+          ),
+          SizedBox(height: tokens.gapMd),
+          Row(
+            children: [
+              const Icon(
+                Icons.arrow_forward_rounded,
+                size: 16,
+                color: AppColors.primary,
+              ),
+              SizedBox(width: tokens.gapXs),
+              Text(
+                'Подробнее',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -987,20 +1019,24 @@ class _ProjectIdeasTab extends ConsumerWidget {
           final p = entry.value;
           return Padding(
             padding: EdgeInsets.only(bottom: tokens.gapMd),
-            child: _ProjectIdeaCard(idea: p)
-                .animate()
-                .fadeIn(
-                  delay: Duration(milliseconds: 60 * i),
-                  duration: const Duration(milliseconds: 280),
-                  curve: Curves.easeOut,
-                )
-                .slideY(
-                  begin: 0.06,
-                  end: 0,
-                  delay: Duration(milliseconds: 60 * i),
-                  duration: const Duration(milliseconds: 280),
-                  curve: Curves.easeOut,
-                ),
+            child:
+                _ProjectIdeaCard(
+                      idea: p,
+                      onTap: () => context.go('/opportunities/idea/${p.id}'),
+                    )
+                    .animate()
+                    .fadeIn(
+                      delay: Duration(milliseconds: 60 * i),
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.easeOut,
+                    )
+                    .slideY(
+                      begin: 0.06,
+                      end: 0,
+                      delay: Duration(milliseconds: 60 * i),
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.easeOut,
+                    ),
           );
         }),
       ],
@@ -1009,9 +1045,10 @@ class _ProjectIdeasTab extends ConsumerWidget {
 }
 
 class _ProjectIdeaCard extends StatelessWidget {
-  const _ProjectIdeaCard({required this.idea});
+  const _ProjectIdeaCard({required this.idea, this.onTap});
 
   final ProjectIdea idea;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1019,6 +1056,7 @@ class _ProjectIdeaCard extends StatelessWidget {
         Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
 
     return AppCard(
+      onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1059,6 +1097,23 @@ class _ProjectIdeaCard extends StatelessWidget {
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
               color: AppColors.inkSecondary,
             ),
+          ),
+          SizedBox(height: tokens.gapMd),
+          Row(
+            children: [
+              const Icon(
+                Icons.arrow_forward_rounded,
+                size: 16,
+                color: AppColors.primary,
+              ),
+              SizedBox(width: tokens.gapXs),
+              Text(
+                'Подробнее',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
           ),
         ],
       ),

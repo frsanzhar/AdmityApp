@@ -5,6 +5,7 @@ import 'package:admity/features/profile/application/profile_notifier.dart';
 import 'package:admity/shared/rive/rive_assets.dart';
 import 'package:admity/shared/rive/rive_loader.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rive/rive.dart';
@@ -13,8 +14,6 @@ import 'package:rive/rive.dart';
 // State Machine contract: machine='SplashSM'
 //   triggers — play   (starts light-sweep across "Admity" then fly-up)
 // Until the asset lands the static text renders and a timer drives navigation.
-
-// TODO(motion): light sweep + fly-up
 
 /// Splash screen (DESIGN_SYSTEM.md §7.1).
 ///
@@ -42,9 +41,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     final file = await loadRiveAsset(kSplashRivAsset);
     if (!mounted) return;
 
-    if (file == null || MediaQuery.of(context).disableAnimations) {
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+
+    if (file == null || reduceMotion) {
       // No asset or reduceMotion — use timer-based navigation.
-      _scheduleNavigation(const Duration(milliseconds: 1500));
+      // reduceMotion path: 1800ms, no-asset path: 2200ms
+      final delay = reduceMotion
+          ? const Duration(milliseconds: 1800)
+          : const Duration(milliseconds: 2200);
+      _scheduleNavigation(delay);
       return;
     }
 
@@ -57,7 +62,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       // ignore: avoid_catches_without_on_clauses // Must catch Error + Exception from Rive internals.
     } catch (_) {
       // State machine not found or native renderer unavailable — fall back to timer.
-      _scheduleNavigation(const Duration(milliseconds: 1500));
+      _scheduleNavigation(const Duration(milliseconds: 2200));
       return;
     }
 
@@ -109,19 +114,59 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final Widget staticText = Center(
-      child: Text(
-        'Admity',
-        style: Theme.of(
-          context,
-        ).textTheme.displayLarge?.copyWith(color: AppColors.ink),
-      ),
-    );
-
     if (!_riveReady || _controller == null) {
+      final reduceMotion = MediaQuery.of(context).disableAnimations;
+
+      final Widget wordmark;
+      if (reduceMotion) {
+        // Static — no shimmer or fly-up.
+        wordmark = const Text(
+          'Admity',
+          style: TextStyle(
+            fontSize: 72,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -2,
+            color: AppColors.ink,
+          ),
+        );
+      } else {
+        // Shimmer sweep left→right, then fly up + fade out.
+        wordmark =
+            const Text(
+                  'Admity',
+                  style: TextStyle(
+                    fontSize: 72,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -2,
+                    color: AppColors.ink,
+                  ),
+                )
+                .animate(onPlay: (ctrl) => ctrl.forward())
+                .shimmer(
+                  delay: 300.ms,
+                  duration: 900.ms,
+                  color: Color.fromRGBO(
+                    AppColors.primary.r.round(),
+                    AppColors.primary.g.round(),
+                    AppColors.primary.b.round(),
+                    0.6,
+                  ),
+                )
+                .then(delay: 200.ms)
+                .slideY(
+                  begin: 0,
+                  end: -0.5,
+                  duration: 600.ms,
+                  curve: Curves.easeIn,
+                )
+                .fadeOut(duration: 500.ms);
+      }
+
       return Scaffold(
         backgroundColor: AppColors.white,
-        body: staticText,
+        body: SafeArea(
+          child: Center(child: wordmark),
+        ),
       );
     }
 

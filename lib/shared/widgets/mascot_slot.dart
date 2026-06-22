@@ -1,40 +1,48 @@
-import 'dart:math' as math;
-
 import 'package:admity/core/theme/app_colors.dart';
 import 'package:admity/shared/rive/rive_assets.dart';
 import 'package:admity/shared/rive/rive_state_machine_slot.dart';
+import 'package:admity/shared/widgets/mascot_painter.dart';
 import 'package:flutter/material.dart';
 import 'package:rive/rive.dart';
 
-// TODO(mascot): Replace this geometric placeholder with the real mascot
-// asset when the designer delivers it.  Search for "MascotSlot" to find
-// every placement in the app.
+// TODO(mascot): Replace the CustomPaint panda fallback with the final
+// designer Rive asset once delivered.  Search "MascotSlot" to find every
+// placement in the app.
 //
 // TODO(rive-asset): Wire to assets/rive/mascot.riv once delivered.
 // State Machine contract: machine='MascotSM'
 //   inputs  — isIdle (bool), isHappy (bool)
 //   triggers — flyDown, celebrate
-// Until the asset lands the green blob renders as a static fallback.
+// Until the asset lands the panda CustomPaint renders as a static fallback.
 
-/// Slot for the Admity mascot figure.
+/// Slot for the Admity panda mascot.
 ///
-/// Phase 7 wiring: drives Rive State Machine [kMascotMachineName] via
-/// [state].
+/// ### Public API (additive — no breaking changes to existing callers)
+///
+/// ```dart
+/// MascotSlot(size: 120, tag: 'home')                    // idle panda
+/// MascotSlot(size: 80, state: MascotState.celebrate)    // Rive celebrate
+/// MascotSlot(size: 80, mood: MascotMood.celebrate)      // painted expression
+/// ```
+///
+/// [state] drives the **Rive State Machine** (Phase 7 motion).
+/// [mood]  drives the **painted panda expression** (always visible as
+///         static fallback; also meaningful when Rive isn't available).
+/// Both params are independent so screens can set each to match their context.
 ///
 /// ### reduceMotion
-/// When `MediaQuery.disableAnimations` is true the static blob always renders.
+/// When `MediaQuery.disableAnimations` is true the static panda always
+/// renders regardless of [state].
 ///
-/// ### Missing asset
-/// When assets/rive/mascot.riv is absent the green blob renders instead.
-///
-/// API is additive-only — [size], [tag], [state] — no breaking change to
-/// callers that only pass [size] and [tag].
+/// ### Missing Rive asset
+/// When assets/rive/mascot.riv is absent the panda [CustomPaint] renders.
 class MascotSlot extends StatefulWidget {
   const MascotSlot({
     super.key,
     this.size = 120,
     this.tag,
     this.state = MascotState.idle,
+    this.mood = MascotMood.idle,
   });
 
   /// Bounding box dimension (width = height = [size]).
@@ -43,8 +51,15 @@ class MascotSlot extends StatefulWidget {
   /// Optional context label shown under the mascot (e.g. "home" / "lesson").
   final String? tag;
 
-  /// Drives the Rive State Machine state.
+  /// Drives the Rive State Machine inputs/triggers (Phase 7 motion).
   final MascotState state;
+
+  /// Drives the painted panda expression differences.
+  ///
+  /// Defaults to [MascotMood.idle]. Independent of [state] — screens may
+  /// set [mood] to [MascotMood.celebrate] while [state] stays at
+  /// [MascotState.idle] if the Rive animation is not yet active.
+  final MascotMood mood;
 
   @override
   State<MascotSlot> createState() => _MascotSlotState();
@@ -106,7 +121,8 @@ class _MascotSlotState extends State<MascotSlot> {
 
   @override
   Widget build(BuildContext context) {
-    final blob = _BlobFallback(size: widget.size);
+    // Static panda fallback — also used when reduceMotion is requested.
+    final panda = _PandaFallback(size: widget.size, mood: widget.mood);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -114,7 +130,7 @@ class _MascotSlotState extends State<MascotSlot> {
         RiveStateMachineSlot(
           assetPath: kMascotRivAsset,
           machineName: kMascotMachineName,
-          staticFallback: blob,
+          staticFallback: panda,
           onController: _onController,
           width: widget.size,
           height: widget.size,
@@ -135,68 +151,32 @@ class _MascotSlotState extends State<MascotSlot> {
   }
 }
 
-// ── Static fallback ───────────────────────────────────────────────────────────
+// ── Painted panda fallback ────────────────────────────────────────────────────
 
-/// The original green blob, now used as the static fallback for MascotSlot.
-class _BlobFallback extends StatelessWidget {
-  const _BlobFallback({required this.size});
+/// Renders the custom panda character via [PandaPainter].
+///
+/// Used as the static fallback while assets/rive/mascot.riv is not yet
+/// available, and always when `MediaQuery.disableAnimations` is true.
+class _PandaFallback extends StatelessWidget {
+  const _PandaFallback({required this.size, this.mood = MascotMood.idle});
 
   final double size;
+  final MascotMood mood;
 
   @override
   Widget build(BuildContext context) {
+    // Respect the system reduce-motion preference — static painter already is
+    // static, but we gate here explicitly so future animatable variants respect
+    // the preference too.
+    final effectiveMood = MediaQuery.disableAnimationsOf(context)
+        ? MascotMood.idle
+        : mood;
+
     return SizedBox.square(
       dimension: size,
       child: CustomPaint(
-        painter: _BlobPainter(size: size),
+        painter: PandaPainter(size: size, mood: effectiveMood),
       ),
     );
   }
-}
-
-/// Draws a soft five-sided blob in [AppColors.mascotGreen].
-class _BlobPainter extends CustomPainter {
-  const _BlobPainter({required this.size});
-
-  final double size;
-
-  @override
-  void paint(Canvas canvas, Size canvasSize) {
-    final cx = canvasSize.width / 2;
-    final cy = canvasSize.height / 2;
-    final r = size * 0.38;
-
-    // Build a 5-pointed "squircle blob" by interleaving outer and inner radii.
-    final path = Path();
-    const sides = 5;
-    const innerRatio = 0.72; // softness factor (>0.5 = round, <0.5 = spiky)
-
-    for (var i = 0; i < sides * 2; i++) {
-      final angle = (math.pi * i / sides) - math.pi / 2;
-      final radius = i.isEven ? r : r * innerRatio;
-      final x = cx + radius * math.cos(angle);
-      final y = cy + radius * math.sin(angle);
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-    }
-    path.close();
-
-    canvas
-      // Soft shadow
-      ..drawShadow(path, AppColors.mascotGreen.withValues(alpha: 0.35), 8, false)
-      // Fill
-      ..drawPath(path, Paint()..color = AppColors.mascotGreen)
-      // Small neutral dot in centre
-      ..drawCircle(
-        Offset(cx, cy),
-        size * 0.07,
-        Paint()..color = AppColors.white.withValues(alpha: 0.7),
-      );
-  }
-
-  @override
-  bool shouldRepaint(_BlobPainter oldDelegate) => oldDelegate.size != size;
 }

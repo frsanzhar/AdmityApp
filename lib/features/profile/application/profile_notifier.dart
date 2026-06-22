@@ -3,6 +3,8 @@ library;
 
 import 'package:admity/features/profile/data/profile_repository.dart';
 import 'package:admity/features/profile/domain/profile_model.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // ── Provider (repository) ─────────────────────────────────────────────────────
@@ -218,6 +220,83 @@ class ProfileNotifier extends Notifier<ProfileState> {
     final newList = [...state.packages];
     newList[idx] = updated;
     state = state.copyWith(packages: newList);
+  }
+
+  /// Opens the system file picker and attaches the chosen file to the given
+  /// [DocumentItem].  Stores the local path on the item and marks it attached.
+  ///
+  /// Returns true if a file was picked, false if the user cancelled.
+  Future<bool> attachFileToItem({
+    required String packageId,
+    required String itemId,
+  }) async {
+    FilePickerResult? result;
+    try {
+      result = await FilePicker.platform.pickFiles();
+    } on Object catch (e) {
+      debugPrint('[ProfileNotifier] attachFileToItem pickFiles error: $e');
+      return false;
+    }
+    if (result == null || result.files.isEmpty) return false;
+
+    final file = result.files.first;
+    final path = file.path;
+    if (path == null) return false;
+
+    final pkgIdx = state.packages.indexWhere((p) => p.id == packageId);
+    if (pkgIdx < 0) return false;
+    final pkg = state.packages[pkgIdx];
+    final itemIdx = pkg.items.indexWhere((i) => i.id == itemId);
+    if (itemIdx < 0) return false;
+
+    final updatedItems = [...pkg.items];
+    updatedItems[itemIdx] = pkg.items[itemIdx].copyWith(
+      filePath: path,
+      isAttached: true,
+    );
+    final updatedPkg = pkg.copyWith(items: updatedItems);
+    await _repo.savePackage(updatedPkg);
+
+    final newList = [...state.packages];
+    newList[pkgIdx] = updatedPkg;
+    state = state.copyWith(packages: newList);
+    return true;
+  }
+
+  /// Seeds the standard KZ university-admission document package if no packages
+  /// exist yet.  Safe to call multiple times — is a no-op once seeded.
+  Future<void> ensureDefaultPackageSeeded() async {
+    // Wait until loading is complete before checking.
+    if (state.isLoading) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    if (state.packages.isNotEmpty) return;
+
+    await addPackage(
+      name: 'Стандартный пакет КЗ',
+      description: 'Типовой набор документов для поступления в вузы Казахстана',
+    );
+
+    final pkgs = state.packages;
+    if (pkgs.isEmpty) return;
+    final pkgId = pkgs.first.id;
+
+    const defaultItems = [
+      'Удостоверение личности / Свидетельство о рождении',
+      'Аттестат / Транскрипт оценок',
+      'Медицинская справка 086-У',
+      'Фотографии 3×4 (6 шт.)',
+      'Сертификат ЕНТ / ЕГЭ',
+      'Сертификат IELTS / TOEFL / SAT (при наличии)',
+      'Мотивационное письмо',
+      'Рекомендательные письма (2 шт.)',
+      'Заявление о поступлении',
+      'Согласие родителей (для несовершеннолетних)',
+    ];
+
+    for (final label in defaultItems) {
+      await addItemToPackage(packageId: pkgId, label: label);
+    }
   }
 }
 

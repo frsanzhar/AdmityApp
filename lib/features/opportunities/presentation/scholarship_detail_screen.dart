@@ -21,8 +21,9 @@ class ScholarshipDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scholarship =
-        seedScholarships.where((s) => s.id == scholarshipId).firstOrNull;
+    final scholarship = seedScholarships
+        .where((s) => s.id == scholarshipId)
+        .firstOrNull;
 
     if (scholarship == null) {
       return AppScaffold(
@@ -35,8 +36,8 @@ class ScholarshipDetailScreen extends StatelessWidget {
           title: Text(
             'Стипендия',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: AppColors.ink,
-                ),
+              color: AppColors.ink,
+            ),
           ),
           elevation: 0,
         ),
@@ -56,8 +57,8 @@ class ScholarshipDetailScreen extends StatelessWidget {
         title: Text(
           scholarship.name,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: AppColors.ink,
-              ),
+            color: AppColors.ink,
+          ),
         ),
         elevation: 0,
         surfaceTintColor: AppColors.white,
@@ -117,26 +118,25 @@ class _ScholarshipDetailBody extends StatelessWidget {
                 Text(
                   scholarship.coverageLabel,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.successGreen,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: AppColors.successGreen,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 if (scholarship.priceLabel != null) ...[
                   SizedBox(height: tokens.gapXs),
                   Text(
                     scholarship.priceLabel!,
-                    style: Theme.of(context)
-                        .textTheme
-                        .labelLarge
-                        ?.copyWith(color: AppColors.goldKey),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelLarge?.copyWith(color: AppColors.goldKey),
                   ),
                 ],
                 SizedBox(height: tokens.gapMd),
                 Text(
                   scholarship.whatItCovers,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.inkSecondary,
-                      ),
+                    color: AppColors.inkSecondary,
+                  ),
                 ),
               ],
             ),
@@ -151,8 +151,8 @@ class _ScholarshipDetailBody extends StatelessWidget {
             child: Text(
               scholarship.howToGet,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.inkSecondary,
-                  ),
+                color: AppColors.inkSecondary,
+              ),
             ),
           ),
           SizedBox(height: tokens.gapMd),
@@ -169,23 +169,23 @@ class _ScholarshipDetailBody extends StatelessWidget {
                 Text(
                   scholarship.requiredStats,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.ink,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: AppColors.ink,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 SizedBox(height: tokens.gapMd),
                 Text(
                   'Как их добить:',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: AppColors.ink,
-                      ),
+                    color: AppColors.ink,
+                  ),
                 ),
                 SizedBox(height: tokens.gapSm),
                 Text(
                   scholarship.howToBoostStats,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.inkSecondary,
-                      ),
+                    color: AppColors.inkSecondary,
+                  ),
                 ),
               ],
             ),
@@ -207,15 +207,16 @@ class _ScholarshipDetailBody extends StatelessWidget {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.check_circle_outline_rounded,
-                              size: 16, color: AppColors.successGreen),
+                          const Icon(
+                            Icons.check_circle_outline_rounded,
+                            size: 16,
+                            color: AppColors.successGreen,
+                          ),
                           SizedBox(width: tokens.gapSm),
                           Expanded(
                             child: Text(
                               doc,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge
+                              style: Theme.of(context).textTheme.bodyLarge
                                   ?.copyWith(color: AppColors.ink),
                             ),
                           ),
@@ -231,8 +232,9 @@ class _ScholarshipDetailBody extends StatelessWidget {
           // ── Featured CTA — Подать заявку ──────────────────────────────────
           FeaturedButton(
             label: 'Подать заявку',
-            onPressed: () => context
-                .go('/opportunities/scholarship/${scholarship.id}/apply'),
+            onPressed: () => context.go(
+              '/opportunities/scholarship/${scholarship.id}/apply',
+            ),
           ),
           SizedBox(height: tokens.gapXl),
         ],
@@ -285,8 +287,8 @@ class _SectionCard extends StatelessWidget {
                 Text(
                   title,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        color: AppColors.ink,
-                      ),
+                    color: AppColors.ink,
+                  ),
                 ),
               ],
             ),
@@ -335,8 +337,9 @@ class _MetaChip extends StatelessWidget {
           SizedBox(width: tokens.gapXs),
           Text(
             label,
-            style:
-                Theme.of(context).textTheme.labelLarge?.copyWith(color: color),
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(color: color),
           ),
         ],
       ),

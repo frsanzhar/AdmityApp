@@ -109,6 +109,13 @@ class University {
     required this.accessibility,
     required this.description,
     required this.entThreshold,
+    this.mission,
+    this.programs,
+    this.acceptanceRate,
+    this.requirements,
+    this.scholarshipInfo,
+    this.admissionSteps,
+    this.websiteLabel,
   });
 
   final String id;
@@ -119,6 +126,27 @@ class University {
   final Accessibility accessibility;
   final String description;
   final int entThreshold;
+
+  /// Short mission / about statement.
+  final String? mission;
+
+  /// List of academic programmes / directions offered.
+  final List<String>? programs;
+
+  /// Realistic acceptance rate as a fraction (0.0–1.0). Honest — never inflated.
+  final double? acceptanceRate;
+
+  /// Admission requirements in human-readable form.
+  final String? requirements;
+
+  /// Information about available scholarships / grants.
+  final String? scholarshipInfo;
+
+  /// Step-by-step guide ("как поступить").
+  final List<String>? admissionSteps;
+
+  /// Human-readable website label (e.g. "nu.edu.kz").
+  final String? websiteLabel;
 }
 
 /// A nearby event.
@@ -129,6 +157,12 @@ class OpportunityEvent {
     required this.dateLabel,
     required this.city,
     required this.description,
+    this.location,
+    this.format,
+    this.howToParticipate,
+    this.prize,
+    this.registrationDeadline,
+    this.registrationUrl,
   });
 
   final String id;
@@ -136,6 +170,24 @@ class OpportunityEvent {
   final String dateLabel;
   final String city;
   final String description;
+
+  /// Venue or online platform.
+  final String? location;
+
+  /// "Очно" / "Онлайн" / "Гибридный".
+  final String? format;
+
+  /// Steps to participate ("как участвовать").
+  final List<String>? howToParticipate;
+
+  /// Prize / reward description.
+  final String? prize;
+
+  /// Registration deadline (human-readable).
+  final String? registrationDeadline;
+
+  /// Registration link label (e.g. "hackalmaty.kz").
+  final String? registrationUrl;
 }
 
 /// A project idea (keyed to an academic field).
@@ -146,6 +198,10 @@ class ProjectIdea {
     required this.field,
     required this.description,
     required this.difficulty,
+    this.whyItFits,
+    this.steps,
+    this.expectedOutcome,
+    this.techStack,
   });
 
   final String id;
@@ -153,6 +209,18 @@ class ProjectIdea {
   final AcademicField field;
   final String description;
   final String difficulty;
+
+  /// Why this idea matches student interests in this field.
+  final String? whyItFits;
+
+  /// Ordered list of steps to execute the project.
+  final List<String>? steps;
+
+  /// What the student will have at the end.
+  final String? expectedOutcome;
+
+  /// Technologies / tools involved (for portfolio context).
+  final String? techStack;
 }
 
 /// Filter state applied to the scholarships / universities list.
@@ -178,8 +246,9 @@ class OpportunityFilter {
     return OpportunityFilter(
       city: clearCity ? null : (city ?? this.city),
       field: clearField ? null : (field ?? this.field),
-      accessibility:
-          clearAccessibility ? null : (accessibility ?? this.accessibility),
+      accessibility: clearAccessibility
+          ? null
+          : (accessibility ?? this.accessibility),
     );
   }
 
