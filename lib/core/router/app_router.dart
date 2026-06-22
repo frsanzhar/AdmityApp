@@ -1,5 +1,6 @@
 import 'package:admity/features/courses/presentation/courses_screen.dart';
 import 'package:admity/features/home/presentation/home_screen.dart';
+import 'package:admity/features/lesson/presentation/lesson_screen.dart';
 import 'package:admity/features/mentor/presentation/mentor_screen.dart';
 import 'package:admity/features/opportunities/presentation/opportunities_screen.dart';
 import 'package:admity/features/profile/presentation/profile_screen.dart';
@@ -13,6 +14,8 @@ GoRouter createRouter() {
     initialLocation: '/',
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
+      // Full-screen lesson route — outside the tab shell so it covers the bottom nav.
+      GoRoute(path: '/lesson', builder: (context, state) => const LessonScreen()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => _ShellScaffold(shell: shell),
         branches: [
