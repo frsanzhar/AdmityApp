@@ -3,6 +3,8 @@ import 'package:admity/features/home/presentation/home_screen.dart';
 import 'package:admity/features/lesson/presentation/lesson_screen.dart';
 import 'package:admity/features/mentor/presentation/mentor_screen.dart';
 import 'package:admity/features/opportunities/presentation/opportunities_screen.dart';
+import 'package:admity/features/opportunities/presentation/scholarship_apply_screen.dart';
+import 'package:admity/features/opportunities/presentation/scholarship_detail_screen.dart';
 import 'package:admity/features/profile/presentation/profile_screen.dart';
 import 'package:admity/features/splash/presentation/splash_screen.dart';
 import 'package:admity/shared/widgets/app_bottom_nav.dart';
@@ -16,6 +18,19 @@ GoRouter createRouter() {
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       // Full-screen lesson route — outside the tab shell so it covers the bottom nav.
       GoRoute(path: '/lesson', builder: (context, state) => const LessonScreen()),
+      // Full-screen scholarship detail + apply routes — outside the tab shell.
+      GoRoute(
+        path: '/opportunities/scholarship/:id',
+        builder: (context, state) => ScholarshipDetailScreen(
+          scholarshipId: state.pathParameters['id'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: '/opportunities/scholarship/:id/apply',
+        builder: (context, state) => ScholarshipApplyScreen(
+          scholarshipId: state.pathParameters['id'] ?? '',
+        ),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => _ShellScaffold(shell: shell),
         branches: [
