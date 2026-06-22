@@ -57,8 +57,20 @@
 ## Phase 6 — Profile  ·  `backend-supabase` (+ `frontend-screens`)
 - [ ] `/profile` (§7.7): settings, edit self-data, notes, documents as a "package"; local-first storage (Hive/Isar); optional Supabase sync. **Gate.**
 
-## Phase 7 — Motion  ·  `motion-animation`
-- [ ] Splash light-sweep + fly-up; mascot fly-down on lesson start; lesson-complete celebration; node-path + swipe transitions. Respect reduceMotion. **Gate.**
+## Phase 7 — Motion (Rive)  ·  `motion-animation`
+**Tech: Rive (`rive` package) ONLY — NOT Lottie, NOT hand-coded animations.**
+Why: state-driven *interactive* animations driven by Rive **State Machines**, and one `.riv` file works across all platforms (the Brilliant approach).
+- [ ] Add `rive` dependency; set up `assets/rive/` + loading helpers.
+- [ ] **Mascot** — Rive State Machine swapped into `MascotSlot` (idle / happy / fly-down / celebrate states), replacing the placeholder blob.
+- [ ] **Splash light-sweep + fly-up** (§7.1) via a Rive State Machine.
+- [ ] **Lesson feedback** ✓/✗ (correct / incorrect states) (§7.4).
+- [ ] **Streak** animation (`StreakBadge`).
+- [ ] Node-path + swipe transitions where they fit.
+- [ ] Drive states from app state (inputs/triggers), not timers. Respect `reduceMotion` (static fallback frame). **Gate.**
+
+> Phase 7 layers Rive OVER finished screens — it does NOT restructure them. `MascotSlot`,
+> `TopicDiagramSlot`, and all `// TODO(mascot)` / `// TODO(motion)` placeholders stay AS-IS
+> through Phases 0–6; Rive replaces them only in Phase 7.
 
 ---
 `qa-tester` runs the gate audit at the end of each phase. PM signs off before advancing.
