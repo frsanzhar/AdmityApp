@@ -3,10 +3,14 @@ import 'package:admity/features/home/presentation/home_screen.dart';
 import 'package:admity/features/lesson/presentation/lesson_screen.dart';
 import 'package:admity/features/mentor/presentation/mentor_screen.dart';
 import 'package:admity/features/onboarding/presentation/onboarding_screen.dart';
+import 'package:admity/features/opportunities/presentation/event_detail_screen.dart';
+import 'package:admity/features/opportunities/presentation/idea_detail_screen.dart';
 import 'package:admity/features/opportunities/presentation/opportunities_screen.dart';
 import 'package:admity/features/opportunities/presentation/scholarship_apply_screen.dart';
 import 'package:admity/features/opportunities/presentation/scholarship_detail_screen.dart';
+import 'package:admity/features/opportunities/presentation/university_detail_screen.dart';
 import 'package:admity/features/profile/presentation/career_test_screen.dart';
+import 'package:admity/features/profile/presentation/profile_edit_screen.dart';
 import 'package:admity/features/profile/presentation/profile_screen.dart';
 import 'package:admity/features/splash/presentation/splash_screen.dart';
 import 'package:admity/shared/widgets/app_bottom_nav.dart';
@@ -36,6 +40,29 @@ GoRouter createRouter() {
         builder: (context, state) => ScholarshipApplyScreen(
           scholarshipId: state.pathParameters['id'] ?? '',
         ),
+      ),
+      GoRoute(
+        path: '/opportunities/university/:id',
+        builder: (context, state) => UniversityDetailScreen(
+          universityId: state.pathParameters['id'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: '/opportunities/event/:id',
+        builder: (context, state) => EventDetailScreen(
+          eventId: state.pathParameters['id'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: '/opportunities/idea/:id',
+        builder: (context, state) => IdeaDetailScreen(
+          ideaId: state.pathParameters['id'] ?? '',
+        ),
+      ),
+      // Full-screen profile data editor — opened from the Profile pencil.
+      GoRoute(
+        path: '/profile/edit',
+        builder: (context, state) => const ProfileEditScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => _ShellScaffold(shell: shell),

@@ -22,6 +22,8 @@ class StudentProfile {
     this.satScore,
     this.toeflScore,
     this.careerResult,
+    this.dailyGoalMinutes,
+    this.schedule,
     this.onboardingComplete = false,
     this.targetUniversities = const [],
     this.targetMajors = const [],
@@ -41,6 +43,8 @@ class StudentProfile {
       satScore: json['sat_score'] as String?,
       toeflScore: json['toefl_score'] as String?,
       careerResult: json['career_result'] as String?,
+      dailyGoalMinutes: json['daily_goal_minutes'] as int?,
+      schedule: json['schedule'] as String?,
       onboardingComplete: (json['onboarding_complete'] as bool?) ?? false,
       targetUniversities: _stringList(json['target_universities']),
       targetMajors: _stringList(json['target_majors']),
@@ -77,6 +81,12 @@ class StudentProfile {
   /// Career-orientation test result label (null until the test is taken).
   final String? careerResult;
 
+  /// Daily learning goal in minutes (10/20/30/60), chosen during onboarding.
+  final int? dailyGoalMinutes;
+
+  /// When the student plans to learn (e.g. "Утро"/"День"/"Вечер").
+  final String? schedule;
+
   /// Whether the student finished the onboarding flow (gates the intro).
   final bool onboardingComplete;
 
@@ -100,6 +110,8 @@ class StudentProfile {
     String? satScore,
     String? toeflScore,
     String? careerResult,
+    int? dailyGoalMinutes,
+    String? schedule,
     bool? onboardingComplete,
     List<String>? targetUniversities,
     List<String>? targetMajors,
@@ -116,6 +128,8 @@ class StudentProfile {
       satScore: satScore ?? this.satScore,
       toeflScore: toeflScore ?? this.toeflScore,
       careerResult: careerResult ?? this.careerResult,
+      dailyGoalMinutes: dailyGoalMinutes ?? this.dailyGoalMinutes,
+      schedule: schedule ?? this.schedule,
       onboardingComplete: onboardingComplete ?? this.onboardingComplete,
       targetUniversities: targetUniversities ?? this.targetUniversities,
       targetMajors: targetMajors ?? this.targetMajors,
@@ -135,6 +149,8 @@ class StudentProfile {
     'sat_score': satScore,
     'toefl_score': toeflScore,
     'career_result': careerResult,
+    'daily_goal_minutes': dailyGoalMinutes,
+    'schedule': schedule,
     'onboarding_complete': onboardingComplete,
     'target_universities': targetUniversities,
     'target_majors': targetMajors,
