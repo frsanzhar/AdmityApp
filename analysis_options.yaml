@@ -1,0 +1,19 @@
+include: package:very_good_analysis/analysis_options.yaml
+
+analyzer:
+  errors:
+    # Don't block on doc-comment lints while bootstrapping the project.
+    public_member_api_docs: ignore
+    lines_longer_than_80_chars: ignore
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "build/**"
+
+linter:
+  rules:
+    # SDK deps (flutter:, flutter_test:) are kept first by convention, which
+    # conflicts with strict alphabetical ordering. Not worth the churn.
+    sort_pub_dependencies: false
+
+# Note: Riverpod is hand-written on this SDK (no codegen) — see CLAUDE.md.
