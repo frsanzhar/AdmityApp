@@ -3,23 +3,16 @@ import 'package:admity/features/home/presentation/home_screen.dart';
 import 'package:admity/features/mentor/presentation/mentor_screen.dart';
 import 'package:admity/features/opportunities/presentation/opportunities_screen.dart';
 import 'package:admity/features/profile/presentation/profile_screen.dart';
+import 'package:admity/features/splash/presentation/splash_screen.dart';
+import 'package:admity/shared/widgets/app_bottom_nav.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// The five bottom-nav destinations (DESIGN_SYSTEM.md §5), in order.
-/// Index 2 (Ералы) is the accent/center tab.
-const _tabs = <({String path, String label, IconData icon, IconData active})>[
-  (path: '/home', label: 'Главная', icon: Icons.home_outlined, active: Icons.home),
-  (path: '/courses', label: 'Курсы', icon: Icons.school_outlined, active: Icons.school),
-  (path: '/mentor', label: 'Ералы', icon: Icons.forum_outlined, active: Icons.forum),
-  (path: '/opportunities', label: 'Возможности', icon: Icons.explore_outlined, active: Icons.explore),
-  (path: '/profile', label: 'Профиль', icon: Icons.person_outline, active: Icons.person),
-];
-
 GoRouter createRouter() {
   return GoRouter(
-    initialLocation: '/home',
+    initialLocation: '/',
     routes: [
+      GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => _ShellScaffold(shell: shell),
         branches: [
@@ -44,10 +37,6 @@ GoRouter createRouter() {
   );
 }
 
-/// Temporary shell using a stock NavigationBar.
-///
-/// Phase 1 replaces this with the design-system `AppBottomNav` (§4). Kept
-/// dependency-free (no AppTokens) so Phase 0's theme rebuild can't break it.
 class _ShellScaffold extends StatelessWidget {
   const _ShellScaffold({required this.shell});
 
@@ -57,20 +46,10 @@ class _ShellScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: shell,
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: AppBottomNav(
         selectedIndex: shell.currentIndex,
-        onDestinationSelected: (i) => shell.goBranch(
-          i,
-          initialLocation: i == shell.currentIndex,
-        ),
-        destinations: [
-          for (final t in _tabs)
-            NavigationDestination(
-              icon: Icon(t.icon),
-              selectedIcon: Icon(t.active),
-              label: t.label,
-            ),
-        ],
+        onTap: (i) => shell.goBranch(i, initialLocation: i == shell.currentIndex),
+        items: defaultNavItems,
       ),
     );
   }
