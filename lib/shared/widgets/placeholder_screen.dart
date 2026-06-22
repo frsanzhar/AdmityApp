@@ -1,12 +1,14 @@
-import 'package:admity/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 
-/// Temporary scaffold for not-yet-built features.
+/// Temporary scaffold for not-yet-built tabs/screens.
 ///
-/// Deliberately follows the repo's render rules (see CLAUDE.md): a
-/// `SafeArea > SingleChildScrollView > Column(mainAxisSize: .min)` body, and
-/// no `CrossAxisAlignment.stretch` inside the scroll view — those produce
-/// silent blank screens on this codebase.
+/// Follows the repo render rules (CLAUDE.md): a
+/// `SafeArea > SingleChildScrollView > Column(mainAxisSize: .min)` body and no
+/// `CrossAxisAlignment.stretch` inside the scroll view — those produce silent
+/// blank screens on this codebase.
+///
+/// Intentionally depends only on Flutter Material (no AppTokens), so Phase 0's
+/// design-system work can rebuild the theme without breaking these.
 class PlaceholderScreen extends StatelessWidget {
   const PlaceholderScreen({
     required this.title,
@@ -21,23 +23,23 @@ class PlaceholderScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>()!;
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(title)),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.all(tokens.gapLg),
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 64, color: tokens.brand),
-              SizedBox(height: tokens.gapMd),
-              Text(title, style: Theme.of(context).textTheme.headlineSmall),
-              SizedBox(height: tokens.gapSm),
+              Icon(icon, size: 64, color: theme.colorScheme.primary),
+              const SizedBox(height: 16),
+              Text(title, style: theme.textTheme.headlineSmall),
+              const SizedBox(height: 8),
               Text(
                 subtitle,
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
+                style: theme.textTheme.bodyMedium,
               ),
             ],
           ),

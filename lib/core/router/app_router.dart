@@ -1,39 +1,39 @@
-import 'package:admity/core/theme/app_tokens.dart';
-import 'package:admity/features/chancing/presentation/chancing_screen.dart';
-import 'package:admity/features/dashboard/presentation/dashboard_screen.dart';
+import 'package:admity/features/courses/presentation/courses_screen.dart';
+import 'package:admity/features/home/presentation/home_screen.dart';
 import 'package:admity/features/mentor/presentation/mentor_screen.dart';
+import 'package:admity/features/opportunities/presentation/opportunities_screen.dart';
 import 'package:admity/features/profile/presentation/profile_screen.dart';
-import 'package:admity/features/study/presentation/study_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// The five bottom-nav destinations, in order.
-const _tabs = <_Tab>[
-  _Tab('/', 'Главная', Icons.home_outlined, Icons.home),
-  _Tab('/chances', 'Шансы', Icons.insights_outlined, Icons.insights),
-  _Tab('/study', 'Учёба', Icons.school_outlined, Icons.school),
-  _Tab('/mentor', 'Ералы', Icons.forum_outlined, Icons.forum),
-  _Tab('/profile', 'Профиль', Icons.person_outline, Icons.person),
+/// The five bottom-nav destinations (DESIGN_SYSTEM.md §5), in order.
+/// Index 2 (Ералы) is the accent/center tab.
+const _tabs = <({String path, String label, IconData icon, IconData active})>[
+  (path: '/home', label: 'Главная', icon: Icons.home_outlined, active: Icons.home),
+  (path: '/courses', label: 'Курсы', icon: Icons.school_outlined, active: Icons.school),
+  (path: '/mentor', label: 'Ералы', icon: Icons.forum_outlined, active: Icons.forum),
+  (path: '/opportunities', label: 'Возможности', icon: Icons.explore_outlined, active: Icons.explore),
+  (path: '/profile', label: 'Профиль', icon: Icons.person_outline, active: Icons.person),
 ];
 
 GoRouter createRouter() {
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: '/home',
     routes: [
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => _ShellScaffold(shell: shell),
         branches: [
           StatefulShellBranch(
-            routes: [GoRoute(path: '/', builder: (context, state) => const DashboardScreen())],
+            routes: [GoRoute(path: '/home', builder: (context, state) => const HomeScreen())],
           ),
           StatefulShellBranch(
-            routes: [GoRoute(path: '/chances', builder: (context, state) => const ChancingScreen())],
-          ),
-          StatefulShellBranch(
-            routes: [GoRoute(path: '/study', builder: (context, state) => const StudyScreen())],
+            routes: [GoRoute(path: '/courses', builder: (context, state) => const CoursesScreen())],
           ),
           StatefulShellBranch(
             routes: [GoRoute(path: '/mentor', builder: (context, state) => const MentorScreen())],
+          ),
+          StatefulShellBranch(
+            routes: [GoRoute(path: '/opportunities', builder: (context, state) => const OpportunitiesScreen())],
           ),
           StatefulShellBranch(
             routes: [GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen())],
@@ -44,14 +44,10 @@ GoRouter createRouter() {
   );
 }
 
-class _Tab {
-  const _Tab(this.path, this.label, this.icon, this.activeIcon);
-  final String path;
-  final String label;
-  final IconData icon;
-  final IconData activeIcon;
-}
-
+/// Temporary shell using a stock NavigationBar.
+///
+/// Phase 1 replaces this with the design-system `AppBottomNav` (§4). Kept
+/// dependency-free (no AppTokens) so Phase 0's theme rebuild can't break it.
 class _ShellScaffold extends StatelessWidget {
   const _ShellScaffold({required this.shell});
 
@@ -59,12 +55,10 @@ class _ShellScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppTokens>()!;
     return Scaffold(
       body: shell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: shell.currentIndex,
-        indicatorColor: tokens.brand.withValues(alpha: 0.12),
         onDestinationSelected: (i) => shell.goBranch(
           i,
           initialLocation: i == shell.currentIndex,
@@ -73,7 +67,7 @@ class _ShellScaffold extends StatelessWidget {
           for (final t in _tabs)
             NavigationDestination(
               icon: Icon(t.icon),
-              selectedIcon: Icon(t.activeIcon),
+              selectedIcon: Icon(t.active),
               label: t.label,
             ),
         ],
