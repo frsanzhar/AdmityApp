@@ -22,6 +22,12 @@ class StudentProfile {
     this.satScore,
     this.toeflScore,
     this.careerResult,
+    this.age,
+    this.role,
+    this.motivation,
+    this.subject,
+    this.knowledgeLevel,
+    this.soundPreference,
     this.dailyGoalMinutes,
     this.schedule,
     this.onboardingComplete = false,
@@ -43,6 +49,12 @@ class StudentProfile {
       satScore: json['sat_score'] as String?,
       toeflScore: json['toefl_score'] as String?,
       careerResult: json['career_result'] as String?,
+      age: json['age'] as int?,
+      role: json['role'] as String?,
+      motivation: json['motivation'] as String?,
+      subject: json['subject'] as String?,
+      knowledgeLevel: json['knowledge_level'] as String?,
+      soundPreference: json['sound_preference'] as String?,
       dailyGoalMinutes: json['daily_goal_minutes'] as int?,
       schedule: json['schedule'] as String?,
       onboardingComplete: (json['onboarding_complete'] as bool?) ?? false,
@@ -81,6 +93,24 @@ class StudentProfile {
   /// Career-orientation test result label (null until the test is taken).
   final String? careerResult;
 
+  /// Student age (years), entered during onboarding.
+  final int? age;
+
+  /// Role: ученик / родитель / учитель (onboarding role select).
+  final String? role;
+
+  /// What motivates the student (onboarding motivation step).
+  final String? motivation;
+
+  /// Primary subject focus (e.g. "Математика" / "Информатика").
+  final String? subject;
+
+  /// Self-reported knowledge level (onboarding).
+  final String? knowledgeLevel;
+
+  /// Mascot sound/voice preference (onboarding).
+  final String? soundPreference;
+
   /// Daily learning goal in minutes (10/20/30/60), chosen during onboarding.
   final int? dailyGoalMinutes;
 
@@ -110,6 +140,12 @@ class StudentProfile {
     String? satScore,
     String? toeflScore,
     String? careerResult,
+    int? age,
+    String? role,
+    String? motivation,
+    String? subject,
+    String? knowledgeLevel,
+    String? soundPreference,
     int? dailyGoalMinutes,
     String? schedule,
     bool? onboardingComplete,
@@ -128,6 +164,12 @@ class StudentProfile {
       satScore: satScore ?? this.satScore,
       toeflScore: toeflScore ?? this.toeflScore,
       careerResult: careerResult ?? this.careerResult,
+      age: age ?? this.age,
+      role: role ?? this.role,
+      motivation: motivation ?? this.motivation,
+      subject: subject ?? this.subject,
+      knowledgeLevel: knowledgeLevel ?? this.knowledgeLevel,
+      soundPreference: soundPreference ?? this.soundPreference,
       dailyGoalMinutes: dailyGoalMinutes ?? this.dailyGoalMinutes,
       schedule: schedule ?? this.schedule,
       onboardingComplete: onboardingComplete ?? this.onboardingComplete,
@@ -149,6 +191,12 @@ class StudentProfile {
     'sat_score': satScore,
     'toefl_score': toeflScore,
     'career_result': careerResult,
+    'age': age,
+    'role': role,
+    'motivation': motivation,
+    'subject': subject,
+    'knowledge_level': knowledgeLevel,
+    'sound_preference': soundPreference,
     'daily_goal_minutes': dailyGoalMinutes,
     'schedule': schedule,
     'onboarding_complete': onboardingComplete,

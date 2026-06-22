@@ -15,5 +15,7 @@ linter:
     # SDK deps (flutter:, flutter_test:) are kept first by convention, which
     # conflicts with strict alphabetical ordering. Not worth the churn.
     sort_pub_dependencies: false
+    # Cascades hurt readability in dense CustomPainter code — keep it optional.
+    cascade_invocations: false
 
 # Note: Riverpod is hand-written on this SDK (no codegen) — see CLAUDE.md.
