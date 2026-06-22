@@ -49,8 +49,9 @@ class AppBottomNav extends StatelessWidget {
       ),
       child: SafeArea(
         top: false,
+        minimum: const EdgeInsets.only(bottom: 8),
         child: SizedBox(
-          height: 64,
+          height: 60,
           child: Row(
             children: [
               for (var i = 0; i < items.length; i++)

@@ -2,9 +2,11 @@ import 'package:admity/features/courses/presentation/courses_screen.dart';
 import 'package:admity/features/home/presentation/home_screen.dart';
 import 'package:admity/features/lesson/presentation/lesson_screen.dart';
 import 'package:admity/features/mentor/presentation/mentor_screen.dart';
+import 'package:admity/features/onboarding/presentation/onboarding_screen.dart';
 import 'package:admity/features/opportunities/presentation/opportunities_screen.dart';
 import 'package:admity/features/opportunities/presentation/scholarship_apply_screen.dart';
 import 'package:admity/features/opportunities/presentation/scholarship_detail_screen.dart';
+import 'package:admity/features/profile/presentation/career_test_screen.dart';
 import 'package:admity/features/profile/presentation/profile_screen.dart';
 import 'package:admity/features/splash/presentation/splash_screen.dart';
 import 'package:admity/shared/widgets/app_bottom_nav.dart';
@@ -16,6 +18,10 @@ GoRouter createRouter() {
     initialLocation: '/',
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
+      // Animated onboarding — full-screen, shown when profile is incomplete.
+      GoRoute(path: '/onboarding', builder: (context, state) => const OnboardingScreen()),
+      // Career-orientation test — full-screen, launched from Profile.
+      GoRoute(path: '/career-test', builder: (context, state) => const CareerTestScreen()),
       // Full-screen lesson route — outside the tab shell so it covers the bottom nav.
       GoRoute(path: '/lesson', builder: (context, state) => const LessonScreen()),
       // Full-screen scholarship detail + apply routes — outside the tab shell.

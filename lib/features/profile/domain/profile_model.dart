@@ -16,6 +16,13 @@ class StudentProfile {
     this.grade,
     this.city,
     this.gpaBand,
+    this.gpa,
+    this.interests = const [],
+    this.ieltsScore,
+    this.satScore,
+    this.toeflScore,
+    this.careerResult,
+    this.onboardingComplete = false,
     this.targetUniversities = const [],
     this.targetMajors = const [],
     this.languages = const [],
@@ -28,6 +35,13 @@ class StudentProfile {
       grade: json['grade'] as String?,
       city: json['city'] as String?,
       gpaBand: json['gpa_band'] as String?,
+      gpa: json['gpa'] as String?,
+      interests: _stringList(json['interests']),
+      ieltsScore: json['ielts_score'] as String?,
+      satScore: json['sat_score'] as String?,
+      toeflScore: json['toefl_score'] as String?,
+      careerResult: json['career_result'] as String?,
+      onboardingComplete: (json['onboarding_complete'] as bool?) ?? false,
       targetUniversities: _stringList(json['target_universities']),
       targetMajors: _stringList(json['target_majors']),
       languages: _stringList(json['languages']),
@@ -39,15 +53,32 @@ class StudentProfile {
   /// Student's display name (optional, user-chosen).
   final String? name;
 
-  /// School grade (e.g. "11 класс").
+  /// School grade / class (e.g. "11 класс") — drives course selection.
   final String? grade;
 
-  /// City / region string.
+  /// City / region string — used to surface nearby events (§7.6).
   final String? city;
 
   /// GPA as a rough band string (e.g. "4.5–5.0") — never a raw number sent
   /// to the server; see CLAUDE.md on PII minimisation.
   final String? gpaBand;
+
+  /// Average grade / GPA as the student entered it during onboarding.
+  final String? gpa;
+
+  /// Interests / hobbies — drive course suggestions + project ideas (§7.6).
+  final List<String> interests;
+
+  /// Standardized exam scores (null = not taken). Strings keep them flexible.
+  final String? ieltsScore;
+  final String? satScore;
+  final String? toeflScore;
+
+  /// Career-orientation test result label (null until the test is taken).
+  final String? careerResult;
+
+  /// Whether the student finished the onboarding flow (gates the intro).
+  final bool onboardingComplete;
 
   /// Universities the student is targeting.
   final List<String> targetUniversities;
@@ -63,6 +94,13 @@ class StudentProfile {
     String? grade,
     String? city,
     String? gpaBand,
+    String? gpa,
+    List<String>? interests,
+    String? ieltsScore,
+    String? satScore,
+    String? toeflScore,
+    String? careerResult,
+    bool? onboardingComplete,
     List<String>? targetUniversities,
     List<String>? targetMajors,
     List<String>? languages,
@@ -72,6 +110,13 @@ class StudentProfile {
       grade: grade ?? this.grade,
       city: city ?? this.city,
       gpaBand: gpaBand ?? this.gpaBand,
+      gpa: gpa ?? this.gpa,
+      interests: interests ?? this.interests,
+      ieltsScore: ieltsScore ?? this.ieltsScore,
+      satScore: satScore ?? this.satScore,
+      toeflScore: toeflScore ?? this.toeflScore,
+      careerResult: careerResult ?? this.careerResult,
+      onboardingComplete: onboardingComplete ?? this.onboardingComplete,
       targetUniversities: targetUniversities ?? this.targetUniversities,
       targetMajors: targetMajors ?? this.targetMajors,
       languages: languages ?? this.languages,
@@ -84,6 +129,13 @@ class StudentProfile {
         'grade': grade,
         'city': city,
         'gpa_band': gpaBand,
+        'gpa': gpa,
+        'interests': interests,
+        'ielts_score': ieltsScore,
+        'sat_score': satScore,
+        'toefl_score': toeflScore,
+        'career_result': careerResult,
+        'onboarding_complete': onboardingComplete,
         'target_universities': targetUniversities,
         'target_majors': targetMajors,
         'languages': languages,
