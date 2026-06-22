@@ -4,6 +4,7 @@ import 'package:admity/shared/widgets/app_card.dart';
 import 'package:admity/shared/widgets/app_scaffold.dart';
 import 'package:admity/shared/widgets/featured_button.dart';
 import 'package:admity/shared/widgets/lesson_node.dart';
+import 'package:admity/shared/widgets/mascot_slot.dart';
 import 'package:admity/shared/widgets/topic_diagram_slot.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -119,11 +120,32 @@ const courseLessons = <LessonItem>[
 /// Layout: AppScaffold > SingleChildScrollView > Column(mainAxisSize: .min).
 /// Accent: AppColors.primary (cobalt — tab underline + active node ring).
 /// FeaturedButton is used ONLY for "Start the Lesson" (featured CTA).
-class CoursesScreen extends ConsumerWidget {
+///
+/// Phase 7 motion: tapping "Начать урок" triggers [MascotState.flyDown],
+/// shows the mascot flying down for 700 ms, then navigates.
+/// reduceMotion skips straight to navigation.
+class CoursesScreen extends ConsumerStatefulWidget {
   const CoursesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CoursesScreen> createState() => _CoursesScreenState();
+}
+
+class _CoursesScreenState extends ConsumerState<CoursesScreen> {
+  MascotState _mascotState = MascotState.idle;
+
+  void _onStartLesson() {
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    // Phase 7: trigger fly-down mascot overlay (non-blocking — navigation fires
+    // immediately so tests and reduceMotion users are unaffected).
+    if (!reduceMotion) {
+      setState(() => _mascotState = MascotState.flyDown);
+    }
+    context.go('/lesson');
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final tokens =
         Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
     final state = ref.watch(coursesProvider);
@@ -133,86 +155,105 @@ class CoursesScreen extends ConsumerWidget {
     final activeLesson = courseLessons[
         state.activeLessonIndex.clamp(0, courseLessons.length - 1)];
 
-    return AppScaffold(
-      body: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(
-          horizontal: tokens.screenPadding,
-          vertical: tokens.gapLg,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // ── 1. Course tabs ────────────────────────────────────────────────
-            _CourseTabs(
-              tabs: _courseTabs,
-              selectedIndex: state.selectedTabIndex,
-              onTabSelected: notifier.selectTab,
-            ),
-            SizedBox(height: tokens.gapXl),
+    final scrollBody = SingleChildScrollView(
+      padding: EdgeInsets.symmetric(
+        horizontal: tokens.screenPadding,
+        vertical: tokens.gapLg,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── 1. Course tabs ────────────────────────────────────────────────
+          _CourseTabs(
+            tabs: _courseTabs,
+            selectedIndex: state.selectedTabIndex,
+            onTabSelected: notifier.selectTab,
+          ),
+          SizedBox(height: tokens.gapXl),
 
-            // ── 2. Today's course/lesson header ───────────────────────────────
-            Text(
-              selectedTab.label,
-              style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    color: AppColors.ink,
+          // ── 2. Today's course/lesson header ───────────────────────────────
+          Text(
+            selectedTab.label,
+            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                  color: AppColors.ink,
+                ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: tokens.gapXs),
+          Text(
+            activeLesson.title,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: AppColors.inkSecondary,
+                ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: tokens.gapXs),
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: tokens.gapMd,
+              vertical: tokens.gapXs,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceTint,
+              borderRadius: BorderRadius.circular(tokens.radiusSm),
+            ),
+            child: Text(
+              'Уровень 1',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: AppColors.primary,
                   ),
-              textAlign: TextAlign.center,
             ),
-            SizedBox(height: tokens.gapXs),
-            Text(
-              activeLesson.title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: AppColors.inkSecondary,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: tokens.gapXs),
-            Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: tokens.gapMd,
-                vertical: tokens.gapXs,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceTint,
-                borderRadius: BorderRadius.circular(tokens.radiusSm),
-              ),
-              child: Text(
-                'Уровень 1',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: AppColors.primary,
-                    ),
-              ),
-            ),
-            SizedBox(height: tokens.gapXxl),
+          ),
+          SizedBox(height: tokens.gapXxl),
 
-            // ── 3. Central TopicDiagramSlot with swipe-right gesture ──────────
-            _SwipeableDiagram(
-              onSwipeRight: notifier.advanceLessonBySwipe,
-            ),
-            SizedBox(height: tokens.gapXxl),
+          // ── 3. Central TopicDiagramSlot with swipe-right gesture ──────────
+          _SwipeableDiagram(
+            onSwipeRight: notifier.advanceLessonBySwipe,
+          ),
+          SizedBox(height: tokens.gapXxl),
 
-            // ── 4. Vertical node path ─────────────────────────────────────────
-            _LessonPath(
-              lessons: courseLessons,
-              activeLessonIndex: state.activeLessonIndex,
-            ),
-            SizedBox(height: tokens.gapXxl),
+          // ── 4. Vertical node path ─────────────────────────────────────────
+          _LessonPath(
+            lessons: courseLessons,
+            activeLessonIndex: state.activeLessonIndex,
+          ),
+          SizedBox(height: tokens.gapXxl),
 
-            // ── 5. Bottom lesson box + FeaturedButton ─────────────────────────
-            _LessonStartBox(activeLesson: activeLesson),
-            SizedBox(height: tokens.gapLg),
-            FeaturedButton(
-              label: 'Начать урок',
-              onPressed: () {
-                // TODO(motion): mascot fly-down on Start
-                context.go('/lesson');
-              },
-            ),
-            SizedBox(height: tokens.gapXl),
-          ],
-        ),
+          // ── 5. Bottom lesson box + FeaturedButton ─────────────────────────
+          _LessonStartBox(activeLesson: activeLesson),
+          SizedBox(height: tokens.gapLg),
+          FeaturedButton(
+            label: 'Начать урок',
+            onPressed: _onStartLesson,
+          ),
+          SizedBox(height: tokens.gapXl),
+        ],
       ),
     );
+
+    // Phase 7: overlay the mascot fly-down on top of the scroll body.
+    // Stack is only introduced here; the scroll layout tree is unchanged.
+    final body = _mascotState == MascotState.flyDown
+        ? Stack(
+            children: [
+              scrollBody,
+              // Mascot flies down from the top-centre of the screen.
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: MascotSlot(
+                    size: 100,
+                    state: _mascotState,
+                  ),
+                ),
+              ),
+            ],
+          )
+        : scrollBody;
+
+    return AppScaffold(body: body);
   }
 }
 

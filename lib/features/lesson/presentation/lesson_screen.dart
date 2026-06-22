@@ -1,5 +1,7 @@
 import 'package:admity/core/theme/app_colors.dart';
 import 'package:admity/core/theme/app_tokens.dart';
+import 'package:admity/shared/rive/rive_assets.dart';
+import 'package:admity/shared/rive/rive_state_machine_slot.dart';
 import 'package:admity/shared/widgets/app_card.dart';
 import 'package:admity/shared/widgets/app_scaffold.dart';
 import 'package:admity/shared/widgets/featured_button.dart';
@@ -10,6 +12,7 @@ import 'package:admity/shared/widgets/topic_diagram_slot.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rive/rive.dart';
 
 // ── Domain models ─────────────────────────────────────────────────────────────
 
@@ -591,7 +594,8 @@ class _FeedbackStep extends StatelessWidget {
     final question = _lessonQuestions[state.currentQuestionIndex];
     final isCorrect = state.selectedOptionIndex == question.correctIndex;
 
-    // TODO(motion): ✓/✗ feedback animation — Rive state machine in Phase 7.
+    // Phase 7: Rive ✓/✗ feedback burst above the banner.
+    // TODO(rive-asset): assets/rive/lesson_feedback.riv — see kFeedbackRivAsset.
 
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -601,7 +605,10 @@ class _FeedbackStep extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(height: tokens.gapSm),
+          // Rive feedback burst (correct = green burst, incorrect = red shake).
+          // The burst widget renders SizedBox.shrink() when asset is absent,
+          // so no extra gap is added in tests or when reduceMotion is set.
+          _RiveFeedbackBurst(isCorrect: isCorrect),
           // ✓ / ✗ feedback banner
           _FeedbackBanner(isCorrect: isCorrect),
           SizedBox(height: tokens.gapXl),
@@ -859,6 +866,110 @@ class _WhyExpander extends StatelessWidget {
   }
 }
 
+// ── Phase 7: Rive motion widgets ─────────────────────────────────────────────
+
+/// Small Rive burst that plays correct/incorrect feedback once.
+///
+/// State Machine contract: machine=[kFeedbackMachineName]
+///   triggers — correct, incorrect
+/// Falls back to an empty SizedBox when the asset is absent or reduceMotion
+/// is enabled (the existing [_FeedbackBanner] already carries the visual cue).
+// TODO(rive-asset): assets/rive/lesson_feedback.riv
+class _RiveFeedbackBurst extends StatefulWidget {
+  const _RiveFeedbackBurst({required this.isCorrect});
+
+  final bool isCorrect;
+
+  @override
+  State<_RiveFeedbackBurst> createState() => _RiveFeedbackBurstState();
+}
+
+class _RiveFeedbackBurstState extends State<_RiveFeedbackBurst> {
+  void _onController(RiveWidgetController ctrl) {
+    final sm = ctrl.stateMachine;
+    if (widget.isCorrect) {
+      // ignore: deprecated_member_use // SMI inputs deprecated in rive 0.14.x; assets not yet migrated.
+      sm.trigger(kFeedbackTriggerCorrect)?.fire();
+    } else {
+      // ignore: deprecated_member_use // Assets not yet migrated to Data Binding.
+      sm.trigger(kFeedbackTriggerIncorrect)?.fire();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    // When asset is absent or reduceMotion, render nothing — no height claimed.
+    // The existing _FeedbackBanner already shows ✓/✗ so the burst is purely
+    // additive motion; removing it degrades gracefully.
+    if (reduceMotion) return const SizedBox.shrink();
+
+    // RiveStateMachineSlot falls through to staticFallback=SizedBox.shrink()
+    // when the .riv asset is not yet bundled, so no gap is reserved in tests.
+    return RiveStateMachineSlot(
+      assetPath: kFeedbackRivAsset,
+      machineName: kFeedbackMachineName,
+      staticFallback: const SizedBox.shrink(),
+      onController: _onController,
+      width: double.infinity,
+      height: 80,
+    );
+  }
+}
+
+/// Wraps a [child] with a Rive confetti layer that plays the celebrate trigger
+/// once on first build.
+///
+/// State Machine contract: machine=[kLessonCompleteMachineName]
+///   triggers — celebrate
+/// Falls back to rendering [child] alone when the asset is absent or
+/// reduceMotion is enabled.
+// TODO(rive-asset): assets/rive/lesson_complete.riv
+class _RiveLessonComplete extends StatefulWidget {
+  const _RiveLessonComplete({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_RiveLessonComplete> createState() => _RiveLessonCompleteState();
+}
+
+class _RiveLessonCompleteState extends State<_RiveLessonComplete> {
+  void _onController(RiveWidgetController ctrl) {
+    // ignore: deprecated_member_use // SMI inputs deprecated in rive 0.14.x; assets not yet migrated.
+    ctrl.stateMachine.trigger(kLessonCompleteTriggerCelebrate)?.fire();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+
+    return SizedBox(
+      height: 160,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Confetti layer — covers entire slot, behind mascot.
+          if (!reduceMotion)
+            Positioned.fill(
+              child: RiveStateMachineSlot(
+                assetPath: kLessonCompleteRivAsset,
+                machineName: kLessonCompleteMachineName,
+                staticFallback: const SizedBox.shrink(),
+                onController: _onController,
+                width: double.infinity,
+                height: 160,
+                fit: Fit.cover,
+              ),
+            ),
+          // Mascot on top.
+          widget.child,
+        ],
+      ),
+    );
+  }
+}
+
 // ── Step 4: Complete ──────────────────────────────────────────────────────────
 
 class _CompleteStep extends StatelessWidget {
@@ -871,7 +982,8 @@ class _CompleteStep extends StatelessWidget {
     final tokens = Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
     final totalQuestions = _lessonQuestions.length;
 
-    // TODO(motion): lesson-complete celebration — Rive confetti in Phase 7.
+    // Phase 7: Rive lesson-complete confetti + mascot celebrating.
+    // TODO(rive-asset): assets/rive/lesson_complete.riv — see kLessonCompleteRivAsset.
 
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -882,8 +994,13 @@ class _CompleteStep extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(height: tokens.gapXxl),
-          // Mascot celebrating
-          const MascotSlot(tag: 'lesson-complete'),
+          // Rive confetti overlay + mascot celebrating.
+          const _RiveLessonComplete(
+            child: MascotSlot(
+              tag: 'lesson-complete',
+              state: MascotState.celebrate,
+            ),
+          ),
           SizedBox(height: tokens.gapXxl),
           // Headline
           Text(

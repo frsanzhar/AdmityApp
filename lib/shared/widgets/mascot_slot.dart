@@ -1,48 +1,128 @@
 import 'dart:math' as math;
 
 import 'package:admity/core/theme/app_colors.dart';
+import 'package:admity/shared/rive/rive_assets.dart';
+import 'package:admity/shared/rive/rive_state_machine_slot.dart';
 import 'package:flutter/material.dart';
+import 'package:rive/rive.dart';
 
 // TODO(mascot): Replace this geometric placeholder with the real mascot
 // asset when the designer delivers it.  Search for "MascotSlot" to find
 // every placement in the app.
+//
+// TODO(rive-asset): Wire to assets/rive/mascot.riv once delivered.
+// State Machine contract: machine='MascotSM'
+//   inputs  — isIdle (bool), isHappy (bool)
+//   triggers — flyDown, celebrate
+// Until the asset lands the green blob renders as a static fallback.
 
-/// Placeholder widget for the Admity mascot figure.
+/// Slot for the Admity mascot figure.
 ///
-/// Renders a soft geometric blob (pentagon-like shape) in [AppColors.mascotGreen]
-/// as a visual stand-in.  When the real mascot is ready, swap the
-/// [CustomPainter] internals — the API ([size], [tag]) stays the same.
+/// Phase 7 wiring: drives Rive State Machine [kMascotMachineName] via
+/// [state].
 ///
-/// [tag] is used to label the placeholder so designers/devs can identify
-/// the placement context in screenshots.
-class MascotSlot extends StatelessWidget {
+/// ### reduceMotion
+/// When `MediaQuery.disableAnimations` is true the static blob always renders.
+///
+/// ### Missing asset
+/// When assets/rive/mascot.riv is absent the green blob renders instead.
+///
+/// API is additive-only — [size], [tag], [state] — no breaking change to
+/// callers that only pass [size] and [tag].
+class MascotSlot extends StatefulWidget {
   const MascotSlot({
     super.key,
     this.size = 120,
     this.tag,
+    this.state = MascotState.idle,
   });
 
   /// Bounding box dimension (width = height = [size]).
   final double size;
 
-  /// Optional context label shown under the blob (e.g. "home" / "lesson").
+  /// Optional context label shown under the mascot (e.g. "home" / "lesson").
   final String? tag;
+
+  /// Drives the Rive State Machine state.
+  final MascotState state;
+
+  @override
+  State<MascotSlot> createState() => _MascotSlotState();
+}
+
+/// The logical state that maps to Rive State Machine inputs/triggers.
+enum MascotState {
+  /// Default: idle looping animation.
+  idle,
+
+  /// Happy face — e.g. shown when user loads the home screen.
+  happy,
+
+  /// Mascot flies down from above — triggered on "Start Lesson" tap.
+  flyDown,
+
+  /// Confetti celebration — lesson complete screen.
+  celebrate,
+}
+
+class _MascotSlotState extends State<MascotSlot> {
+  RiveWidgetController? _ctrl;
+  MascotState? _previousState;
+
+  void _onController(RiveWidgetController ctrl) {
+    _ctrl = ctrl;
+    _applyState(widget.state);
+  }
+
+  void _applyState(MascotState st) {
+    final ctrl = _ctrl;
+    if (ctrl == null) return;
+    final sm = ctrl.stateMachine;
+
+    // ignore: deprecated_member_use // SMI inputs deprecated in rive 0.14.x; assets not yet migrated to Data Binding.
+    sm.boolean(kMascotInputIdle)?.value = st == MascotState.idle;
+    // ignore: deprecated_member_use // Same: assets not yet migrated.
+    sm.boolean(kMascotInputHappy)?.value = st == MascotState.happy;
+
+    if (st == MascotState.flyDown && _previousState != MascotState.flyDown) {
+      // ignore: deprecated_member_use // Assets not yet migrated to Data Binding.
+      sm.trigger(kMascotTriggerFlyDown)?.fire();
+    }
+    if (st == MascotState.celebrate &&
+        _previousState != MascotState.celebrate) {
+      // ignore: deprecated_member_use // Assets not yet migrated to Data Binding.
+      sm.trigger(kMascotTriggerCelebrate)?.fire();
+    }
+    _previousState = st;
+  }
+
+  @override
+  void didUpdateWidget(MascotSlot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.state != widget.state && _ctrl != null) {
+      _applyState(widget.state);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final blob = _BlobFallback(size: widget.size);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox.square(
-          dimension: size,
-          child: CustomPaint(
-            painter: _BlobPainter(size: size),
-          ),
+        RiveStateMachineSlot(
+          assetPath: kMascotRivAsset,
+          machineName: kMascotMachineName,
+          staticFallback: blob,
+          onController: _onController,
+          width: widget.size,
+          height: widget.size,
         ),
-        if (tag != null) ...[
+        if (widget.tag != null) ...[
           const SizedBox(height: 4),
           Text(
-            tag!,
+            widget.tag!,
             style: const TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w500,
@@ -51,6 +131,25 @@ class MascotSlot extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+// ── Static fallback ───────────────────────────────────────────────────────────
+
+/// The original green blob, now used as the static fallback for MascotSlot.
+class _BlobFallback extends StatelessWidget {
+  const _BlobFallback({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: size,
+      child: CustomPaint(
+        painter: _BlobPainter(size: size),
+      ),
     );
   }
 }
