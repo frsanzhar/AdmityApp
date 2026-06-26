@@ -440,7 +440,7 @@ void main() {
       FlutterError.onError = prev;
       expect(errors, isEmpty);
       expect(find.text('Главная'), findsOneWidget);
-      expect(find.text('Курсы'), findsOneWidget);
+      expect(find.text('Вузы'), findsOneWidget);
       expect(find.text('Ералы'), findsOneWidget);
       expect(find.text('Возможности'), findsOneWidget);
       expect(find.text('Профиль'), findsOneWidget);
@@ -473,7 +473,7 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.text('Курсы'));
+      await tester.tap(find.text('Вузы'));
       expect(lastTap, 1);
     });
 

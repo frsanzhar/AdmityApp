@@ -46,3 +46,10 @@ app.*.map.json
 
 # Local secrets
 env.json
+
+# Claude Code worktrees & local state
+.claude/worktrees/
+
+# Python
+__pycache__/
+*.pyc

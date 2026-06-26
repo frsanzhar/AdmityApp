@@ -173,9 +173,9 @@ const defaultNavItems = <AppNavItem>[
     activeIcon: Icons.home_rounded,
   ),
   AppNavItem(
-    label: 'Курсы',
-    icon: Icons.school_outlined,
-    activeIcon: Icons.school_rounded,
+    label: 'Вузы',
+    icon: Icons.account_balance_outlined,
+    activeIcon: Icons.account_balance_rounded,
   ),
   AppNavItem(
     label: 'Ералы',

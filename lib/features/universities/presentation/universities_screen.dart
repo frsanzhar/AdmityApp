@@ -2,13 +2,11 @@ import 'dart:async';
 
 import 'package:admity/core/theme/app_colors.dart';
 import 'package:admity/core/theme/app_tokens.dart';
-import 'package:admity/features/opportunities/data/opportunity_seed.dart';
-import 'package:admity/features/opportunities/domain/opportunity_models.dart';
-import 'package:admity/features/opportunities/presentation/opportunities_providers.dart';
+import 'package:admity/features/universities/data/university_catalog_providers.dart';
+import 'package:admity/features/universities/domain/university_catalog.dart';
 import 'package:admity/shared/widgets/app_card.dart';
 import 'package:admity/shared/widgets/app_scaffold.dart';
 import 'package:admity/shared/widgets/mascot_slot.dart';
-import 'package:admity/shared/widgets/progress_ring.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,57 +14,100 @@ import 'package:go_router/go_router.dart';
 
 // ── Screen ─────────────────────────────────────────────────────────────────────
 
-/// Full "Вузы" page — university list with filters.
+/// Full "Вузы" page — the universities catalog (offline JSON, 100+ вузов).
 ///
-/// Pulled out of Возможности into its own top-level route (/universities).
-///
-/// Layout: AppScaffold > Column > fixed header (title + MascotSlot + filter row)
-///         + Expanded > ListView (university cards).
-/// Accent: AppColors.primary (cobalt). One accent per screen.
+/// Layout: AppScaffold > Column > fixed header (title + MascotSlot + filters)
+///         + Expanded > ListView. Async catalog is resolved with `.when` so a
+///         load/parse failure shows a message, never a blank viewport.
 class UniversitiesScreen extends ConsumerWidget {
+  /// Creates the universities screen.
   const UniversitiesScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tokens =
         Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
-    final filter = ref.watch(opportunityFilterProvider);
+    final catalogAsync = ref.watch(universityCatalogProvider);
 
     return AppScaffold(
-      body: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // ── Fixed header ───────────────────────────────────────────────────
-          _UniversitiesHeader(filter: filter, tokens: tokens),
-          // ── Scrollable list ────────────────────────────────────────────────
-          Expanded(
-            child: _UniversitiesList(tokens: tokens),
-          ),
-        ],
+      body: catalogAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (_, _) => _MessageState(
+          tokens: tokens,
+          icon: Icons.cloud_off_rounded,
+          message: 'Не удалось загрузить список вузов',
+        ),
+        data: (catalog) {
+          if (catalog.universities.isEmpty) {
+            return _MessageState(
+              tokens: tokens,
+              icon: Icons.school_outlined,
+              message: 'Список вузов пуст',
+            );
+          }
+          return _CatalogBody(catalog: catalog, tokens: tokens);
+        },
       ),
+    );
+  }
+}
+
+// ── Body ───────────────────────────────────────────────────────────────────────
+
+class _CatalogBody extends ConsumerWidget {
+  const _CatalogBody({required this.catalog, required this.tokens});
+
+  final UniversityCatalog catalog;
+  final AppTokens tokens;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final filter = ref.watch(catalogFilterProvider);
+    final universities = applyCatalogFilter(catalog.universities, filter);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _Header(catalog: catalog, filter: filter, tokens: tokens),
+        Expanded(
+          child: universities.isEmpty
+              ? _MessageState(
+                  tokens: tokens,
+                  icon: Icons.search_off_rounded,
+                  message: 'Нет вузов по выбранным фильтрам',
+                )
+              : _UniversitiesList(
+                  catalog: catalog,
+                  universities: universities,
+                  tokens: tokens,
+                ),
+        ),
+      ],
     );
   }
 }
 
 // ── Header ─────────────────────────────────────────────────────────────────────
 
-class _UniversitiesHeader extends ConsumerWidget {
-  const _UniversitiesHeader({
+class _Header extends ConsumerWidget {
+  const _Header({
+    required this.catalog,
     required this.filter,
     required this.tokens,
   });
 
-  final OpportunityFilter filter;
+  final UniversityCatalog catalog;
+  final CatalogFilter filter;
   final AppTokens tokens;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(catalogFilterProvider.notifier);
     return ColoredBox(
       color: AppColors.white,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Title row + MascotSlot ──────────────────────────────────────────
           Padding(
             padding: EdgeInsets.fromLTRB(
               tokens.screenPadding,
@@ -88,7 +129,7 @@ class _UniversitiesHeader extends ConsumerWidget {
                       ),
                       SizedBox(height: tokens.gapXs),
                       Text(
-                        'Найди университет, который подходит тебе',
+                        '${catalog.universities.length} вузов Казахстана',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.inkSecondary,
                         ),
@@ -97,176 +138,292 @@ class _UniversitiesHeader extends ConsumerWidget {
                   ),
                 ),
                 SizedBox(width: tokens.gapMd),
-                // TODO(mascot): Replace with real university mascot asset.
                 const MascotSlot(size: 64, tag: 'universities'),
               ],
             ),
           ),
           // ── Filter row ──────────────────────────────────────────────────────
-          _FilterRow(filter: filter, tokens: tokens),
-          // ── Divider ─────────────────────────────────────────────────────────
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: tokens.screenPadding,
+              vertical: tokens.gapSm,
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _FilterChip(
+                    label: filter.city ?? 'Город',
+                    isActive: filter.city != null,
+                    onTap: () => _pickCity(context, ref),
+                  ),
+                  SizedBox(width: tokens.gapSm),
+                  _FilterChip(
+                    label: filter.type != null
+                        ? universityTypeLabel(filter.type!)
+                        : 'Тип',
+                    isActive: filter.type != null,
+                    onTap: () => _pickType(context, ref),
+                  ),
+                  if (!filter.isEmpty) ...[
+                    SizedBox(width: tokens.gapSm),
+                    _ResetChip(onTap: notifier.clearAll, tokens: tokens),
+                  ],
+                ],
+              ),
+            ),
+          ),
           const Divider(height: 1, color: AppColors.border),
         ],
       ),
     );
   }
-}
 
-// ── Filter row ─────────────────────────────────────────────────────────────────
-
-class _FilterRow extends ConsumerWidget {
-  const _FilterRow({required this.filter, required this.tokens});
-
-  final OpportunityFilter filter;
-  final AppTokens tokens;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final notifier = ref.read(opportunityFilterProvider.notifier);
-    final hasFilter = !filter.isEmpty;
-
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: tokens.screenPadding,
-        vertical: tokens.gapSm,
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _FilterChip(
-              label: filter.city ?? 'Город',
-              isActive: filter.city != null,
-              onTap: () => _showCityPicker(context, ref),
-            ),
-            SizedBox(width: tokens.gapSm),
-            _FilterChip(
-              label: filter.field != null
-                  ? academicFieldLabel(filter.field!)
-                  : 'Направление',
-              isActive: filter.field != null,
-              onTap: () => _showFieldPicker(context, ref),
-            ),
-            SizedBox(width: tokens.gapSm),
-            _FilterChip(
-              label: filter.accessibility != null
-                  ? accessibilityLabel(filter.accessibility!)
-                  : 'Доступность',
-              isActive: filter.accessibility != null,
-              onTap: () => _showAccessibilityPicker(context, ref),
-            ),
-            if (hasFilter) ...[
-              SizedBox(width: tokens.gapSm),
-              GestureDetector(
-                onTap: notifier.clearAll,
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: tokens.gapMd,
-                    vertical: tokens.gapXs,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.errorRed.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(tokens.radiusSm),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.close_rounded,
-                        size: 14,
-                        color: AppColors.errorRed,
-                      ),
-                      SizedBox(width: tokens.gapXs),
-                      Text(
-                        'Сбросить',
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: AppColors.errorRed,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showCityPicker(BuildContext context, WidgetRef ref) {
-    final cities = [
-      ...{...seedUniversities.map((u) => u.city)},
-    ]..sort();
-
+  void _pickCity(BuildContext context, WidgetRef ref) {
     unawaited(
       showModalBottomSheet<void>(
         context: context,
         builder: (_) => _PickerSheet(
           title: 'Выбрать город',
-          items: cities,
-          selected: ref.read(opportunityFilterProvider).city,
-          onSelect: (v) =>
-              ref.read(opportunityFilterProvider.notifier).setCity(v),
+          items: catalog.cities,
+          selected: ref.read(catalogFilterProvider).city,
+          onSelect: (v) => ref.read(catalogFilterProvider.notifier).setCity(v),
           onClear: () =>
-              ref.read(opportunityFilterProvider.notifier).setCity(null),
+              ref.read(catalogFilterProvider.notifier).setCity(null),
         ),
       ),
     );
   }
 
-  void _showFieldPicker(BuildContext context, WidgetRef ref) {
+  void _pickType(BuildContext context, WidgetRef ref) {
+    final types = catalog.typesPresent;
     unawaited(
       showModalBottomSheet<void>(
         context: context,
         builder: (_) => _PickerSheet(
-          title: 'Выбрать направление',
-          items: AcademicField.values.map(academicFieldLabel).toList(),
-          selected: ref.read(opportunityFilterProvider).field != null
-              ? academicFieldLabel(ref.read(opportunityFilterProvider).field!)
+          title: 'Выбрать тип',
+          items: types.map(universityTypeLabel).toList(),
+          selected: ref.read(catalogFilterProvider).type != null
+              ? universityTypeLabel(ref.read(catalogFilterProvider).type!)
               : null,
           onSelect: (v) {
-            final field = AcademicField.values.firstWhere(
-              (f) => academicFieldLabel(f) == v,
-            );
-            ref.read(opportunityFilterProvider.notifier).setField(field);
+            final type = types.firstWhere((t) => universityTypeLabel(t) == v);
+            ref.read(catalogFilterProvider.notifier).setType(type);
           },
           onClear: () =>
-              ref.read(opportunityFilterProvider.notifier).setField(null),
-        ),
-      ),
-    );
-  }
-
-  void _showAccessibilityPicker(BuildContext context, WidgetRef ref) {
-    unawaited(
-      showModalBottomSheet<void>(
-        context: context,
-        builder: (_) => _PickerSheet(
-          title: 'Выбрать доступность',
-          items: Accessibility.values.map(accessibilityLabel).toList(),
-          selected: ref.read(opportunityFilterProvider).accessibility != null
-              ? accessibilityLabel(
-                  ref.read(opportunityFilterProvider).accessibility!,
-                )
-              : null,
-          onSelect: (v) {
-            final acc = Accessibility.values.firstWhere(
-              (a) => accessibilityLabel(a) == v,
-            );
-            ref.read(opportunityFilterProvider.notifier).setAccessibility(acc);
-          },
-          onClear: () => ref
-              .read(opportunityFilterProvider.notifier)
-              .setAccessibility(null),
+              ref.read(catalogFilterProvider.notifier).setType(null),
         ),
       ),
     );
   }
 }
 
-// ── Filter chip ────────────────────────────────────────────────────────────────
+// ── List ───────────────────────────────────────────────────────────────────────
+
+class _UniversitiesList extends StatelessWidget {
+  const _UniversitiesList({
+    required this.catalog,
+    required this.universities,
+    required this.tokens,
+  });
+
+  final UniversityCatalog catalog;
+  final List<UniversityRecord> universities;
+  final AppTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: EdgeInsets.all(tokens.screenPadding),
+      itemCount: universities.length,
+      separatorBuilder: (context, i) => SizedBox(height: tokens.gapMd),
+      itemBuilder: (context, i) {
+        final u = universities[i];
+        return _UniversityCard(
+          university: u,
+          programCount: catalog.offeringCountFor(u.id),
+          minCompetition: catalog.minCompetitionScoreFor(u.id),
+          tokens: tokens,
+          onTap: () => context.push('/universities/${u.id}'),
+        ).animate().fadeIn(
+          delay: Duration(milliseconds: 40 * (i % 12)),
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOut,
+        );
+      },
+    );
+  }
+}
+
+// ── Card ───────────────────────────────────────────────────────────────────────
+
+class _UniversityCard extends StatelessWidget {
+  const _UniversityCard({
+    required this.university,
+    required this.programCount,
+    required this.minCompetition,
+    required this.tokens,
+    required this.onTap,
+  });
+
+  final UniversityRecord university;
+  final int programCount;
+  final int? minCompetition;
+  final AppTokens tokens;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  university.nameRu,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.ink,
+                  ),
+                ),
+              ),
+              if (university.type != null) ...[
+                SizedBox(width: tokens.gapSm),
+                _TypeBadge(type: university.type!, tokens: tokens),
+              ],
+            ],
+          ),
+          SizedBox(height: tokens.gapSm),
+          Row(
+            children: [
+              const Icon(
+                Icons.location_on_outlined,
+                size: 14,
+                color: AppColors.inkSecondary,
+              ),
+              SizedBox(width: tokens.gapXs),
+              Expanded(
+                child: Text(
+                  university.city,
+                  style: Theme.of(context).textTheme.bodySmall,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: tokens.gapMd),
+          Row(
+            children: [
+              if (programCount > 0)
+                _InfoBadge(
+                  label: '$programCount ${_programWord(programCount)}',
+                  tokens: tokens,
+                ),
+              if (minCompetition != null) ...[
+                SizedBox(width: tokens.gapSm),
+                _InfoBadge(
+                  label: 'конкурс от $minCompetition б.',
+                  tokens: tokens,
+                ),
+              ],
+              const Spacer(),
+              const Icon(
+                Icons.arrow_forward_rounded,
+                size: 16,
+                color: AppColors.primary,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _programWord(int n) {
+    final mod10 = n % 10;
+    final mod100 = n % 100;
+    if (mod10 == 1 && mod100 != 11) return 'программа';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+      return 'программы';
+    }
+    return 'программ';
+  }
+}
+
+// ── Small widgets ────────────────────────────────────────────────────────────
+
+class _TypeBadge extends StatelessWidget {
+  const _TypeBadge({required this.type, required this.tokens});
+
+  final UniversityType type;
+  final AppTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color;
+    switch (type) {
+      case UniversityType.national:
+        color = AppColors.primary;
+      case UniversityType.autonomous:
+        color = AppColors.successGreen;
+      case UniversityType.international:
+        color = AppColors.goldKey;
+      case UniversityType.state:
+        color = AppColors.inkSecondary;
+      case UniversityType.private:
+        color = AppColors.errorRed;
+    }
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: tokens.gapMd,
+        vertical: tokens.gapXs,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(tokens.radiusSm),
+      ),
+      child: Text(
+        universityTypeLabel(type),
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoBadge extends StatelessWidget {
+  const _InfoBadge({required this.label, required this.tokens});
+
+  final String label;
+  final AppTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: tokens.gapMd,
+        vertical: tokens.gapXs,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceTint,
+        borderRadius: BorderRadius.circular(tokens.radiusSm),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+          color: AppColors.ink,
+        ),
+      ),
+    );
+  }
+}
 
 class _FilterChip extends StatelessWidget {
   const _FilterChip({
@@ -321,7 +478,42 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
-// ── Picker bottom sheet ────────────────────────────────────────────────────────
+class _ResetChip extends StatelessWidget {
+  const _ResetChip({required this.onTap, required this.tokens});
+
+  final VoidCallback onTap;
+  final AppTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: tokens.gapMd,
+          vertical: tokens.gapXs,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.errorRed.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(tokens.radiusSm),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.close_rounded, size: 14, color: AppColors.errorRed),
+            SizedBox(width: tokens.gapXs),
+            Text(
+              'Сбросить',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: AppColors.errorRed,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _PickerSheet extends StatelessWidget {
   const _PickerSheet({
@@ -343,332 +535,83 @@ class _PickerSheet extends StatelessWidget {
     final tokens =
         Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
     return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.all(tokens.screenPadding),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              title,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: AppColors.ink,
-              ),
-            ),
-            SizedBox(height: tokens.gapLg),
-            if (selected != null) ...[
-              GestureDetector(
-                onTap: () {
-                  Navigator.of(context).pop();
-                  onClear();
-                },
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                    vertical: tokens.gapMd,
-                    horizontal: tokens.gapLg,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.ink,
-                    borderRadius: BorderRadius.circular(tokens.radiusMd),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    'Сбросить фильтр',
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: AppColors.white,
-                    ),
-                  ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(tokens.screenPadding),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: AppColors.ink,
                 ),
               ),
               SizedBox(height: tokens.gapMd),
-            ],
-            ...items.map((item) {
-              final isSelected = item == selected;
-              return ListTile(
-                contentPadding: EdgeInsets.symmetric(horizontal: tokens.gapSm),
-                title: Text(
-                  item,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: isSelected ? AppColors.primary : AppColors.ink,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  ),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    if (selected != null)
+                      ListTile(
+                        leading: const Icon(
+                          Icons.close_rounded,
+                          color: AppColors.inkSecondary,
+                        ),
+                        title: const Text('Сбросить фильтр'),
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          onClear();
+                        },
+                      ),
+                    ...items.map((item) {
+                      final isSelected = item == selected;
+                      return ListTile(
+                        title: Text(
+                          item,
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: isSelected ? AppColors.primary : AppColors.ink,
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.w500,
+                          ),
+                        ),
+                        trailing: isSelected
+                            ? const Icon(
+                                Icons.check_rounded,
+                                color: AppColors.primary,
+                                size: 20,
+                              )
+                            : null,
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          onSelect(item);
+                        },
+                      );
+                    }),
+                  ],
                 ),
-                trailing: isSelected
-                    ? const Icon(
-                        Icons.check_rounded,
-                        color: AppColors.primary,
-                        size: 20,
-                      )
-                    : null,
-                onTap: () {
-                  Navigator.of(context).pop();
-                  onSelect(item);
-                },
-              );
-            }),
-            SizedBox(height: tokens.gapMd),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ── Universities list ──────────────────────────────────────────────────────────
-
-class _UniversitiesList extends ConsumerWidget {
-  const _UniversitiesList({required this.tokens});
-
-  final AppTokens tokens;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final universities = ref.watch(filteredUniversitiesProvider);
-
-    if (universities.isEmpty) {
-      return _EmptyState(tokens: tokens);
-    }
-
-    return ListView.separated(
-      padding: EdgeInsets.all(tokens.screenPadding),
-      itemCount: universities.length,
-      separatorBuilder: (context, i) => SizedBox(height: tokens.gapMd),
-      itemBuilder: (context, i) {
-        final u = universities[i];
-        return _UniversityCard(
-              university: u,
-              onTap: () => context.push('/opportunities/university/${u.id}'),
-            )
-            .animate()
-            .fadeIn(
-              delay: Duration(milliseconds: 60 * i),
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeOut,
-            )
-            .slideY(
-              begin: 0.06,
-              end: 0,
-              delay: Duration(milliseconds: 60 * i),
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeOut,
-            );
-      },
-    );
-  }
-}
-
-// ── University card ────────────────────────────────────────────────────────────
-
-class _UniversityCard extends StatelessWidget {
-  const _UniversityCard({
-    required this.university,
-    required this.onTap,
+class _MessageState extends StatelessWidget {
+  const _MessageState({
+    required this.tokens,
+    required this.icon,
+    required this.message,
   });
 
-  final University university;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens =
-        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
-
-    return AppCard(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ── Name + accessibility badge ────────────────────────────────────
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  university.name,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: AppColors.ink,
-                  ),
-                ),
-              ),
-              SizedBox(width: tokens.gapSm),
-              _AccessibilityBadge(accessibility: university.accessibility),
-            ],
-          ),
-          SizedBox(height: tokens.gapSm),
-
-          // ── City + field row ──────────────────────────────────────────────
-          Row(
-            children: [
-              const Icon(
-                Icons.location_on_outlined,
-                size: 14,
-                color: AppColors.inkSecondary,
-              ),
-              SizedBox(width: tokens.gapXs),
-              Text(
-                university.city,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              SizedBox(width: tokens.gapMd),
-              const Icon(
-                Icons.school_outlined,
-                size: 14,
-                color: AppColors.inkSecondary,
-              ),
-              SizedBox(width: tokens.gapXs),
-              Expanded(
-                child: Text(
-                  academicFieldLabel(university.field),
-                  style: Theme.of(context).textTheme.bodySmall,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: tokens.gapSm),
-
-          // ── Description ───────────────────────────────────────────────────
-          Text(
-            university.description,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: AppColors.inkSecondary,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          SizedBox(height: tokens.gapMd),
-
-          // ── Bottom row: ENT threshold + tuition + acceptance ring ─────────
-          Row(
-            children: [
-              // ENT badge
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: tokens.gapMd,
-                  vertical: tokens.gapXs,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceTint,
-                  borderRadius: BorderRadius.circular(tokens.radiusSm),
-                ),
-                child: Text(
-                  'ЕНТ ≥ ${university.entThreshold}',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: AppColors.ink,
-                  ),
-                ),
-              ),
-              SizedBox(width: tokens.gapSm),
-              // Tuition badge
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: tokens.gapMd,
-                  vertical: tokens.gapXs,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceTint,
-                  borderRadius: BorderRadius.circular(tokens.radiusSm),
-                ),
-                child: Text(
-                  university.tuitionLabel,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: AppColors.ink,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              // Acceptance rate ring — honest, never inflated
-              if (university.acceptanceRate != null)
-                _AcceptanceRing(rate: university.acceptanceRate!)
-              else
-                const Icon(
-                  Icons.arrow_forward_rounded,
-                  size: 16,
-                  color: AppColors.primary,
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Acceptance rate ring ───────────────────────────────────────────────────────
-
-/// Compact ProgressRing showing the honest acceptance rate.
-class _AcceptanceRing extends StatelessWidget {
-  const _AcceptanceRing({required this.rate});
-
-  final double rate;
-
-  @override
-  Widget build(BuildContext context) {
-    return ProgressRing(
-      progress: rate,
-      size: 44,
-      strokeWidth: 5,
-      progressColor: AppColors.successGreen,
-      child: Text(
-        '${(rate * 100).round()}%',
-        style: const TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: AppColors.ink,
-        ),
-      ),
-    );
-  }
-}
-
-// ── Accessibility badge ────────────────────────────────────────────────────────
-
-class _AccessibilityBadge extends StatelessWidget {
-  const _AccessibilityBadge({required this.accessibility});
-
-  final Accessibility accessibility;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens =
-        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
-
-    final Color color;
-    switch (accessibility) {
-      case Accessibility.easy:
-        color = AppColors.successGreen;
-      case Accessibility.medium:
-        color = AppColors.goldKey;
-      case Accessibility.hard:
-        color = AppColors.errorRed;
-    }
-
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: tokens.gapMd,
-        vertical: tokens.gapXs,
-      ),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(tokens.radiusSm),
-      ),
-      child: Text(
-        accessibilityLabel(accessibility),
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: color,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-// ── Empty state ────────────────────────────────────────────────────────────────
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.tokens});
-
   final AppTokens tokens;
+  final IconData icon;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
@@ -678,14 +621,10 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.search_off_rounded,
-              size: 48,
-              color: AppColors.border,
-            ),
+            Icon(icon, size: 48, color: AppColors.border),
             SizedBox(height: tokens.gapMd),
             Text(
-              'Нет университетов по выбранным фильтрам',
+              message,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: AppColors.inkSecondary,
               ),

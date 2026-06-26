@@ -1,5 +1,4 @@
 import 'package:admity/features/career/presentation/daily_career_test_screen.dart';
-import 'package:admity/features/courses/presentation/courses_screen.dart';
 import 'package:admity/features/home/presentation/home_screen.dart';
 import 'package:admity/features/lesson/presentation/lesson_screen.dart';
 import 'package:admity/features/mentor/presentation/mentor_screen.dart';
@@ -14,6 +13,7 @@ import 'package:admity/features/profile/presentation/profile_edit_screen.dart';
 import 'package:admity/features/profile/presentation/profile_screen.dart';
 import 'package:admity/features/splash/presentation/splash_screen.dart';
 import 'package:admity/features/universities/presentation/universities_screen.dart';
+import 'package:admity/features/universities/presentation/university_catalog_detail_screen.dart';
 import 'package:admity/shared/widgets/app_bottom_nav.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -27,8 +27,13 @@ GoRouter createRouter() {
       GoRoute(path: '/onboarding', builder: (context, state) => const OnboardingScreen()),
       // Daily career-orientation test — full-screen, a new test each day.
       GoRoute(path: '/career-test', builder: (context, state) => const DailyCareerTestScreen()),
-      // Full "Вузы" page — universities pulled out of Возможности.
-      GoRoute(path: '/universities', builder: (context, state) => const UniversitiesScreen()),
+      // Catalog university detail — programs (ГОП) + honest grant figures.
+      GoRoute(
+        path: '/universities/:id',
+        builder: (context, state) => UniversityCatalogDetailScreen(
+          universityId: state.pathParameters['id'] ?? '',
+        ),
+      ),
       // Full-screen lesson route — outside the tab shell so it covers the bottom nav.
       GoRoute(path: '/lesson', builder: (context, state) => const LessonScreen()),
       // Full-screen scholarship detail + apply routes — outside the tab shell.
@@ -74,7 +79,7 @@ GoRouter createRouter() {
             routes: [GoRoute(path: '/home', builder: (context, state) => const HomeScreen())],
           ),
           StatefulShellBranch(
-            routes: [GoRoute(path: '/courses', builder: (context, state) => const CoursesScreen())],
+            routes: [GoRoute(path: '/universities', builder: (context, state) => const UniversitiesScreen())],
           ),
           StatefulShellBranch(
             routes: [GoRoute(path: '/mentor', builder: (context, state) => const MentorScreen())],

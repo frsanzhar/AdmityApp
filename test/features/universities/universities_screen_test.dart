@@ -1,47 +1,98 @@
 import 'package:admity/core/theme/app_tokens.dart';
-import 'package:admity/features/opportunities/data/opportunity_seed.dart';
-import 'package:admity/features/opportunities/domain/opportunity_models.dart';
-import 'package:admity/features/opportunities/presentation/opportunities_providers.dart';
+import 'package:admity/features/universities/data/university_catalog_providers.dart';
+import 'package:admity/features/universities/domain/university_catalog.dart';
 import 'package:admity/features/universities/presentation/universities_screen.dart';
 import 'package:admity/shared/widgets/mascot_slot.dart';
-import 'package:admity/shared/widgets/progress_ring.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Fake catalog ────────────────────────────────────────────────────────────
+const _fakeCatalog = UniversityCatalog(
+  universities: [
+    UniversityRecord(
+      id: 'nu',
+      nameRu: 'Назарбаев Университет',
+      city: 'Астана',
+      type: UniversityType.autonomous,
+    ),
+    UniversityRecord(
+      id: 'kaznu',
+      nameRu: 'КазНУ им. аль-Фараби',
+      city: 'Алматы',
+      type: UniversityType.national,
+    ),
+  ],
+  programs: [
+    EducationProgram(
+      code: 'B057',
+      nameRu: 'Информационные технологии',
+      entSubject1: 'Математика',
+      entSubject2: 'Информатика',
+    ),
+  ],
+  offerings: [
+    UniversityProgram(universityId: 'nu', programCode: 'B057'),
+    UniversityProgram(universityId: 'kaznu', programCode: 'B057'),
+  ],
+  thresholds: [
+    GrantThreshold(
+      programCode: 'B057',
+      universityId: 'nu',
+      year: 2024,
+      quotaType: QuotaType.general,
+      metric: GrantMetric.competitionMin,
+      minScore: 120,
+      isVerified: true,
+      sourceUrl: 'https://example.test',
+    ),
+    GrantThreshold(
+      programCode: 'B057',
+      universityId: 'kaznu',
+      year: 2024,
+      quotaType: QuotaType.general,
+      metric: GrantMetric.competitionMin,
+      minScore: 90,
+      isVerified: true,
+      sourceUrl: 'https://example.test',
+    ),
+  ],
+);
 
-/// Wraps the widget in a ProviderScope + MaterialApp (no router).
-Widget _themed(Widget widget) {
+// ignore: specify_nonobvious_property_types, the Override type is not exported.
+final _overrides = [
+  universityCatalogProvider.overrideWith((ref) => _fakeCatalog),
+];
+
+Widget _themed(Widget child) {
   return ProviderScope(
+    overrides: _overrides,
     child: MaterialApp(
       theme: ThemeData(extensions: [AppTokens.defaults()]),
-      home: Scaffold(body: widget),
+      home: child,
     ),
   );
 }
 
-/// Wraps the widget with a GoRouter so navigation can be verified.
-Widget _routerWrapped(Widget widget) {
+Widget _router() {
   final router = GoRouter(
     initialLocation: '/universities',
     routes: [
       GoRoute(
         path: '/universities',
-        builder: (context, state) => Scaffold(body: widget),
+        builder: (context, state) => const UniversitiesScreen(),
       ),
       GoRoute(
-        path: '/opportunities/university/:id',
+        path: '/universities/:id',
         builder: (context, state) => Scaffold(
-          body: Center(
-            child: Text('UniDetail:${state.pathParameters['id']}'),
-          ),
+          body: Center(child: Text('Detail:${state.pathParameters['id']}')),
         ),
       ),
     ],
   );
   return ProviderScope(
+    overrides: _overrides,
     child: MaterialApp.router(
       routerConfig: router,
       theme: ThemeData(extensions: [AppTokens.defaults()]),
@@ -49,11 +100,7 @@ Widget _routerWrapped(Widget widget) {
   );
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
-
 void main() {
-  // ── Blank-screen guard ────────────────────────────────────────────────────
-
   group('UniversitiesScreen — blank-screen guard', () {
     testWidgets('builds with NO framework/layout errors', (tester) async {
       final errors = <FlutterErrorDetails>[];
@@ -64,228 +111,118 @@ void main() {
       await tester.pumpWidget(_themed(const UniversitiesScreen()));
       await tester.pumpAndSettle();
 
-      expect(
-        errors,
-        isEmpty,
-        reason: 'no swallowed layout errors on UniversitiesScreen',
-      );
+      expect(errors, isEmpty, reason: 'no swallowed layout errors');
     });
   });
 
-  // ── Content assertions ────────────────────────────────────────────────────
-
   group('UniversitiesScreen — content', () {
-    testWidgets('shows "Вузы" heading', (tester) async {
+    testWidgets('shows "Вузы" heading and count', (tester) async {
       await tester.pumpWidget(_themed(const UniversitiesScreen()));
       await tester.pumpAndSettle();
-
       expect(find.text('Вузы'), findsOneWidget);
+      expect(find.textContaining('2 вузов'), findsOneWidget);
     });
 
-    testWidgets('shows MascotSlot in the header', (tester) async {
+    testWidgets('shows MascotSlot', (tester) async {
       await tester.pumpWidget(_themed(const UniversitiesScreen()));
       await tester.pumpAndSettle();
-
       expect(find.byType(MascotSlot), findsOneWidget);
     });
 
-    testWidgets('shows filter chips: Город, Направление, Доступность', (
-      tester,
-    ) async {
+    testWidgets('shows Город and Тип filter chips', (tester) async {
       await tester.pumpWidget(_themed(const UniversitiesScreen()));
       await tester.pumpAndSettle();
-
       expect(find.text('Город'), findsOneWidget);
-      expect(find.text('Направление'), findsOneWidget);
-      expect(find.text('Доступность'), findsOneWidget);
+      expect(find.text('Тип'), findsOneWidget);
     });
 
-    testWidgets('lists all seed universities by default', (tester) async {
-      await tester.pumpWidget(_themed(const UniversitiesScreen()));
-      await tester.pumpAndSettle();
-
-      // The list may be taller than the viewport, so scroll each university
-      // into view before asserting it is present.
-      for (final u in seedUniversities) {
-        await tester.scrollUntilVisible(
-          find.text(u.name),
-          200,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.pumpAndSettle();
-        expect(find.text(u.name), findsOneWidget);
-      }
-    });
-
-    testWidgets('shows ProgressRing for acceptance-rate universities', (
+    testWidgets('lists universities with type badge and honest score', (
       tester,
     ) async {
       await tester.pumpWidget(_themed(const UniversitiesScreen()));
       await tester.pumpAndSettle();
-
-      // At least one university in seed has an acceptance rate — ring visible.
-      expect(find.byType(ProgressRing), findsWidgets);
-    });
-
-    testWidgets('shows ENT threshold badge on cards', (tester) async {
-      await tester.pumpWidget(_themed(const UniversitiesScreen()));
-      await tester.pumpAndSettle();
-
-      // НУ has entThreshold 110.
-      expect(find.textContaining('ЕНТ ≥ 110'), findsOneWidget);
+      expect(find.text('Назарбаев Университет'), findsOneWidget);
+      expect(find.text('КазНУ им. аль-Фараби'), findsOneWidget);
+      expect(find.text('Национальный'), findsOneWidget);
+      // honest competition label, not "проходной"
+      expect(find.textContaining('конкурс от'), findsWidgets);
     });
   });
 
-  // ── Filter behaviour ──────────────────────────────────────────────────────
-
   group('UniversitiesScreen — filters', () {
     testWidgets('filtering by city narrows the list', (tester) async {
-      final container = ProviderContainer();
+      final container = ProviderContainer(overrides: _overrides);
       addTearDown(container.dispose);
-
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
             theme: ThemeData(extensions: [AppTokens.defaults()]),
-            home: const Scaffold(body: UniversitiesScreen()),
+            home: const UniversitiesScreen(),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      // Apply city filter programmatically.
-      container.read(opportunityFilterProvider.notifier).setCity('Астана');
+      container.read(catalogFilterProvider.notifier).setCity('Астана');
       await tester.pumpAndSettle();
 
-      // Only Астана universities should be visible.
-      final visible = seedUniversities
-          .where((u) => u.city.toLowerCase().contains('астана'))
-          .toList();
-      final hidden = seedUniversities
-          .where((u) => !u.city.toLowerCase().contains('астана'))
-          .toList();
-
-      for (final u in visible) {
-        expect(find.text(u.name), findsOneWidget);
-      }
-      for (final u in hidden) {
-        expect(find.text(u.name), findsNothing);
-      }
+      expect(find.text('Назарбаев Университет'), findsOneWidget);
+      expect(find.text('КазНУ им. аль-Фараби'), findsNothing);
     });
 
-    testWidgets('clearing filter restores all universities', (tester) async {
-      final container = ProviderContainer();
+    testWidgets('empty state when no city matches', (tester) async {
+      final container = ProviderContainer(overrides: _overrides);
       addTearDown(container.dispose);
-
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
             theme: ThemeData(extensions: [AppTokens.defaults()]),
-            home: const Scaffold(body: UniversitiesScreen()),
+            home: const UniversitiesScreen(),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      container.read(opportunityFilterProvider.notifier).setCity('Астана');
+      container.read(catalogFilterProvider.notifier).setCity('Нигде999');
       await tester.pumpAndSettle();
 
-      container.read(opportunityFilterProvider.notifier).clearAll();
-      await tester.pumpAndSettle();
-
-      // Scroll to verify every university is restored after clearing the filter.
-      for (final u in seedUniversities) {
-        await tester.scrollUntilVisible(
-          find.text(u.name),
-          200,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.pumpAndSettle();
-        expect(find.text(u.name), findsOneWidget);
-      }
-    });
-
-    testWidgets('shows empty state when no universities match filter', (
-      tester,
-    ) async {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            theme: ThemeData(extensions: [AppTokens.defaults()]),
-            home: const Scaffold(body: UniversitiesScreen()),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      container
-          .read(opportunityFilterProvider.notifier)
-          .setCity('НесуществующийГород999');
-      await tester.pumpAndSettle();
-
-      expect(
-        find.textContaining('Нет университетов'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('Нет вузов'), findsOneWidget);
     });
 
     testWidgets('active filter shows Сбросить chip', (tester) async {
-      final container = ProviderContainer();
+      final container = ProviderContainer(overrides: _overrides);
       addTearDown(container.dispose);
-
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
             theme: ThemeData(extensions: [AppTokens.defaults()]),
-            home: const Scaffold(body: UniversitiesScreen()),
+            home: const UniversitiesScreen(),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
       container
-          .read(opportunityFilterProvider.notifier)
-          .setAccessibility(Accessibility.hard);
+          .read(catalogFilterProvider.notifier)
+          .setType(UniversityType.national);
       await tester.pumpAndSettle();
 
       expect(find.text('Сбросить'), findsOneWidget);
     });
   });
 
-  // ── Navigation ────────────────────────────────────────────────────────────
-
   group('UniversitiesScreen — navigation', () {
-    testWidgets(
-      'tapping a university card pushes to /opportunities/university/:id',
-      (
-        tester,
-      ) async {
-        await tester.pumpWidget(_routerWrapped(const UniversitiesScreen()));
-        await tester.pumpAndSettle();
-
-        // Tap the first university in the seed list (НУ).
-        await tester.tap(find.text('Назарбаев Университет'));
-        await tester.pumpAndSettle();
-
-        expect(find.textContaining('UniDetail:nu'), findsOneWidget);
-      },
-    );
-
-    testWidgets('navigation works for second university too', (tester) async {
-      await tester.pumpWidget(_routerWrapped(const UniversitiesScreen()));
+    testWidgets('tapping a card pushes to /universities/:id', (tester) async {
+      await tester.pumpWidget(_router());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('КазНУ им. аль-Фараби'));
+      await tester.tap(find.text('Назарбаев Университет'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('UniDetail:kaznu'), findsOneWidget);
+      expect(find.text('Detail:nu'), findsOneWidget);
     });
   });
 }

@@ -301,13 +301,6 @@ class HomeScreen extends ConsumerWidget {
                 .fadeIn(delay: 300.ms, duration: 350.ms)
                 .slideY(begin: 0.08, end: 0, delay: 300.ms, duration: 350.ms),
 
-            SizedBox(height: tokens.gapSm),
-
-            _UniversitiesCard(tokens: tokens)
-                .animate()
-                .fadeIn(delay: 340.ms, duration: 350.ms)
-                .slideY(begin: 0.08, end: 0, delay: 340.ms, duration: 350.ms),
-
             SizedBox(height: tokens.gapXxl),
           ],
         ),
@@ -1311,7 +1304,7 @@ class _TodayTaskCard extends StatelessWidget {
           SizedBox(height: tokens.gapLg),
           PrimaryButton(
             label: 'Продолжить',
-            onPressed: () => context.go('/courses'),
+            onPressed: () => context.go('/lesson'),
           ),
         ],
       ),
@@ -1811,68 +1804,6 @@ class _CareerTestCard extends StatelessWidget {
           FeaturedButton(
             label: 'Пройти тест',
             onPressed: () => context.push('/career-test'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Universities entry card ───────────────────────────────────────────────────
-
-class _UniversitiesCard extends StatelessWidget {
-  const _UniversitiesCard({required this.tokens});
-  final AppTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.goldKey.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(tokens.radiusMd),
-                ),
-                child: const Icon(
-                  Icons.school_outlined,
-                  color: AppColors.ink,
-                  size: 24,
-                ),
-              ),
-              SizedBox(width: tokens.gapMd),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Вузы Казахстана',
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(color: AppColors.ink),
-                    ),
-                    SizedBox(height: tokens.gapXs),
-                    Text(
-                      'Сравни программы и требования',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.inkSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: tokens.gapMd),
-          PrimaryButton(
-            label: 'Смотреть',
-            onPressed: () => context.push('/universities'),
           ),
         ],
       ),

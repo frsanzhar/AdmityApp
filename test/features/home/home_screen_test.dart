@@ -107,15 +107,6 @@ void main() {
     expect(find.text('Пройти тест'), findsOneWidget);
   });
 
-  testWidgets('universities card is visible', (tester) async {
-    await tester.pumpWidget(_themed(const HomeScreen()));
-    await tester.pumpAndSettle();
-
-    await tester.ensureVisible(find.text('Вузы Казахстана'));
-    expect(find.text('Вузы Казахстана'), findsOneWidget);
-    expect(find.text('Смотреть'), findsOneWidget);
-  });
-
   testWidgets('"Задание на сегодня" card is present', (tester) async {
     await tester.pumpWidget(_themed(const HomeScreen()));
     await tester.pumpAndSettle();

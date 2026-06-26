@@ -182,8 +182,9 @@ void main() {
       await tester.tap(find.text('Далее'));
       await pump();
 
-      // Step 5: subject — selection required.
-      await tester.tap(find.text('Математика'));
+      // Step 5: majors — at least one selection required.
+      await tester.ensureVisible(find.text('Психология'));
+      await tester.tap(find.text('Психология'));
       await tester.pump(const Duration(milliseconds: 50));
       await tester.tap(find.text('Далее'));
       await pump();

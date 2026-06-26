@@ -5,13 +5,11 @@
 // is not available in the flutter_test host environment.
 
 import 'package:admity/core/theme/app_tokens.dart';
-import 'package:admity/features/courses/presentation/courses_screen.dart';
 import 'package:admity/shared/widgets/mascot_slot.dart';
 import 'package:admity/shared/widgets/streak_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -20,31 +18,6 @@ Widget _themed(Widget child) {
     child: MaterialApp(
       theme: ThemeData(extensions: [AppTokens.defaults()]),
       home: child,
-    ),
-  );
-}
-
-/// Wraps [widget] in a router so that `context.go('/lesson')` works.
-Widget _routerWrapped(Widget widget) {
-  final router = GoRouter(
-    initialLocation: '/courses',
-    routes: [
-      GoRoute(
-        path: '/courses',
-        builder: (context, state) => Scaffold(body: widget),
-      ),
-      GoRoute(
-        path: '/lesson',
-        builder: (context, state) =>
-            const Scaffold(body: Center(child: Text('LessonScreen'))),
-      ),
-    ],
-  );
-
-  return ProviderScope(
-    child: MaterialApp.router(
-      routerConfig: router,
-      theme: ThemeData(extensions: [AppTokens.defaults()]),
     ),
   );
 }
@@ -145,46 +118,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.bolt), findsOneWidget);
       expect(find.text('3'), findsOneWidget);
-    });
-  });
-
-  // ── CoursesScreen fly-down ────────────────────────────────────────────────────
-
-  group('CoursesScreen fly-down motion', () {
-    testWidgets(
-        '"Начать" navigates to /lesson immediately (no blocking delay)',
-        (tester) async {
-      final errors = <FlutterErrorDetails>[];
-      final prev = FlutterError.onError;
-      FlutterError.onError = errors.add;
-      addTearDown(() => FlutterError.onError = prev);
-
-      await tester.pumpWidget(_routerWrapped(const CoursesScreen()));
-      // Pump a few frames to allow postFrameCallbacks and CoursesNotifier
-      // to initialise, then settle animations (disableAnimations=true globally).
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      await tester.pumpAndSettle();
-
-      // CoursesScreen redesign: the "Start" CTA is the PrimaryButton labelled
-      // "Начать" (dark button) in the _LessonStartBox at the bottom of the
-      // scrollable course page. Scroll until it is visible.
-      await tester.scrollUntilVisible(
-        find.text('Начать').first,
-        100,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Начать').first, warnIfMissed: false);
-      // Navigation via context.go('/lesson') is synchronous in GoRouter;
-      // just pump a couple of frames to let the route stack settle.
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-
-      // Navigation must have completed without delay.
-      expect(find.text('LessonScreen'), findsOneWidget);
-      expect(errors, isEmpty);
     });
   });
 

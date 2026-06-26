@@ -59,7 +59,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   String? _soundPreference; // step 3
   int? _age; // step 4
   final _ageCtrl = TextEditingController();
-  String? _subject; // step 5
+  final Set<String> _majors = {}; // step 5 — что интересно как Major
   String? _knowledgeLevel; // step 7
   int? _dailyGoalMinutes; // step 9
   String? _schedule; // step 9
@@ -100,7 +100,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       motivation: _motivation,
       soundPreference: _soundPreference,
       age: _age,
-      subject: _subject,
+      subject: _majors.isEmpty ? null : _majors.first,
+      targetMajors: _majors.toList(),
       knowledgeLevel: _knowledgeLevel,
       dailyGoalMinutes: _dailyGoalMinutes,
       schedule: _schedule,
@@ -125,7 +126,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       case 3:
         return _soundPreference != null;
       case 5:
-        return _subject != null;
+        return _majors.isNotEmpty;
       case 7:
         return _knowledgeLevel != null;
       default:
@@ -206,8 +207,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       case 5:
         return _SubjectStep(
           tokens: tokens,
-          selected: _subject,
-          onSelect: (v) => setState(() => _subject = v),
+          selected: _majors,
+          onToggle: (v) => setState(() {
+            if (!_majors.remove(v)) _majors.add(v);
+          }),
         );
       case 6:
         return _UniversitiesTrustStep(tokens: tokens);
@@ -921,17 +924,34 @@ class _SubjectStep extends StatelessWidget {
   const _SubjectStep({
     required this.tokens,
     required this.selected,
-    required this.onSelect,
+    required this.onToggle,
   });
 
   final AppTokens tokens;
-  final String? selected;
-  final ValueChanged<String> onSelect;
+  final Set<String> selected;
+  final ValueChanged<String> onToggle;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final noAnim = MediaQuery.of(context).disableAnimations;
+
+    final majors = <_MajorOption>[
+      const _MajorOption('Психология', 'Поведение и психика',
+          Icons.psychology_outlined, AppColors.primary),
+      const _MajorOption('Политика', 'Политология и дипломатия',
+          Icons.account_balance_outlined, AppColors.successGreen),
+      const _MajorOption('Экономика', 'Финансы и бизнес',
+          Icons.trending_up_rounded, AppColors.goldKey),
+      const _MajorOption('Химия', 'Реакции и вещества',
+          Icons.science_outlined, AppColors.errorRed),
+      const _MajorOption('Биология', 'Жизнь и медицина',
+          Icons.biotech_outlined, AppColors.successGreen),
+      const _MajorOption('Физика', 'Механика и кванты',
+          Icons.bolt_outlined, AppColors.primary),
+      const _MajorOption('Математика', 'Алгебра и анализ',
+          Icons.calculate_outlined, AppColors.goldKey),
+    ];
 
     return SingleChildScrollView(
       padding: EdgeInsets.symmetric(horizontal: tokens.screenPadding),
@@ -944,45 +964,53 @@ class _SubjectStep extends StatelessWidget {
             noAnim,
             0,
             Text(
-              'Какой предмет хочешь прокачать?',
+              'Какие предметы интересны как Major?',
               style: textTheme.headlineLarge?.copyWith(color: AppColors.ink),
             ),
           ),
+          SizedBox(height: tokens.gapSm),
+          _animWrap(
+            noAnim,
+            60,
+            Text(
+              'Можно выбрать несколько',
+              style: textTheme.bodyMedium?.copyWith(
+                color: AppColors.inkSecondary,
+              ),
+            ),
+          ),
           SizedBox(height: tokens.gapXl),
-          _animWrap(
-            noAnim,
-            120,
-            _SubjectCard(
-              tokens: tokens,
-              value: 'Математика',
-              label: 'Математика',
-              desc: 'Алгебра, геометрия, ЕНТ',
-              accentColor: AppColors.primary,
-              icon: Icons.calculate_outlined,
-              isSelected: selected == 'Математика',
-              onTap: () => onSelect('Математика'),
+          for (var i = 0; i < majors.length; i++) ...[
+            _animWrap(
+              noAnim,
+              120 + i * 50,
+              _SubjectCard(
+                tokens: tokens,
+                value: majors[i].name,
+                label: majors[i].name,
+                desc: majors[i].desc,
+                accentColor: majors[i].color,
+                icon: majors[i].icon,
+                isSelected: selected.contains(majors[i].name),
+                onTap: () => onToggle(majors[i].name),
+              ),
             ),
-          ),
-          SizedBox(height: tokens.gapMd),
-          _animWrap(
-            noAnim,
-            200,
-            _SubjectCard(
-              tokens: tokens,
-              value: 'Информатика',
-              label: 'Информатика',
-              desc: 'Программирование, алгоритмы',
-              accentColor: AppColors.successGreen,
-              icon: Icons.code_outlined,
-              isSelected: selected == 'Информатика',
-              onTap: () => onSelect('Информатика'),
-            ),
-          ),
-          SizedBox(height: tokens.gapXxl),
+            SizedBox(height: tokens.gapMd),
+          ],
+          SizedBox(height: tokens.gapXl),
         ],
       ),
     );
   }
+}
+
+/// A selectable Major option shown on the subject step.
+class _MajorOption {
+  const _MajorOption(this.name, this.desc, this.icon, this.color);
+  final String name;
+  final String desc;
+  final IconData icon;
+  final Color color;
 }
 
 class _SubjectCard extends StatelessWidget {

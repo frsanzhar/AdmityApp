@@ -11,7 +11,7 @@ import 'package:go_router/go_router.dart';
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /// Wraps [widget] in MaterialApp + Admity theme + Riverpod + GoRouter so that
-/// AppTokens, providers, and context.go('/courses') all work correctly.
+/// AppTokens, providers, and context.go('/home') all work correctly.
 Widget _routerWrapped(Widget widget, {ProviderContainer? container}) {
   final router = GoRouter(
     initialLocation: '/lesson',
@@ -21,9 +21,9 @@ Widget _routerWrapped(Widget widget, {ProviderContainer? container}) {
         builder: (context, state) => Scaffold(body: widget),
       ),
       GoRoute(
-        path: '/courses',
+        path: '/home',
         builder: (context, state) =>
-            const Scaffold(body: Center(child: Text('CoursesScreen'))),
+            const Scaffold(body: Center(child: Text('HomeScreen'))),
       ),
     ],
   );
@@ -559,7 +559,7 @@ void main() {
       expect(errors, isEmpty, reason: 'no layout errors on complete step');
     });
 
-    testWidgets('"Готово" navigates back to /courses', (tester) async {
+    testWidgets('"Готово" navigates back to /home', (tester) async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
 
@@ -592,16 +592,16 @@ void main() {
       await tester.tap(find.text('Готово'), warnIfMissed: false);
       await tester.pumpAndSettle();
 
-      expect(find.text('CoursesScreen'), findsOneWidget);
+      expect(find.text('HomeScreen'), findsOneWidget);
     });
 
-    testWidgets('close button navigates to /courses', (tester) async {
+    testWidgets('close button navigates to /home', (tester) async {
       await _pumpLesson(tester);
 
       await tester.tap(find.byIcon(Icons.close_rounded));
       await tester.pumpAndSettle();
 
-      expect(find.text('CoursesScreen'), findsOneWidget);
+      expect(find.text('HomeScreen'), findsOneWidget);
     });
 
     testWidgets('complete screen builds with no framework/layout errors', (

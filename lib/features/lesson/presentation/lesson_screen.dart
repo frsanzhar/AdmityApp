@@ -406,7 +406,7 @@ class _LessonTopBar extends ConsumerWidget {
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => context.go('/courses'),
+            onTap: () => context.go('/home'),
             behavior: HitTestBehavior.opaque,
             child: Container(
               width: 40,
@@ -1568,7 +1568,7 @@ class _CompleteStep extends StatelessWidget {
           SizedBox(height: tokens.gapXxl),
           FeaturedButton(
             label: 'Готово',
-            onPressed: () => context.go('/courses'),
+            onPressed: () => context.go('/home'),
           ).animate().fadeIn(delay: 160.ms, duration: 250.ms),
           SizedBox(height: tokens.gapXl),
         ],
