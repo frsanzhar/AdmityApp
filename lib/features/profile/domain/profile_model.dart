@@ -34,6 +34,14 @@ class StudentProfile {
     this.targetUniversities = const [],
     this.targetMajors = const [],
     this.languages = const [],
+    this.confidence,
+    this.aidTarget,
+    this.maxPricePerYear,
+    this.authProvider,
+    this.authEmail,
+    this.attachedDocs = const [],
+    this.studyPlan = const [],
+    this.appLanguage = 'system',
   });
 
   /// Deserialises from a raw JSON map (code-free persistence — no codegen).
@@ -61,6 +69,14 @@ class StudentProfile {
       targetUniversities: _stringList(json['target_universities']),
       targetMajors: _stringList(json['target_majors']),
       languages: _stringList(json['languages']),
+      confidence: json['confidence'] as String?,
+      aidTarget: json['aid_target'] as String?,
+      maxPricePerYear: json['max_price_per_year'] as int?,
+      authProvider: json['auth_provider'] as String?,
+      authEmail: json['auth_email'] as String?,
+      attachedDocs: _stringList(json['attached_docs']),
+      studyPlan: _stringList(json['study_plan']),
+      appLanguage: (json['app_language'] as String?) ?? 'system',
     );
   }
 
@@ -129,6 +145,30 @@ class StudentProfile {
   /// Languages the student uses (e.g. ["KZ", "RU", "EN"]).
   final List<String> languages;
 
+  /// How confident the student feels about getting in (free-form label).
+  final String? confidence;
+
+  /// Financial-aid target: one of full_ride | full_tuition | half_tuition | any.
+  final String? aidTarget;
+
+  /// Maximum tuition the student/family can pay per year, in KZT.
+  final int? maxPricePerYear;
+
+  /// Authentication provider used to sign in: email | google | apple | guest.
+  final String? authProvider;
+
+  /// Email address associated with the authenticated account (if any).
+  final String? authEmail;
+
+  /// Paths to files the student has attached (local app-documents directory).
+  final List<String> attachedDocs;
+
+  /// Ordered list of generated study-plan step strings.
+  final List<String> studyPlan;
+
+  /// UI language: 'system' (follow device / Apple ID), 'ru', 'kk' or 'en'.
+  final String appLanguage;
+
   StudentProfile copyWith({
     String? name,
     String? grade,
@@ -152,6 +192,14 @@ class StudentProfile {
     List<String>? targetUniversities,
     List<String>? targetMajors,
     List<String>? languages,
+    String? confidence,
+    String? aidTarget,
+    int? maxPricePerYear,
+    String? authProvider,
+    String? authEmail,
+    List<String>? attachedDocs,
+    List<String>? studyPlan,
+    String? appLanguage,
   }) {
     return StudentProfile(
       name: name ?? this.name,
@@ -176,6 +224,14 @@ class StudentProfile {
       targetUniversities: targetUniversities ?? this.targetUniversities,
       targetMajors: targetMajors ?? this.targetMajors,
       languages: languages ?? this.languages,
+      confidence: confidence ?? this.confidence,
+      aidTarget: aidTarget ?? this.aidTarget,
+      maxPricePerYear: maxPricePerYear ?? this.maxPricePerYear,
+      authProvider: authProvider ?? this.authProvider,
+      authEmail: authEmail ?? this.authEmail,
+      attachedDocs: attachedDocs ?? this.attachedDocs,
+      studyPlan: studyPlan ?? this.studyPlan,
+      appLanguage: appLanguage ?? this.appLanguage,
     );
   }
 
@@ -203,6 +259,14 @@ class StudentProfile {
     'target_universities': targetUniversities,
     'target_majors': targetMajors,
     'languages': languages,
+    'confidence': confidence,
+    'aid_target': aidTarget,
+    'max_price_per_year': maxPricePerYear,
+    'auth_provider': authProvider,
+    'auth_email': authEmail,
+    'attached_docs': attachedDocs,
+    'study_plan': studyPlan,
+    'app_language': appLanguage,
   };
 }
 

@@ -1,5 +1,6 @@
 import 'package:admity/core/theme/app_tokens.dart';
 import 'package:admity/features/home/presentation/home_screen.dart';
+import 'package:admity/shared/widgets/streak_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -48,44 +49,70 @@ void main() {
     await tester.pumpWidget(_themed(const HomeScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Серия — 7 дней'), findsOneWidget);
-    // Day labels appear in both the streak row and the calendar weekday header,
-    // so use findsWidgets (not findsOneWidget) — we just need them present.
+    // A fresh account has no earned streak yet, so the card invites the user
+    // to start one rather than showing a fabricated day count.
+    expect(find.text('Начни свою серию!'), findsOneWidget);
+    // Day labels appear in both the streak row and the calendar weekday header.
     expect(find.text('Пн'), findsWidgets);
     expect(find.text('Вс'), findsWidgets);
+  });
+
+  testWidgets('streak badge hidden for fresh account', (tester) async {
+    await tester.pumpWidget(_themed(const HomeScreen()));
+    await tester.pumpAndSettle();
+
+    // No activity data → streak count is 0 → badge is not rendered.
+    expect(find.byType(StreakBadge), findsNothing);
+  });
+
+  testWidgets('streak badge appears when provider has consecutive days', (
+    tester,
+  ) async {
+    final today = DateTime.now();
+    final todayKey =
+        '${today.year.toString().padLeft(4, '0')}-'
+        '${today.month.toString().padLeft(2, '0')}-'
+        '${today.day.toString().padLeft(2, '0')}';
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          activitySecondsProvider.overrideWith(
+            () => _StubActivitySecondsNotifier({todayKey: 300}),
+          ),
+        ],
+        child: MaterialApp(
+          theme: ThemeData(extensions: [AppTokens.defaults()]),
+          home: const HomeScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(StreakBadge), findsOneWidget);
   });
 
   testWidgets('tapping a streak day shows its state label', (tester) async {
     await tester.pumpWidget(_themed(const HomeScreen()));
     await tester.pumpAndSettle();
 
-    // The streak section '_StreakWeekSection' renders day labels inside
-    // GestureDetectors.  The calendar weekday header also renders 'Пн', so we
-    // must tap the first match (inside the streak card, which comes first in
-    // the widget tree).
     await tester.tap(find.text('Пн').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('День завершён!'), findsOneWidget);
+    expect(find.text('Ещё не завершён'), findsOneWidget);
 
-    // Tap "Чт" (Thursday = index 3, lit = false). Also use .first in case
-    // calendar header duplicates it.
     await tester.tap(find.text('Чт').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('Этот день пропущен'), findsOneWidget);
+    expect(find.text('Ещё не завершён'), findsOneWidget);
   });
 
   testWidgets('calendar card is visible', (tester) async {
     await tester.pumpWidget(_themed(const HomeScreen()));
     await tester.pumpAndSettle();
 
-    // The calendar month header has exactly one chevron_left and one
-    // chevron_right, but todo-row chevron_rights also exist, so use
-    // findsWidgets for both and verify at least one of each is shown.
     expect(find.byIcon(Icons.chevron_left), findsWidgets);
     expect(find.byIcon(Icons.chevron_right), findsWidgets);
-    // Weekday labels are always present in the calendar header.
     expect(find.text('Пн'), findsWidgets);
   });
 
@@ -98,6 +125,22 @@ void main() {
     expect(find.text('Добавить событие'), findsOneWidget);
   });
 
+  testWidgets('"Добавить задачу" button is present in calendar', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_themed(const HomeScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Добавить задачу'), findsOneWidget);
+  });
+
+  testWidgets('"Задание на сегодня" card is absent', (tester) async {
+    await tester.pumpWidget(_themed(const HomeScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Задание на сегодня'), findsNothing);
+  });
+
   testWidgets('career test card is visible', (tester) async {
     await tester.pumpWidget(_themed(const HomeScreen()));
     await tester.pumpAndSettle();
@@ -107,21 +150,12 @@ void main() {
     expect(find.text('Пройти тест'), findsOneWidget);
   });
 
-  testWidgets('"Задание на сегодня" card is present', (tester) async {
+  testWidgets('fresh account has no default tasks in calendar', (tester) async {
     await tester.pumpWidget(_themed(const HomeScreen()));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Задание на сегодня'));
-    expect(find.text('Задание на сегодня'), findsOneWidget);
-  });
-
-  testWidgets('task list shows seeded tasks', (tester) async {
-    await tester.pumpWidget(_themed(const HomeScreen()));
-    await tester.pumpAndSettle();
-
-    await tester.ensureVisible(find.text('Сегодняшние задачи'));
-    expect(find.text('Сегодняшние задачи'), findsOneWidget);
-    expect(find.text('Пройти урок по математике'), findsOneWidget);
+    // No seeded todos — the day agenda shows the empty-state message.
+    expect(find.text('Событий и задач нет.'), findsOneWidget);
   });
 
   // ── No stretch-in-scroll guard ───────────────────────────────────────────────
@@ -150,40 +184,42 @@ void main() {
     );
   });
 
-  // ── Todo CRUD ─────────────────────────────────────────────────────────────────
+  // ── Unified day agenda CRUD ───────────────────────────────────────────────────
 
-  testWidgets('add-task sheet opens from + button', (tester) async {
+  testWidgets('add-task sheet opens from "Добавить задачу" button', (
+    tester,
+  ) async {
     await tester.pumpWidget(_themed(const HomeScreen()));
     await tester.pumpAndSettle();
 
-    // The task list card is below the fold — scroll to it first.
     await tester.scrollUntilVisible(
-      find.byIcon(Icons.add_circle_outline),
+      find.text('Добавить задачу'),
       200,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.add_circle_outline));
+    await tester.tap(find.text('Добавить задачу'));
     await tester.pumpAndSettle();
 
     expect(find.text('Новая задача'), findsWidgets);
     expect(find.text('Сохранить'), findsOneWidget);
   });
 
-  testWidgets('adding a new task updates the list', (tester) async {
+  testWidgets('adding a new task shows it in the calendar day agenda', (
+    tester,
+  ) async {
     await tester.pumpWidget(_themed(const HomeScreen()));
     await tester.pumpAndSettle();
 
-    // Scroll the task list card into view before tapping its + button.
     await tester.scrollUntilVisible(
-      find.byIcon(Icons.add_circle_outline),
+      find.text('Добавить задачу'),
       200,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.add_circle_outline));
+    await tester.tap(find.text('Добавить задачу'));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).first, 'Тест новой задачи');
@@ -192,6 +228,18 @@ void main() {
     await tester.tap(find.text('Сохранить'));
     await tester.pumpAndSettle();
 
+    // Task is in today's agenda (today is the default selected date).
     expect(find.text('Тест новой задачи'), findsOneWidget);
   });
+}
+
+// ── Test helpers ─────────────────────────────────────────────────────────────
+
+/// Stub notifier that pre-seeds [ActivitySecondsNotifier] with known data.
+class _StubActivitySecondsNotifier extends ActivitySecondsNotifier {
+  _StubActivitySecondsNotifier(this._seed);
+  final Map<String, int> _seed;
+
+  @override
+  Map<String, int> build() => Map<String, int>.unmodifiable(_seed);
 }

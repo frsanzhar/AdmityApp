@@ -361,7 +361,8 @@ void main() {
       FlutterError.onError = prev;
       expect(errors, isEmpty, reason: 'no layout errors');
       expect(find.byType(MascotSlot), findsOneWidget);
-      expect(find.text('home'), findsOneWidget);
+      // Tag captions are intentionally not rendered anymore.
+      expect(find.text('home'), findsNothing);
     });
 
     testWidgets('builds without layout errors without tag', (tester) async {

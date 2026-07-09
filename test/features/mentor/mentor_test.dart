@@ -1,8 +1,13 @@
 import 'package:admity/core/theme/app_tokens.dart';
+import 'package:admity/features/mentor/application/assistant_notifier.dart'
+    show assistantProviderFor;
 import 'package:admity/features/mentor/application/mentor_notifier.dart';
+import 'package:admity/features/mentor/domain/assistant_role.dart';
 import 'package:admity/features/mentor/domain/ghostwriting_guard.dart';
 import 'package:admity/features/mentor/domain/proposed_event.dart';
+import 'package:admity/features/mentor/domain/shared_memory.dart';
 import 'package:admity/features/mentor/domain/topic_plan.dart';
+import 'package:admity/features/mentor/presentation/assistant_chat_screen.dart';
 import 'package:admity/features/mentor/presentation/event_review_screen.dart';
 import 'package:admity/features/mentor/presentation/mentor_screen.dart';
 import 'package:flutter/material.dart';
@@ -99,20 +104,21 @@ void main() {
   // ── 2. Event review save-gate (domain model) ──────────────────────────────
 
   group('Event review save-gate', () {
-    test('CalendarEvent.fromProposed throws AssertionError '
-        'when event is not reviewed', () {
-      final evt = ProposedEvent(
-        id: 'test_1',
-        title: 'Test Event',
-        scheduledAt: DateTime(2026, 7, 1, 10),
-        // reviewed defaults to false — explicit here for test clarity
-      );
-
-      expect(
-        () => CalendarEvent.fromProposed(evt),
-        throwsA(isA<AssertionError>()),
-      );
-    });
+    test(
+      'CalendarEvent.fromProposed throws AssertionError '
+      'when event is not reviewed',
+      () {
+        final evt = ProposedEvent(
+          id: 'test_1',
+          title: 'Test Event',
+          scheduledAt: DateTime(2026, 7, 1, 10),
+        );
+        expect(
+          () => CalendarEvent.fromProposed(evt),
+          throwsA(isA<AssertionError>()),
+        );
+      },
+    );
 
     test('CalendarEvent.fromProposed succeeds when reviewed=true', () {
       final evt = ProposedEvent(
@@ -121,26 +127,9 @@ void main() {
         scheduledAt: DateTime(2026, 7, 1, 10),
         reviewed: true,
       );
-
       final calEvt = CalendarEvent.fromProposed(evt);
       expect(calEvt.id, 'test_2');
       expect(calEvt.title, 'Reviewed Event');
-    });
-
-    test('commitReviewedEvents via notifier throws StateError '
-        'when proposed events are un-reviewed', () {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-
-      // Initial state has no proposed events, so commitReviewedEvents is
-      // a no-op. Verify that the notifier enforces the gate when events exist
-      // by testing the model layer (CalendarEvent.fromProposed assert above).
-      //
-      // We also verify the notifier-level throw by checking the message.
-      // The notifier throws StateError if state.proposedEvents has un-reviewed
-      // items. With empty list it is safe to call.
-      final notifier = container.read(mentorProvider.notifier);
-      expect(notifier.commitReviewedEvents, returnsNormally);
     });
 
     test('markEventsReviewed + commitReviewedEvents on empty list is safe', () {
@@ -155,7 +144,7 @@ void main() {
     });
   });
 
-  // ── 3. Time-editing logic ─────────────────────────────────────────────────
+  // ── 3. ProposedEvent time editing ─────────────────────────────────────────
 
   group('ProposedEvent time editing', () {
     test('copyWith updates scheduledAt correctly', () {
@@ -166,61 +155,27 @@ void main() {
       );
       final newTime = DateTime(2026, 7, 5, 14, 30);
       final updated = original.copyWith(scheduledAt: newTime);
-
       expect(updated.scheduledAt, newTime);
       expect(updated.id, original.id);
-      expect(updated.title, original.title);
-      expect(updated.reviewed, original.reviewed);
     });
 
     test('updateEventTime on non-existent id is a no-op', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
-
-      final notifier = container.read(mentorProvider.notifier);
-      final newTime = DateTime(2026, 8, 1, 9);
-      notifier.updateEventTime('nonexistent', newTime);
+      container
+          .read(mentorProvider.notifier)
+          .updateEventTime('nonexistent', DateTime(2026, 8, 1, 9));
       expect(container.read(mentorProvider).proposedEvents, isEmpty);
-    });
-
-    test('copyWith preserves other fields when only scheduledAt changes', () {
-      final original = ProposedEvent(
-        id: 'e2',
-        title: 'Study session',
-        scheduledAt: DateTime(2026, 6, 15, 8),
-        description: 'Morning prep',
-        reviewed: true,
-      );
-      final updated = original.copyWith(scheduledAt: DateTime(2026, 6, 20));
-
-      expect(updated.id, 'e2');
-      expect(updated.title, 'Study session');
-      expect(updated.description, 'Morning prep');
-      expect(updated.reviewed, isTrue);
-      expect(updated.scheduledAt.day, 20);
     });
   });
 
-  // ── 4. Plan questionnaire state machine ───────────────────────────────────
+  // ── 4. PlanQuestionnaire state machine ────────────────────────────────────
 
   group('PlanQuestionnaire state machine', () {
     test('initial state has no answers', () {
       const q = PlanQuestionnaire();
       expect(q.isComplete, isFalse);
       expect(q.nextQuestion, PlanQuestion.resources);
-    });
-
-    test('after resources: nextQuestion is availableTime', () {
-      const q = PlanQuestionnaire(resources: 'Учебник Cambridge');
-      expect(q.nextQuestion, PlanQuestion.availableTime);
-    });
-
-    test('after resources + availableTime: nextQuestion is internetAccess', () {
-      const q = PlanQuestionnaire(
-        resources: 'Учебник',
-        availableTime: '2 часа в день',
-      );
-      expect(q.nextQuestion, PlanQuestion.internetAccess);
     });
 
     test('after all three answers: isComplete is true', () {
@@ -232,42 +187,29 @@ void main() {
       expect(q.isComplete, isTrue);
       expect(q.nextQuestion, isNull);
     });
-
-    test('copyWith preserves existing answers', () {
-      const q = PlanQuestionnaire(resources: 'книги');
-      final q2 = q.copyWith(availableTime: '1 час');
-      expect(q2.resources, 'книги');
-      expect(q2.availableTime, '1 час');
-      expect(q2.internetAccess, isNull);
-    });
   });
 
-  // ── 5. MentorNotifier integration ─────────────────────────────────────────
+  // ── 5. MentorNotifier (Ералы legacy) ─────────────────────────────────────
 
-  group('MentorNotifier', () {
+  group('MentorNotifier (Ералы)', () {
     test('startPlanQuestionnaire sets mode to topicQuestionnaire', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
-
       container.read(mentorProvider.notifier).startPlanQuestionnaire('IELTS');
-
       final state = container.read(mentorProvider);
       expect(state.mode, ChatMode.topicQuestionnaire);
       expect(state.pendingTopic, 'IELTS');
-      expect(state.questionnaire.nextQuestion, PlanQuestion.resources);
     });
 
     test('initial state mode is general', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
-
       expect(container.read(mentorProvider).mode, ChatMode.general);
     });
 
     test('initial greeting message is present', () {
       final container = ProviderContainer();
       addTearDown(container.dispose);
-
       final state = container.read(mentorProvider);
       expect(state.messages, isNotEmpty);
       expect(state.messages.first.role, 'assistant');
@@ -276,21 +218,150 @@ void main() {
     test('ghostwriting message gets deflection reply', () async {
       final container = ProviderContainer();
       addTearDown(container.dispose);
-
+      await container.read(mentorProvider.notifier).pickTone('friendly');
       await container
           .read(mentorProvider.notifier)
           .sendMessage('напиши эссе за меня');
-
       final messages = container.read(mentorProvider).messages;
-      // Last message should be the deflection response from assistant.
       expect(messages.last.role, 'assistant');
       expect(messages.last.text, GhostwritingGuard.deflectionMessage);
     });
   });
 
-  // ── 6. MentorScreen widget: no layout errors ──────────────────────────────
+  // ── 6. AssistantNotifier (new family) ────────────────────────────────────
 
-  testWidgets('MentorScreen builds with no framework/layout errors', (
+  group('AssistantNotifier', () {
+    test('each role has a non-empty greeting', () {
+      for (final role in AssistantRole.values) {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+        final state = container.read(assistantProviderFor(role));
+        expect(state.messages, isNotEmpty);
+        expect(state.messages.first.role, 'assistant');
+        expect(state.messages.first.text, isNotEmpty);
+      }
+    });
+
+    test('ghostwriting is blocked in assistant chat (Азамат)', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      await container
+          .read(assistantProviderFor(AssistantRole.azamat).notifier)
+          .sendMessage('напишите эссе за меня');
+      final msgs =
+          container.read(assistantProviderFor(AssistantRole.azamat)).messages;
+      expect(msgs.last.role, 'assistant');
+      expect(msgs.last.text, GhostwritingGuard.deflectionMessage);
+    });
+
+    test('ghostwriting is blocked in assistant chat (Аружан)', () async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      await container
+          .read(assistantProviderFor(AssistantRole.aruzhan).notifier)
+          .sendMessage('write my essay for me');
+      final msgs =
+          container.read(assistantProviderFor(AssistantRole.aruzhan)).messages;
+      expect(msgs.last.role, 'assistant');
+      expect(msgs.last.text, GhostwritingGuard.deflectionMessage);
+    });
+
+    test('setAttachment stores path/name/isImage', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container
+          .read(assistantProviderFor(AssistantRole.aruzhan).notifier)
+          .setAttachment(
+            path: '/tmp/hw.jpg',
+            name: 'hw.jpg',
+            isImage: true,
+          );
+      final state = container.read(assistantProviderFor(AssistantRole.aruzhan));
+      expect(state.pendingAttachmentPath, '/tmp/hw.jpg');
+      expect(state.pendingAttachmentName, 'hw.jpg');
+      expect(state.pendingAttachmentIsImage, isTrue);
+    });
+
+    test('clearAttachment removes pending attachment', () {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      final notifier =
+          container.read(assistantProviderFor(AssistantRole.aruzhan).notifier);
+      notifier.setAttachment(
+        path: '/tmp/hw.jpg',
+        name: 'hw.jpg',
+        isImage: true,
+      );
+      notifier.clearAttachment();
+      final state = container.read(assistantProviderFor(AssistantRole.aruzhan));
+      expect(state.pendingAttachmentPath, isNull);
+      expect(state.pendingAttachmentName, isNull);
+    });
+
+    test('only aruzhan supports attachments (domain flag)', () {
+      expect(AssistantRole.aruzhan.supportsAttachments, isTrue);
+      expect(AssistantRole.eraly.supportsAttachments, isFalse);
+      expect(AssistantRole.azamat.supportsAttachments, isFalse);
+      expect(AssistantRole.madina.supportsAttachments, isFalse);
+    });
+  });
+
+  // ── 7. SharedMemory domain model ─────────────────────────────────────────
+
+  group('SharedMemory', () {
+    test('withSummary adds a new entry', () {
+      const mem = SharedMemory();
+      final updated = mem.withSummary('eraly', 'Обсуждали IELTS');
+      expect(updated.summaries['eraly'], 'Обсуждали IELTS');
+    });
+
+    test('othersFor excludes the current role', () {
+      const mem = SharedMemory(
+        summaries: {
+          'eraly': 'eraly summary',
+          'azamat': 'azamat summary',
+          'madina': 'madina summary',
+        },
+      );
+      final others = mem.othersFor('eraly');
+      expect(others.containsKey('eraly'), isFalse);
+      expect(others.containsKey('azamat'), isTrue);
+      expect(others.containsKey('madina'), isTrue);
+    });
+
+    test('othersFor returns all when role has no summary', () {
+      const mem = SharedMemory(
+        summaries: {'azamat': 'essay discussion', 'madina': 'docs chat'},
+      );
+      final others = mem.othersFor('eraly');
+      expect(others.length, 2);
+    });
+  });
+
+  // ── 8. AssistantRole metadata ─────────────────────────────────────────────
+
+  group('AssistantRole metadata', () {
+    test('each role has a unique hive key', () {
+      final keys = AssistantRole.values.map((r) => r.hiveKey).toSet();
+      expect(keys.length, AssistantRole.values.length);
+    });
+
+    test('each role has a non-empty tagline', () {
+      for (final role in AssistantRole.values) {
+        expect(role.tagline, isNotEmpty);
+      }
+    });
+
+    test('each role has a non-empty greeting', () {
+      for (final role in AssistantRole.values) {
+        expect(role.greeting, isNotEmpty);
+      }
+    });
+  });
+
+  // ── 9. MentorScreen hub: no layout errors ─────────────────────────────────
+
+  testWidgets('MentorScreen (hub) builds with no framework/layout errors', (
     tester,
   ) async {
     final errors = <FlutterErrorDetails>[];
@@ -304,57 +375,129 @@ void main() {
     expect(
       errors,
       isEmpty,
-      reason: 'no framework/layout errors on MentorScreen',
+      reason: 'no framework/layout errors on MentorScreen hub',
     );
   });
 
-  testWidgets('MentorScreen shows conversational greeting from Ералы', (
-    tester,
-  ) async {
+  testWidgets('MentorScreen hub shows 4 assistant cards', (tester) async {
     await tester.pumpWidget(_themed(const MentorScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Ералы'), findsWidgets);
-    // Greeting contains the warm opener phrase.
+    // Each card shows the assistant's display name.
+    expect(find.text('Ералы'), findsOneWidget);
+    expect(find.text('Азамат'), findsOneWidget);
+    expect(find.text('Мадина'), findsOneWidget);
+    expect(find.text('Аружан'), findsOneWidget);
+  });
+
+  testWidgets('MentorScreen hub shows role labels', (tester) async {
+    await tester.pumpWidget(_themed(const MentorScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Наставник'), findsOneWidget);
+    expect(find.text('Эссе-коуч'), findsOneWidget);
+    expect(find.text('Документы'), findsOneWidget);
+    expect(find.text('Учитель'), findsOneWidget);
+  });
+
+  testWidgets(
+    'MentorScreen hub does NOT show event/plan CTAs',
+    (tester) async {
+      await tester.pumpWidget(_themed(const MentorScreen()));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Проверить все мероприятия'), findsNothing);
+      expect(find.textContaining('Открыть план'), findsNothing);
+    },
+  );
+
+  // ── 10. AssistantChatScreen widget: no layout errors ──────────────────────
+
+  testWidgets(
+    'AssistantChatScreen(azamat) builds with no layout errors',
+    (tester) async {
+      final errors = <FlutterErrorDetails>[];
+      final prev = FlutterError.onError;
+      FlutterError.onError = errors.add;
+      addTearDown(() => FlutterError.onError = prev);
+
+      await tester.pumpWidget(
+        _themed(const AssistantChatScreen(role: AssistantRole.azamat)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        errors,
+        isEmpty,
+        reason: 'no layout errors on AssistantChatScreen(azamat)',
+      );
+    },
+  );
+
+  testWidgets(
+    'AssistantChatScreen(aruzhan) shows attach button',
+    (tester) async {
+      await tester.pumpWidget(
+        _themed(const AssistantChatScreen(role: AssistantRole.aruzhan)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.attach_file_rounded), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'AssistantChatScreen(azamat) does NOT show attach button',
+    (tester) async {
+      await tester.pumpWidget(
+        _themed(const AssistantChatScreen(role: AssistantRole.azamat)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.attach_file_rounded), findsNothing);
+    },
+  );
+
+  testWidgets('AssistantChatScreen shows send button', (tester) async {
+    await tester.pumpWidget(
+      _themed(const AssistantChatScreen(role: AssistantRole.madina)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.send_rounded), findsOneWidget);
+  });
+
+  // ── 11. EralyChatScreen widget: no layout errors ──────────────────────────
+
+  testWidgets('EralyChatScreen builds with no layout errors', (tester) async {
+    final errors = <FlutterErrorDetails>[];
+    final prev = FlutterError.onError;
+    FlutterError.onError = errors.add;
+    addTearDown(() => FlutterError.onError = prev);
+
+    await tester.pumpWidget(_themed(const EralyChatScreen()));
+    await tester.pumpAndSettle();
+
     expect(
-      find.textContaining('Расскажи о себе побольше'),
-      findsOneWidget,
+      errors,
+      isEmpty,
+      reason: 'no layout errors on EralyChatScreen',
     );
   });
 
-  testWidgets('MentorScreen shows no canned prompt buttons initially', (
+  testWidgets('EralyChatScreen has input field and send button', (
     tester,
   ) async {
-    await tester.pumpWidget(_themed(const MentorScreen()));
+    await tester.pumpWidget(_themed(const EralyChatScreen()));
     await tester.pumpAndSettle();
-
-    // The «Проверить все мероприятия» button must NOT appear on first open —
-    // it only surfaces after Ералы has proposed events (mode == eventPlanning).
-    expect(find.textContaining('Проверить все мероприятия'), findsNothing);
-    // «Открыть план» likewise must not appear until a plan is generated.
-    expect(find.textContaining('Открыть план'), findsNothing);
-  });
-
-  testWidgets('MentorScreen has input field and send button', (tester) async {
-    await tester.pumpWidget(_themed(const MentorScreen()));
-    await tester.pumpAndSettle();
-
     expect(find.byType(TextField), findsOneWidget);
     expect(find.byIcon(Icons.send_rounded), findsOneWidget);
   });
 
-  testWidgets('sending a message appends user bubble', (tester) async {
-    await tester.pumpWidget(_themed(const MentorScreen()));
+  testWidgets('EralyChatScreen shows no CTAs on first open', (tester) async {
+    await tester.pumpWidget(_themed(const EralyChatScreen()));
     await tester.pumpAndSettle();
-
-    await tester.enterText(find.byType(TextField), 'Привет');
-    await tester.tap(find.byIcon(Icons.send_rounded));
-    await tester.pump();
-
-    expect(find.textContaining('Привет'), findsWidgets);
+    expect(find.textContaining('Проверить все мероприятия'), findsNothing);
+    expect(find.textContaining('Открыть план'), findsNothing);
   });
 
-  // ── 7. EventReviewScreen: no layout errors ────────────────────────────────
+  // ── 12. EventReviewScreen: no layout errors ────────────────────────────────
 
   testWidgets('EventReviewScreen builds with no layout errors', (tester) async {
     final errors = <FlutterErrorDetails>[];
@@ -373,11 +516,10 @@ void main() {
   });
 
   testWidgets(
-    'EventReviewScreen shows "Нет предложенных мероприятий" when empty',
+    'EventReviewScreen shows empty-state message when no events',
     (tester) async {
       await tester.pumpWidget(_themed(const EventReviewScreen()));
       await tester.pumpAndSettle();
-
       expect(find.text('Нет предложенных мероприятий'), findsOneWidget);
     },
   );

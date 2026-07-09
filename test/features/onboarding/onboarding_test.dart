@@ -121,7 +121,7 @@ void main() {
     expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
   });
 
-  testWidgets('Motivation step shows 4 option cards', (tester) async {
+  testWidgets('Motivation step shows exactly 3 option cards', (tester) async {
     await tester.pumpWidget(_themed(const OnboardingScreen()));
     await tester.pumpAndSettle();
 
@@ -135,12 +135,114 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump(const Duration(milliseconds: 50));
 
-    // Motivation step shows the heading and all 4 option labels.
-    expect(find.text('Что тебя мотивирует?'), findsOneWidget);
-    expect(find.text('Высокая цель'), findsOneWidget);
-    expect(find.text('Новые знания'), findsOneWidget);
-    expect(find.text('Карьера'), findsOneWidget);
-    expect(find.text('Интерес'), findsOneWidget);
+    // Motivation step heading.
+    expect(find.text('Какова твоя цель?'), findsOneWidget);
+    // Exactly 3 options.
+    expect(find.text('Поступить в топ-вуз Казахстана'), findsOneWidget);
+    expect(find.text('Поступить в вуз за рубежом'), findsOneWidget);
+    expect(find.text('Профориентация'), findsOneWidget);
+  });
+
+  testWidgets('Confidence step shows 4 option cards', (tester) async {
+    await tester.pumpWidget(_themed(const OnboardingScreen()));
+    await tester.pumpAndSettle();
+
+    Future<void> pump() async {
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    // Step 0 → role.
+    await tester.tap(find.text('Я учусь'));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Далее'));
+    await pump();
+
+    // Step 1 → mascot greeting.
+    await tester.tap(find.text('Далее'));
+    await pump();
+
+    // Step 2 → motivation (requires selection).
+    await tester.tap(find.text('Поступить в топ-вуз Казахстана'));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Далее'));
+    await pump();
+
+    // Step 3 → age (optional).
+    await tester.tap(find.text('Далее'));
+    await pump();
+
+    // Step 4 → subject/majors (requires at least one).
+    await tester.ensureVisible(find.text('Психология'));
+    await tester.tap(find.text('Психология'));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Далее'));
+    await pump();
+
+    // Step 5 → universities trust (optional).
+    await tester.tap(find.text('Далее'));
+    await pump();
+
+    // Step 6 → confidence step.
+    expect(find.text('Насколько ты уверен, что поступишь?'), findsOneWidget);
+    expect(find.text('Уверен на 100%'), findsOneWidget);
+    expect(find.text('Скорее да'), findsOneWidget);
+    expect(find.text('Ещё не уверен'), findsOneWidget);
+    expect(find.text('Только начинаю'), findsOneWidget);
+  });
+
+  testWidgets('Stats step is skippable without entering data', (tester) async {
+    await tester.pumpWidget(_themed(const OnboardingScreen()));
+    await tester.pumpAndSettle();
+
+    Future<void> pump() async {
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    // Navigate to step 7 (stats).
+    await tester.tap(find.text('Я учусь'));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Далее'));
+    await pump();
+
+    await tester.tap(find.text('Далее')); // mascot
+    await pump();
+
+    await tester.tap(find.text('Поступить в топ-вуз Казахстана'));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Далее')); // motivation
+    await pump();
+
+    await tester.tap(find.text('Далее')); // age
+    await pump();
+
+    await tester.ensureVisible(find.text('Психология'));
+    await tester.tap(find.text('Психология'));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Далее')); // majors
+    await pump();
+
+    await tester.tap(find.text('Далее')); // trust
+    await pump();
+
+    await tester.tap(find.text('Уверен на 100%'));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Далее')); // confidence
+    await pump();
+
+    // Step 7 → stats — heading visible, Далее should be enabled even with no input.
+    expect(find.text('Твои академические показатели'), findsOneWidget);
+    expect(find.text('ГПА / Средний балл'), findsOneWidget);
+    expect(find.text('IELTS (если есть)'), findsOneWidget);
+    expect(find.text('SAT (если есть)'), findsOneWidget);
+
+    // Tap Далее without entering anything (step is always skippable).
+    await tester.tap(find.text('Далее'));
+    await pump();
+
+    // Should be past stats now (on topic universe step).
+    expect(find.text('Всё, что нужно — уже здесь'), findsOneWidget);
   });
 
   testWidgets(
@@ -166,36 +268,34 @@ void main() {
       await tester.tap(find.text('Далее'));
       await pump();
 
-      // Step 2: motivation — selection required.
-      await tester.tap(find.text('Высокая цель'));
+      // Step 2: motivation — selection required (3 options).
+      await tester.tap(find.text('Поступить в топ-вуз Казахстана'));
       await tester.pump(const Duration(milliseconds: 50));
       await tester.tap(find.text('Далее'));
       await pump();
 
-      // Step 3: sound preference — selection required.
-      await tester.tap(find.text('Мелодичный'));
-      await tester.pump(const Duration(milliseconds: 50));
+      // Step 3: age — no selection required (text field, defaults canAdvance=true).
       await tester.tap(find.text('Далее'));
       await pump();
 
-      // Step 4: age — no selection required (text field, defaults canAdvance=true).
-      await tester.tap(find.text('Далее'));
-      await pump();
-
-      // Step 5: majors — at least one selection required.
+      // Step 4: majors — at least one selection required.
       await tester.ensureVisible(find.text('Психология'));
       await tester.tap(find.text('Психология'));
       await tester.pump(const Duration(milliseconds: 50));
       await tester.tap(find.text('Далее'));
       await pump();
 
-      // Step 6: universities trust — no selection required.
+      // Step 5: universities trust — no selection required.
       await tester.tap(find.text('Далее'));
       await pump();
 
-      // Step 7: knowledge level — selection required.
-      await tester.tap(find.text('Новичок'));
+      // Step 6: confidence — selection required.
+      await tester.tap(find.text('Уверен на 100%'));
       await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.text('Далее'));
+      await pump();
+
+      // Step 7: stats — all optional, skip directly.
       await tester.tap(find.text('Далее'));
       await pump();
 
@@ -229,4 +329,71 @@ void main() {
       expect(saved.onboardingComplete, isTrue);
     },
   );
+
+  testWidgets('_finish saves motivation and confidence fields', (tester) async {
+    final repo = InMemoryProfileRepository();
+    await tester.pumpWidget(_themed(const OnboardingScreen(), repo: repo));
+    await tester.pumpAndSettle();
+
+    Future<void> pump() async {
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    // Blaze through all steps quickly.
+    await tester.tap(find.text('Я учусь'));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Далее'));
+    await pump();
+
+    await tester.tap(find.text('Далее')); // mascot
+    await pump();
+
+    await tester.tap(find.text('Поступить в вуз за рубежом'));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Далее')); // motivation
+    await pump();
+
+    await tester.tap(find.text('Далее')); // age
+    await pump();
+
+    await tester.ensureVisible(find.text('Математика'));
+    await tester.tap(find.text('Математика'));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Далее')); // majors
+    await pump();
+
+    await tester.tap(find.text('Далее')); // trust
+    await pump();
+
+    await tester.tap(find.text('Скорее да'));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text('Далее')); // confidence
+    await pump();
+
+    await tester.tap(find.text('Далее')); // stats (skip)
+    await pump();
+
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.text('Далее'));
+      await pump();
+    }
+
+    await tester.tap(find.text('Создать мой план'));
+    await pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 50));
+
+    await tester.tap(find.text('Начать'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final saved = await repo.loadProfile();
+    expect(saved.motivation, equals('Поступить в вуз за рубежом'));
+    expect(saved.confidence, equals('Скорее да'));
+    expect(saved.studyPlan, isNotEmpty);
+    // Study plan should have content derived from the major.
+    expect(saved.studyPlan.any((s) => s.isNotEmpty), isTrue);
+  });
 }

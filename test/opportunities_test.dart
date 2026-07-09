@@ -2,12 +2,14 @@ import 'package:admity/core/theme/app_tokens.dart';
 import 'package:admity/features/opportunities/data/opportunity_seed.dart';
 import 'package:admity/features/opportunities/domain/opportunity_filter.dart';
 import 'package:admity/features/opportunities/domain/opportunity_models.dart';
+import 'package:admity/features/opportunities/domain/study_material.dart';
 import 'package:admity/features/opportunities/presentation/event_detail_screen.dart';
 import 'package:admity/features/opportunities/presentation/idea_detail_screen.dart';
 import 'package:admity/features/opportunities/presentation/opportunities_providers.dart';
 import 'package:admity/features/opportunities/presentation/opportunities_screen.dart';
 import 'package:admity/features/opportunities/presentation/scholarship_apply_screen.dart';
 import 'package:admity/features/opportunities/presentation/scholarship_detail_screen.dart';
+import 'package:admity/features/opportunities/presentation/study_materials_provider.dart';
 import 'package:admity/features/opportunities/presentation/university_detail_screen.dart';
 import 'package:admity/features/profile/application/profile_notifier.dart';
 import 'package:admity/features/profile/domain/profile_model.dart';
@@ -1281,4 +1283,529 @@ void main() {
       expect(find.textContaining('IdeaDetail:ml_ent'), findsOneWidget);
     });
   });
+
+  // ── Study material domain model tests ────────────────────────────────────────
+
+  group('StudyMaterial model tests', () {
+    test('fromJson deserializes all fields correctly', () {
+      final json = <String, dynamic>{
+        'id': 'abc',
+        'title': 'IELTS Guide',
+        'description': 'Full prep guide',
+        'exam': 'ielts',
+        'major': 'Английский язык',
+        'file_url': 'https://example.com/guide.pdf',
+        'size_label': '4.2 МБ',
+        'created_at': '2025-01-15T10:00:00.000Z',
+      };
+      final m = StudyMaterial.fromJson(json);
+      expect(m.id, 'abc');
+      expect(m.title, 'IELTS Guide');
+      expect(m.exam, StudyMaterialExam.ielts);
+      expect(m.major, 'Английский язык');
+      expect(m.sizeLabel, '4.2 МБ');
+      expect(m.createdAt, DateTime.parse('2025-01-15T10:00:00.000Z'));
+    });
+
+    test('fromJson uses empty string when description is null', () {
+      final json = <String, dynamic>{
+        'id': 'x',
+        'title': 'SAT Math',
+        'description': null,
+        'exam': 'sat',
+        'file_url': 'https://x.com/file',
+        'created_at': '2025-06-01T00:00:00.000Z',
+      };
+      final m = StudyMaterial.fromJson(json);
+      expect(m.description, '');
+    });
+
+    test('parseStudyMaterialExam maps known values correctly', () {
+      expect(parseStudyMaterialExam('ielts'), StudyMaterialExam.ielts);
+      expect(parseStudyMaterialExam('IELTS'), StudyMaterialExam.ielts);
+      expect(parseStudyMaterialExam('sat'), StudyMaterialExam.sat);
+      expect(parseStudyMaterialExam('ent'), StudyMaterialExam.ent);
+      expect(parseStudyMaterialExam('other'), StudyMaterialExam.other);
+      expect(parseStudyMaterialExam(null), StudyMaterialExam.other);
+      expect(parseStudyMaterialExam('unknown'), StudyMaterialExam.other);
+    });
+
+    test('studyMaterialExamLabel returns correct strings', () {
+      expect(studyMaterialExamLabel(StudyMaterialExam.ielts), 'IELTS');
+      expect(studyMaterialExamLabel(StudyMaterialExam.sat), 'SAT');
+      expect(studyMaterialExamLabel(StudyMaterialExam.ent), 'ЕНТ');
+      expect(studyMaterialExamLabel(StudyMaterialExam.other), 'Другое');
+    });
+  });
+
+  // ── StudyMaterialsFilter tests ────────────────────────────────────────────────
+
+  group('StudyMaterialsFilter tests', () {
+    test('default filter has no active filters', () {
+      expect(const StudyMaterialsFilter().hasActiveFilter, isFalse);
+    });
+
+    test('hasActiveFilter is true when query is set', () {
+      expect(
+        const StudyMaterialsFilter(query: 'IELTS').hasActiveFilter,
+        isTrue,
+      );
+    });
+
+    test('hasActiveFilter is true when exam is set', () {
+      expect(
+        const StudyMaterialsFilter(exam: StudyMaterialExam.sat)
+            .hasActiveFilter,
+        isTrue,
+      );
+    });
+
+    test('hasActiveFilter is true when major is set', () {
+      expect(
+        const StudyMaterialsFilter(major: 'Math').hasActiveFilter,
+        isTrue,
+      );
+    });
+
+    test('copyWith clearExam removes exam', () {
+      const f = StudyMaterialsFilter(exam: StudyMaterialExam.ielts);
+      expect(f.copyWith(clearExam: true).exam, isNull);
+    });
+
+    test('copyWith clearMajor removes major', () {
+      const f = StudyMaterialsFilter(major: 'Math');
+      expect(f.copyWith(clearMajor: true).major, isNull);
+    });
+
+    test('cleared resets to defaults', () {
+      const f = StudyMaterialsFilter(
+        query: 'x',
+        exam: StudyMaterialExam.ent,
+        major: 'Bio',
+        newestFirst: false,
+      );
+      final cleared = f.cleared();
+      expect(cleared.query, '');
+      expect(cleared.exam, isNull);
+      expect(cleared.major, isNull);
+      expect(cleared.newestFirst, isTrue);
+    });
+  });
+
+  // ── filteredStudyMaterialsProvider tests ─────────────────────────────────────
+
+  // Shared stub materials for provider tests.
+  final dateNewer = DateTime(2025, 6);
+  final dateOlder = DateTime(2025);
+
+  List<StudyMaterial> stubMaterials() => [
+    StudyMaterial(
+      id: 'm1',
+      title: 'IELTS Grammar',
+      description: 'Grammar guide for IELTS',
+      exam: StudyMaterialExam.ielts,
+      fileUrl: 'https://x.com/1',
+      createdAt: dateNewer,
+    ),
+    StudyMaterial(
+      id: 'm2',
+      title: 'SAT Math Practice',
+      description: 'Practice tests for SAT math',
+      exam: StudyMaterialExam.sat,
+      major: 'Математика',
+      fileUrl: 'https://x.com/2',
+      createdAt: dateOlder,
+    ),
+    StudyMaterial(
+      id: 'm3',
+      title: 'ЕНТ Биология',
+      description: 'Шпаргалки по биологии',
+      exam: StudyMaterialExam.ent,
+      fileUrl: 'https://x.com/3',
+      createdAt: dateNewer,
+    ),
+  ];
+
+  ProviderContainer containerWithData(List<StudyMaterial> data) {
+    return ProviderContainer(
+      overrides: [
+        studyMaterialsProvider.overrideWith(
+          () => _FakeStudyMaterialsNotifier(data),
+        ),
+      ],
+    );
+  }
+
+  group('filteredStudyMaterialsProvider unit tests', () {
+    test('no filter returns all items sorted newest first by default', () async {
+      final container = containerWithData(stubMaterials());
+      addTearDown(container.dispose);
+
+      // Await the async notifier so the derived provider sees real data.
+      await container.read(studyMaterialsProvider.future);
+      final result = container.read(filteredStudyMaterialsProvider);
+
+      // m1 and m3 are newer, m2 is older — both newest should come first
+      expect(result.length, 3);
+      expect(result.last.id, 'm2');
+    });
+
+    test('exam filter narrows to matching items only', () async {
+      final container = containerWithData(stubMaterials());
+      addTearDown(container.dispose);
+
+      await container.read(studyMaterialsProvider.future);
+      container
+          .read(studyMaterialsFilterProvider.notifier)
+          .setExam(StudyMaterialExam.ielts);
+
+      final result = container.read(filteredStudyMaterialsProvider);
+      expect(result.every((m) => m.exam == StudyMaterialExam.ielts), isTrue);
+      expect(result.length, 1);
+      expect(result.first.id, 'm1');
+    });
+
+    test('text search matches title', () async {
+      final container = containerWithData(stubMaterials());
+      addTearDown(container.dispose);
+
+      await container.read(studyMaterialsProvider.future);
+      container.read(studyMaterialsFilterProvider.notifier).setQuery('SAT');
+
+      final result = container.read(filteredStudyMaterialsProvider);
+      expect(result.length, 1);
+      expect(result.first.id, 'm2');
+    });
+
+    test('text search matches description (case-insensitive)', () async {
+      final container = containerWithData(stubMaterials());
+      addTearDown(container.dispose);
+
+      await container.read(studyMaterialsProvider.future);
+      container
+          .read(studyMaterialsFilterProvider.notifier)
+          .setQuery('шпаргалки');
+
+      final result = container.read(filteredStudyMaterialsProvider);
+      expect(result.length, 1);
+      expect(result.first.id, 'm3');
+    });
+
+    test('major filter narrows to matching major', () async {
+      final container = containerWithData(stubMaterials());
+      addTearDown(container.dispose);
+
+      await container.read(studyMaterialsProvider.future);
+      container
+          .read(studyMaterialsFilterProvider.notifier)
+          .setMajor('Математика');
+
+      final result = container.read(filteredStudyMaterialsProvider);
+      expect(result.length, 1);
+      expect(result.first.id, 'm2');
+    });
+
+    test('sort oldest first puts oldest item at front', () async {
+      final container = containerWithData(stubMaterials());
+      addTearDown(container.dispose);
+
+      await container.read(studyMaterialsProvider.future);
+      container.read(studyMaterialsFilterProvider.notifier).toggleSort();
+
+      final result = container.read(filteredStudyMaterialsProvider);
+      expect(result.first.id, 'm2'); // m2 is the oldest
+    });
+
+    test('filter with no matches returns empty list', () async {
+      final container = containerWithData(stubMaterials());
+      addTearDown(container.dispose);
+
+      await container.read(studyMaterialsProvider.future);
+      container
+          .read(studyMaterialsFilterProvider.notifier)
+          .setQuery('zzz_no_match_zzz');
+
+      final result = container.read(filteredStudyMaterialsProvider);
+      expect(result, isEmpty);
+    });
+
+    test('studyMaterialMajorsProvider collects unique majors', () async {
+      final container = containerWithData(stubMaterials());
+      addTearDown(container.dispose);
+
+      await container.read(studyMaterialsProvider.future);
+      final majors = container.read(studyMaterialMajorsProvider);
+      expect(majors, contains('Математика'));
+      expect(majors.length, 1);
+    });
+  });
+
+  // ── Материалы tab widget tests ────────────────────────────────────────────────
+
+  Widget themedWithMaterials(
+    Widget widget,
+    List<StudyMaterial> data,
+  ) {
+    return ProviderScope(
+      overrides: [
+        studyMaterialsProvider.overrideWith(
+          () => _FakeStudyMaterialsNotifier(data),
+        ),
+      ],
+      child: MaterialApp(
+        theme: ThemeData(extensions: [AppTokens.defaults()]),
+        home: Scaffold(body: widget),
+      ),
+    );
+  }
+
+  group('Материалы tab widget tests', () {
+    testWidgets('tab appears in the OpportunitiesScreen header', (
+      tester,
+    ) async {
+      final errors = <FlutterErrorDetails>[];
+      final prev = FlutterError.onError;
+      FlutterError.onError = errors.add;
+      addTearDown(() => FlutterError.onError = prev);
+
+      await tester.pumpWidget(
+        themedWithMaterials(const OpportunitiesScreen(), const []),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Материалы'), findsOneWidget);
+      expect(errors, isEmpty, reason: 'no layout errors on OpportunitiesScreen');
+    });
+
+    testWidgets('blank-screen guard: Материалы tab builds without layout errors',
+        (tester) async {
+      final errors = <FlutterErrorDetails>[];
+      final prev = FlutterError.onError;
+      FlutterError.onError = errors.add;
+      addTearDown(() => FlutterError.onError = prev);
+
+      await tester.pumpWidget(
+        themedWithMaterials(const OpportunitiesScreen(), const []),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Материалы'));
+      await tester.pumpAndSettle();
+
+      expect(
+        errors,
+        isEmpty,
+        reason: 'no swallowed layout errors on Материалы tab',
+      );
+    });
+
+    testWidgets('shows "Материалы скоро появятся" when data is empty', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        themedWithMaterials(const OpportunitiesScreen(), const []),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Материалы'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Материалы скоро появятся'), findsOneWidget);
+    });
+
+    testWidgets('shows material cards when data is non-empty', (tester) async {
+      await tester.pumpWidget(
+        themedWithMaterials(const OpportunitiesScreen(), stubMaterials()),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Материалы'));
+      await tester.pumpAndSettle();
+
+      // IELTS Grammar is newest and appears first.
+      expect(find.text('IELTS Grammar'), findsOneWidget);
+      // Confirm multiple "Скачать" CTAs are present — list is populated.
+      expect(find.text('Скачать'), findsWidgets);
+
+      // Scroll down to find the SAT card (may be below the viewport).
+      await tester.scrollUntilVisible(
+        find.text('SAT Math Practice'),
+        100,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(find.text('SAT Math Practice'), findsOneWidget);
+    });
+
+    testWidgets('exam filter chips are visible on the Материалы tab', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        themedWithMaterials(const OpportunitiesScreen(), const []),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Материалы'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Все'), findsOneWidget);
+      expect(find.text('IELTS'), findsOneWidget);
+      expect(find.text('SAT'), findsOneWidget);
+      expect(find.text('ЕНТ'), findsOneWidget);
+    });
+
+    testWidgets('exam chip filter shows only matching cards', (tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          studyMaterialsProvider.overrideWith(
+            () => _FakeStudyMaterialsNotifier(stubMaterials()),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: ThemeData(extensions: [AppTokens.defaults()]),
+            home: const Scaffold(body: OpportunitiesScreen()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Материалы'));
+      await tester.pumpAndSettle();
+
+      // Set the filter via the provider notifier (avoids ambiguous text-finder
+      // that would match both the chip label and the exam badge on cards).
+      container
+          .read(studyMaterialsFilterProvider.notifier)
+          .setExam(StudyMaterialExam.ielts);
+      await tester.pumpAndSettle();
+
+      expect(
+        container.read(studyMaterialsFilterProvider).exam,
+        StudyMaterialExam.ielts,
+      );
+      // Only the IELTS Grammar card should be present.
+      expect(find.text('IELTS Grammar'), findsOneWidget);
+      expect(find.text('SAT Math Practice'), findsNothing);
+    });
+
+    testWidgets(
+      'shows "Ничего не нашлось" when filter is active but no results',
+      (tester) async {
+        final container = ProviderContainer(
+          overrides: [
+            studyMaterialsProvider.overrideWith(
+              () => _FakeStudyMaterialsNotifier(stubMaterials()),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: ThemeData(extensions: [AppTokens.defaults()]),
+              home: const Scaffold(body: OpportunitiesScreen()),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Материалы'));
+        await tester.pumpAndSettle();
+
+        // Search for something that matches nothing
+        container
+            .read(studyMaterialsFilterProvider.notifier)
+            .setQuery('zzz_no_match_zzz');
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Ничего не нашлось'), findsOneWidget);
+      },
+    );
+
+    testWidgets('search field filters cards by title', (tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          studyMaterialsProvider.overrideWith(
+            () => _FakeStudyMaterialsNotifier(stubMaterials()),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: ThemeData(extensions: [AppTokens.defaults()]),
+            home: const Scaffold(body: OpportunitiesScreen()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Материалы'));
+      await tester.pumpAndSettle();
+
+      // Type in the search field
+      await tester.enterText(find.byType(TextField), 'Биология');
+      await tester.pumpAndSettle();
+
+      expect(find.text('ЕНТ Биология'), findsOneWidget);
+      expect(find.text('IELTS Grammar'), findsNothing);
+      expect(find.text('SAT Math Practice'), findsNothing);
+    });
+
+    testWidgets('sort toggle chip is visible', (tester) async {
+      await tester.pumpWidget(
+        themedWithMaterials(const OpportunitiesScreen(), const []),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Материалы'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Сначала новые'), findsOneWidget);
+    });
+
+    testWidgets(
+      'Материалы tab with data builds with NO layout errors (blank-screen guard)',
+      (tester) async {
+        final errors = <FlutterErrorDetails>[];
+        final prev = FlutterError.onError;
+        FlutterError.onError = errors.add;
+        addTearDown(() => FlutterError.onError = prev);
+
+        await tester.pumpWidget(
+          themedWithMaterials(const OpportunitiesScreen(), stubMaterials()),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Материалы'));
+        await tester.pumpAndSettle();
+
+        expect(
+          errors,
+          isEmpty,
+          reason: 'no layout errors on Материалы tab with data',
+        );
+      },
+    );
+  });
+}
+
+// ── Fake study-materials notifier ─────────────────────────────────────────────
+
+class _FakeStudyMaterialsNotifier extends StudyMaterialsNotifier {
+  _FakeStudyMaterialsNotifier(this._data);
+  final List<StudyMaterial> _data;
+
+  @override
+  Future<List<StudyMaterial>> build() async => _data;
 }

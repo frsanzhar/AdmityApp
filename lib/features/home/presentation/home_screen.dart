@@ -14,13 +14,34 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/// Formats [d] as `'yyyy-MM-dd'` for use as a Hive key.
+String _dateKey(DateTime d) =>
+    '${d.year.toString().padLeft(4, '0')}-'
+    '${d.month.toString().padLeft(2, '0')}-'
+    '${d.day.toString().padLeft(2, '0')}';
+
+/// Russian plural for "день": 1 день, 2–4 дня, 5+ дней.
+String _streakDayWord(int n) {
+  final mod10 = n % 10;
+  final mod100 = n % 100;
+  if (mod10 == 1 && mod100 != 11) return 'день';
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'дня';
+  return 'дней';
+}
 
 // ── Domain: Todo ──────────────────────────────────────────────────────────────
 
+/// A user-created task associated with a specific calendar day.
 class TodoItem {
+  /// Creates a [TodoItem].
   const TodoItem({
     required this.id,
     required this.title,
+    required this.date,
     this.description = '',
     this.done = false,
   });
@@ -30,44 +51,34 @@ class TodoItem {
   final String description;
   final bool done;
 
-  TodoItem copyWith({String? title, String? description, bool? done}) =>
-      TodoItem(
-        id: id,
-        title: title ?? this.title,
-        description: description ?? this.description,
-        done: done ?? this.done,
-      );
+  /// Day this task belongs to (normalised to midnight local time).
+  final DateTime date;
+
+  /// Returns a copy with the given fields replaced.
+  TodoItem copyWith({
+    String? title,
+    String? description,
+    bool? done,
+    DateTime? date,
+  }) => TodoItem(
+    id: id,
+    title: title ?? this.title,
+    description: description ?? this.description,
+    done: done ?? this.done,
+    date: date ?? this.date,
+  );
 }
 
+/// Notifier for the user's task list.
+///
+/// New accounts start with an empty list — no fabricated default tasks.
 class TodoNotifier extends Notifier<List<TodoItem>> {
-  int _nextId = 5;
+  int _nextId = 1;
 
   @override
-  List<TodoItem> build() => [
-    const TodoItem(
-      id: 1,
-      title: 'Пройти урок по математике',
-      description: 'Раздел «Сравнение вероятностей» — примерно 15 минут.',
-    ),
-    const TodoItem(
-      id: 2,
-      title: 'Изучить стипендии БОЛАШАК',
-      description:
-          'Проверить требования для поступления и дедлайн подачи документов.',
-    ),
-    const TodoItem(
-      id: 3,
-      title: 'Обновить профиль',
-      description:
-          'Добавить последние оценки и загрузить актуальные документы.',
-    ),
-    const TodoItem(
-      id: 4,
-      title: 'Прочитать о ЕНТ требованиях',
-      description: 'Минимальные баллы по каждому предмету для поступления.',
-    ),
-  ];
+  List<TodoItem> build() => const [];
 
+  /// Toggles the done flag of the task with the given id.
   void toggle(int id) {
     state = [
       for (final item in state)
@@ -75,6 +86,7 @@ class TodoNotifier extends Notifier<List<TodoItem>> {
     ];
   }
 
+  /// Updates the title and description of the task with [id].
   void update(int id, String title, String description) {
     state = [
       for (final item in state)
@@ -85,46 +97,224 @@ class TodoNotifier extends Notifier<List<TodoItem>> {
     ];
   }
 
+  /// Deletes the task with [id].
   void delete(int id) {
     state = state.where((item) => item.id != id).toList();
   }
 
-  void add(String title, String description) {
+  /// Adds a new task for [date].
+  void add(String title, String description, DateTime date) {
     final id = _nextId++;
+    final normalised = DateTime(date.year, date.month, date.day);
     state = [
       ...state,
-      TodoItem(id: id, title: title, description: description),
+      TodoItem(
+        id: id,
+        title: title,
+        description: description,
+        date: normalised,
+      ),
     ];
   }
 }
 
+/// Provider for the user's task list.
 final todoProvider = NotifierProvider<TodoNotifier, List<TodoItem>>(
   TodoNotifier.new,
 );
 
+// ── Domain: Activity seconds (streak data) ────────────────────────────────────
+
+/// In-memory accumulator of daily active seconds, optionally backed by Hive.
+///
+/// Keys are `'yyyy-MM-dd'` strings; values are accumulated seconds.
+/// A day is considered "active" when its value is ≥ 300 (5 minutes).
+///
+/// ActivityTimeTracker writes to this notifier; streak providers read it.
+///
+/// Hive persistence (cross-session): call `Hive.openBox<int>('admity_activity')`
+/// in bootstrap.dart before HomeScreen mounts; build() will then load the data
+/// synchronously.  Without that, the notifier operates in-memory only.
+class ActivitySecondsNotifier extends Notifier<Map<String, int>> {
+  static const _boxName = 'admity_activity';
+
+  @override
+  Map<String, int> build() {
+    // Synchronous load — only works when the box was opened at app startup.
+    try {
+      if (Hive.isBoxOpen(_boxName)) {
+        final box = Hive.box<int>(_boxName);
+        return Map<String, int>.unmodifiable({
+          for (final k in box.keys.cast<String>())
+            k: box.get(k, defaultValue: 0) ?? 0,
+        });
+      }
+    } on Object {
+      // Box inaccessible — fall through to empty map.
+    }
+    return const {};
+  }
+
+  /// Adds [delta] seconds to [dateKey] and persists to Hive (best-effort).
+  void addSeconds(String dateKey, int delta) {
+    if (delta <= 0) return;
+    final updated = Map<String, int>.from(state);
+    updated[dateKey] = (updated[dateKey] ?? 0) + delta;
+    state = Map<String, int>.unmodifiable(updated);
+    _persist(dateKey, updated[dateKey]!);
+  }
+
+  // Silently persists one entry to Hive if the box is already open.
+  // In tests the box is never opened, so this is a no-op — no async futures
+  // are created and no zone errors can leak into the test binding.
+  void _persist(String dateKey, int value) {
+    try {
+      if (!Hive.isBoxOpen(_boxName)) return;
+      // box.put() is async; consume any error before it reaches the zone.
+      unawaited(
+        Hive.box<int>(_boxName)
+            .put(dateKey, value)
+            .then((_) {}, onError: (Object _) {}),
+      );
+    } on Object {
+      // Box became unavailable between isBoxOpen and put — skip persist.
+    }
+  }
+
+  /// Bulk-loads external data into the notifier state.
+  void loadFromHive(Map<String, int> data) {
+    state = Map<String, int>.unmodifiable(data);
+  }
+}
+
+/// Provider for accumulated daily active seconds.
+final activitySecondsProvider =
+    NotifierProvider<ActivitySecondsNotifier, Map<String, int>>(
+      ActivitySecondsNotifier.new,
+    );
+
 // ── Domain: Streak ────────────────────────────────────────────────────────────
 
+/// A day in the streak-week widget.
 class StreakDay {
+  /// Creates a [StreakDay].
   const StreakDay({required this.label, required this.lit});
+
+  /// Short weekday label ('Пн', 'Вт', …).
   final String label;
+
+  /// Whether the user earned this day (≥ 5 minutes of active time).
   final bool lit;
 }
 
+/// The seven days of the current calendar week with [StreakDay.lit] set from
+/// real activity data.  Monday is index 0.
 final streakWeekProvider = Provider<List<StreakDay>>((ref) {
-  return const [
-    StreakDay(label: 'Пн', lit: true),
-    StreakDay(label: 'Вт', lit: true),
-    StreakDay(label: 'Ср', lit: true),
-    StreakDay(label: 'Чт', lit: false),
-    StreakDay(label: 'Пт', lit: true),
-    StreakDay(label: 'Сб', lit: true),
-    StreakDay(label: 'Вс', lit: false),
-  ];
+  final data = ref.watch(activitySecondsProvider);
+  final now = DateTime.now();
+  final monday = now.subtract(Duration(days: now.weekday - 1));
+  const labels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  return List.generate(7, (i) {
+    final day = DateTime(monday.year, monday.month, monday.day + i);
+    final key = _dateKey(day);
+    return StreakDay(label: labels[i], lit: (data[key] ?? 0) >= 300);
+  });
 });
+
+/// Number of consecutive days (ending today) where the user was active ≥ 5 min.
+///
+/// Returns 0 if today is not yet earned.
+final streakCountProvider = Provider<int>((ref) {
+  final data = ref.watch(activitySecondsProvider);
+  var count = 0;
+  var date = DateTime.now();
+  while (true) {
+    final key = _dateKey(date);
+    if ((data[key] ?? 0) >= 300) {
+      count++;
+      date = date.subtract(const Duration(days: 1));
+    } else {
+      break;
+    }
+  }
+  return count;
+});
+
+// ── Activity time tracker ─────────────────────────────────────────────────────
+
+/// Tracks how many seconds the app is actively in the foreground per calendar
+/// day.
+///
+/// Registers itself as a [WidgetsBindingObserver] and flushes accumulated
+/// seconds to activitySecondsProvider every 30 s and on every pause/detach.
+///
+/// Hive persistence is handled entirely by ActivitySecondsNotifier (sync load
+/// in build() if box is pre-opened) and addSeconds() (sync-guarded put).
+/// This tracker never opens a Hive box directly, so no async Futures are
+/// created in tests and no zone errors can leak into the test binding.
+class ActivityTimeTracker with WidgetsBindingObserver {
+  /// Creates a tracker that writes to the given Riverpod ref.
+  ActivityTimeTracker(this._ref);
+
+  final WidgetRef _ref;
+  DateTime? _sessionStart;
+  Timer? _flushTimer;
+
+  /// Registers the lifecycle observer and starts the flush timer.
+  ///
+  /// Fully synchronous — safe to call directly from State.initState.
+  void init() {
+    WidgetsBinding.instance.addObserver(this);
+    _onResume(); // home mounts while the app is already in the foreground
+  }
+
+  /// Flushes the final partial session and stops tracking.
+  ///
+  /// Call from [State.dispose].
+  void dispose() {
+    _flushNow();
+    _flushTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _onResume();
+    } else {
+      // paused / inactive / detached / hidden
+      _flushNow();
+      _flushTimer?.cancel();
+    }
+  }
+
+  void _onResume() {
+    _sessionStart = DateTime.now();
+    _flushTimer?.cancel();
+    _flushTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _flushNow(),
+    );
+  }
+
+  /// Attributes elapsed seconds since _sessionStart to the correct date key
+  /// and advances the window to avoid double-counting.
+  void _flushNow() {
+    final start = _sessionStart;
+    if (start == null) return;
+    final now = DateTime.now();
+    final delta = now.difference(start).inSeconds;
+    if (delta <= 0) return;
+    _sessionStart = DateTime.now();
+    _ref.read(activitySecondsProvider.notifier).addSeconds(_dateKey(start), delta);
+  }
+}
 
 // ── Domain: User Calendar Events ──────────────────────────────────────────────
 
+/// A calendar event created by the user (or confirmed from Ералы).
 class CalendarUserEvent {
+  /// Creates a [CalendarUserEvent].
   const CalendarUserEvent({
     required this.id,
     required this.title,
@@ -136,9 +326,12 @@ class CalendarUserEvent {
   final String id;
   final String title;
   final String? description;
+
+  /// Day normalised to midnight local time.
   final DateTime date;
   final DateTime scheduledAt;
 
+  /// Returns a copy with the given fields replaced.
   CalendarUserEvent copyWith({
     String? title,
     String? description,
@@ -153,39 +346,17 @@ class CalendarUserEvent {
   );
 }
 
+/// Notifier for user-created calendar events.
 class UserEventsNotifier extends Notifier<List<CalendarUserEvent>> {
-  int _nextId = 10;
+  int _nextId = 1;
 
   @override
   List<CalendarUserEvent> build() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final tomorrow = today.add(const Duration(days: 1));
-    return [
-      CalendarUserEvent(
-        id: '1',
-        title: 'Онлайн-консультация по ЕНТ',
-        description: 'Вебинар с преподавателем математики',
-        date: today,
-        scheduledAt: DateTime(today.year, today.month, today.day, 15),
-      ),
-      CalendarUserEvent(
-        id: '2',
-        title: 'Повторение биологии',
-        description: 'Темы: клетка, фотосинтез',
-        date: today,
-        scheduledAt: DateTime(today.year, today.month, today.day, 18, 30),
-      ),
-      CalendarUserEvent(
-        id: '3',
-        title: 'Сдать эссе наставнику',
-        description: 'Черновик на тему «Моя будущая профессия»',
-        date: tomorrow,
-        scheduledAt: DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 10),
-      ),
-    ];
+    // A new account starts with an empty calendar — no fabricated events.
+    return const [];
   }
 
+  /// Adds a new event.
   void add(String title, String? description, DateTime scheduledAt) {
     final id = (_nextId++).toString();
     final date = DateTime(
@@ -205,6 +376,7 @@ class UserEventsNotifier extends Notifier<List<CalendarUserEvent>> {
     ];
   }
 
+  /// Updates an existing event.
   void update(
     String id,
     String title,
@@ -230,11 +402,13 @@ class UserEventsNotifier extends Notifier<List<CalendarUserEvent>> {
     ];
   }
 
+  /// Deletes the event with [id].
   void delete(String id) {
     state = state.where((e) => e.id != id).toList();
   }
 }
 
+/// Provider for user-created calendar events.
 final userEventsProvider =
     NotifierProvider<UserEventsNotifier, List<CalendarUserEvent>>(
       UserEventsNotifier.new,
@@ -242,14 +416,38 @@ final userEventsProvider =
 
 // ── HomeScreen ────────────────────────────────────────────────────────────────
 
-class HomeScreen extends ConsumerWidget {
+/// The main home tab screen.
+///
+/// Mounts an [ActivityTimeTracker] so that every second the home shell is
+/// visible counts towards the daily active-time streak.
+class HomeScreen extends ConsumerStatefulWidget {
+  /// Creates [HomeScreen].
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  late final ActivityTimeTracker _tracker;
+
+  @override
+  void initState() {
+    super.initState();
+    _tracker = ActivityTimeTracker(ref);
+    _tracker.init();
+  }
+
+  @override
+  void dispose() {
+    _tracker.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final tokens =
         Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
-    final todos = ref.watch(todoProvider);
 
     return AppScaffold(
       body: SingleChildScrollView(
@@ -282,24 +480,10 @@ class HomeScreen extends ConsumerWidget {
 
             SizedBox(height: tokens.gapLg),
 
-            _TodayTaskCard(tokens: tokens)
+            _CareerTestCard(tokens: tokens)
                 .animate()
                 .fadeIn(delay: 180.ms, duration: 350.ms)
                 .slideY(begin: 0.08, end: 0, delay: 180.ms, duration: 350.ms),
-
-            SizedBox(height: tokens.gapLg),
-
-            _TaskListCard(todos: todos, tokens: tokens, ref: ref)
-                .animate()
-                .fadeIn(delay: 240.ms, duration: 350.ms)
-                .slideY(begin: 0.08, end: 0, delay: 240.ms, duration: 350.ms),
-
-            SizedBox(height: tokens.gapLg),
-
-            _CareerTestCard(tokens: tokens)
-                .animate()
-                .fadeIn(delay: 300.ms, duration: 350.ms)
-                .slideY(begin: 0.08, end: 0, delay: 300.ms, duration: 350.ms),
 
             SizedBox(height: tokens.gapXxl),
           ],
@@ -311,12 +495,13 @@ class HomeScreen extends ConsumerWidget {
 
 // ── Header ────────────────────────────────────────────────────────────────────
 
-class _Header extends StatelessWidget {
+class _Header extends ConsumerWidget {
   const _Header({required this.tokens});
   final AppTokens tokens;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final streak = ref.watch(streakCountProvider);
     return Row(
       children: [
         const MascotSlot(size: 56, tag: 'home'),
@@ -342,17 +527,17 @@ class _Header extends StatelessWidget {
             ],
           ),
         ),
-        Semantics(
-          label: 'Серия: 7 дней',
-          button: false,
-          child: const StreakBadge(days: 7),
-        ),
+        if (streak > 0)
+          Semantics(
+            label: 'Серия: $streak ${_streakDayWord(streak)}',
+            child: StreakBadge(days: streak),
+          ),
       ],
     );
   }
 }
 
-// ── Streak Week (always-visible beautiful card) ───────────────────────────────
+// ── Streak Week ────────────────────────────────────────────────────────────────
 
 class _StreakWeekSection extends ConsumerStatefulWidget {
   const _StreakWeekSection({required this.tokens});
@@ -370,6 +555,7 @@ class _StreakWeekSectionState extends ConsumerState<_StreakWeekSection> {
     final days = ref.watch(streakWeekProvider);
     final tokens = widget.tokens;
     final todayWeekday = DateTime.now().weekday; // 1=Mon … 7=Sun
+    final litCount = days.where((d) => d.lit).length;
 
     return AppCard(
       child: Column(
@@ -381,7 +567,9 @@ class _StreakWeekSectionState extends ConsumerState<_StreakWeekSection> {
               const Icon(Icons.bolt, color: AppColors.accentLime, size: 18),
               SizedBox(width: tokens.gapXs),
               Text(
-                'Серия — 7 дней',
+                litCount == 0
+                    ? 'Начни свою серию!'
+                    : 'Серия — $litCount ${_streakDayWord(litCount)}',
                 style: Theme.of(
                   context,
                 ).textTheme.titleLarge?.copyWith(color: AppColors.ink),
@@ -414,7 +602,8 @@ class _StreakWeekSectionState extends ConsumerState<_StreakWeekSection> {
                           color: day.lit
                               ? AppColors.accentLime
                               : AppColors.surfaceTint,
-                          borderRadius: BorderRadius.circular(tokens.radiusSm),
+                          borderRadius:
+                              BorderRadius.circular(tokens.radiusSm),
                           border: isToday || isSelected
                               ? Border.all(
                                   color: AppColors.primary,
@@ -448,7 +637,9 @@ class _StreakWeekSectionState extends ConsumerState<_StreakWeekSection> {
                       SizedBox(height: tokens.gapXs),
                       Text(
                         day.label,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(
                           color: day.lit
                               ? AppColors.ink
                               : AppColors.inkSecondary,
@@ -463,7 +654,6 @@ class _StreakWeekSectionState extends ConsumerState<_StreakWeekSection> {
               );
             }),
           ),
-          // Selected day state pill
           if (_selectedIndex != null) ...[
             SizedBox(height: tokens.gapSm),
             AnimatedSwitcher(
@@ -488,7 +678,7 @@ class _StreakWeekSectionState extends ConsumerState<_StreakWeekSection> {
                 child: Text(
                   days[_selectedIndex!].lit
                       ? 'День завершён!'
-                      : 'Этот день пропущен',
+                      : 'Ещё не завершён',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: days[_selectedIndex!].lit
                         ? AppColors.ink
@@ -501,7 +691,7 @@ class _StreakWeekSectionState extends ConsumerState<_StreakWeekSection> {
           ],
           SizedBox(height: tokens.gapXs),
           Text(
-            '5 из 7 дней на этой неделе',
+            '$litCount из 7 дней на этой неделе',
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: AppColors.inkSecondary),
@@ -512,7 +702,7 @@ class _StreakWeekSectionState extends ConsumerState<_StreakWeekSection> {
   }
 }
 
-// ── Interactive Calendar ───────────────────────────────────────────────────────
+// ── Interactive Calendar (events + tasks unified) ─────────────────────────────
 
 class _InteractiveCalendar extends ConsumerStatefulWidget {
   const _InteractiveCalendar({required this.tokens});
@@ -558,15 +748,15 @@ class _InteractiveCalendarState extends ConsumerState<_InteractiveCalendar> {
   }
 
   void _prevMonth() {
-    setState(() {
-      _viewMonth = DateTime(_viewMonth.year, _viewMonth.month - 1);
-    });
+    setState(
+      () => _viewMonth = DateTime(_viewMonth.year, _viewMonth.month - 1),
+    );
   }
 
   void _nextMonth() {
-    setState(() {
-      _viewMonth = DateTime(_viewMonth.year, _viewMonth.month + 1);
-    });
+    setState(
+      () => _viewMonth = DateTime(_viewMonth.year, _viewMonth.month + 1),
+    );
   }
 
   bool _isSameDay(DateTime a, DateTime b) =>
@@ -588,6 +778,20 @@ class _InteractiveCalendarState extends ConsumerState<_InteractiveCalendar> {
     );
   }
 
+  void _openTaskSheet(BuildContext context, TodoItem? existing) {
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => _TaskSheet(
+          existing: existing,
+          initialDate: _selectedDate,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final tokens = widget.tokens;
@@ -595,22 +799,20 @@ class _InteractiveCalendarState extends ConsumerState<_InteractiveCalendar> {
     final mentorEvents = ref.watch(
       mentorProvider.select((s) => s.calendarEvents),
     );
+    final allTodos = ref.watch(todoProvider);
 
-    // Build calendar grid days
+    // Calendar grid cells
     final firstOfMonth = _viewMonth;
-    // weekday: 1=Mon, offset so Mon=col0
     final startOffset = (firstOfMonth.weekday - 1) % 7;
     final daysInMonth = DateUtils.getDaysInMonth(
       _viewMonth.year,
       _viewMonth.month,
     );
-
     final prevMonth = DateTime(_viewMonth.year, _viewMonth.month - 1);
     final daysInPrevMonth = DateUtils.getDaysInMonth(
       prevMonth.year,
       prevMonth.month,
     );
-
     final totalCells = ((startOffset + daysInMonth) / 7).ceil() * 7;
 
     final cells = <DateTime>[];
@@ -634,20 +836,22 @@ class _InteractiveCalendarState extends ConsumerState<_InteractiveCalendar> {
       }
     }
 
-    // Events for selected date
-    final selectedUserEvents =
-        userEvents
-            .where(
-              (e) => _isSameDay(e.date, _selectedDate),
-            )
-            .toList()
-          ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    // Events and todos for the selected date
+    final selectedUserEvents = userEvents
+        .where((e) => _isSameDay(e.date, _selectedDate))
+        .toList()
+      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
 
-    final selectedMentorEvents = mentorEvents.where((e) {
-      return _isSameDay(e.scheduledAt, _selectedDate);
-    }).toList()..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    final selectedMentorEvents = mentorEvents
+        .where((e) => _isSameDay(e.scheduledAt, _selectedDate))
+        .toList()
+      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
 
-    // Days that have user events (for dot indicator)
+    final selectedTodos = allTodos
+        .where((t) => _isSameDay(t.date, _selectedDate))
+        .toList();
+
+    // Calendar dot indicators
     final eventDates = userEvents.map((e) => e.date).toSet();
     final mentorEventDates = mentorEvents
         .map(
@@ -658,14 +862,19 @@ class _InteractiveCalendarState extends ConsumerState<_InteractiveCalendar> {
           ),
         )
         .toSet();
-    final allEventDates = {...eventDates, ...mentorEventDates};
+    final todoDates = allTodos.map((t) => t.date).toSet();
+    final allEventDates = {...eventDates, ...mentorEventDates, ...todoDates};
+
+    final isEmpty = selectedUserEvents.isEmpty &&
+        selectedMentorEvents.isEmpty &&
+        selectedTodos.isEmpty;
 
     return AppCard(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Month header
+          // ── Month navigation ──────────────────────────────────────────────
           Row(
             children: [
               GestureDetector(
@@ -707,7 +916,7 @@ class _InteractiveCalendarState extends ConsumerState<_InteractiveCalendar> {
           ),
           SizedBox(height: tokens.gapSm),
 
-          // Weekday labels
+          // ── Weekday labels ────────────────────────────────────────────────
           Row(
             children: _weekdayLabels
                 .map(
@@ -726,7 +935,7 @@ class _InteractiveCalendarState extends ConsumerState<_InteractiveCalendar> {
           ),
           SizedBox(height: tokens.gapXs),
 
-          // Calendar grid
+          // ── Calendar grid ─────────────────────────────────────────────────
           ...List.generate((totalCells / 7).ceil(), (rowIdx) {
             final rowCells = cells.sublist(
               rowIdx * 7,
@@ -767,21 +976,21 @@ class _InteractiveCalendarState extends ConsumerState<_InteractiveCalendar> {
                               child: Center(
                                 child: Text(
                                   '${date.day}',
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: isToday
-                                            ? AppColors.white
-                                            : isSelected
-                                            ? AppColors.primary
-                                            : isCurrentMonth
-                                            ? AppColors.ink
-                                            : AppColors.inkSecondary.withValues(
-                                                alpha: 0.5,
-                                              ),
-                                        fontWeight: isToday || isSelected
-                                            ? FontWeight.w700
-                                            : FontWeight.w500,
-                                      ),
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.bodySmall?.copyWith(
+                                    color: isToday
+                                        ? AppColors.white
+                                        : isSelected
+                                        ? AppColors.primary
+                                        : isCurrentMonth
+                                        ? AppColors.ink
+                                        : AppColors.inkSecondary
+                                              .withValues(alpha: 0.5),
+                                    fontWeight: isToday || isSelected
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                  ),
                                 ),
                               ),
                             ),
@@ -808,15 +1017,11 @@ class _InteractiveCalendarState extends ConsumerState<_InteractiveCalendar> {
 
           SizedBox(height: tokens.gapSm),
 
-          // Selected day agenda
-          Container(
-            width: double.infinity,
-            height: 1,
-            color: AppColors.border,
-          ),
+          // ── Day agenda divider ────────────────────────────────────────────
+          Container(width: double.infinity, height: 1, color: AppColors.border),
           SizedBox(height: tokens.gapMd),
 
-          // Agenda header
+          // ── Agenda header ─────────────────────────────────────────────────
           Row(
             children: [
               Container(
@@ -843,12 +1048,12 @@ class _InteractiveCalendarState extends ConsumerState<_InteractiveCalendar> {
           ),
           SizedBox(height: tokens.gapSm),
 
-          // User events
-          if (selectedUserEvents.isEmpty && selectedMentorEvents.isEmpty)
+          // ── Agenda items: events + tasks ──────────────────────────────────
+          if (isEmpty)
             Padding(
               padding: EdgeInsets.symmetric(vertical: tokens.gapSm),
               child: Text(
-                'Событий нет. Добавьте первое!',
+                'Событий и задач нет.',
                 style: Theme.of(
                   context,
                 ).textTheme.bodyLarge?.copyWith(color: AppColors.inkSecondary),
@@ -872,14 +1077,36 @@ class _InteractiveCalendarState extends ConsumerState<_InteractiveCalendar> {
                 isEraly: true,
                 tokens: tokens,
               ),
+            for (final t in selectedTodos)
+              _TodoRow(
+                item: t,
+                tokens: tokens,
+                onToggle: () =>
+                    ref.read(todoProvider.notifier).toggle(t.id),
+                onTap: () => _openTaskSheet(context, t),
+              ),
           ],
 
           SizedBox(height: tokens.gapMd),
 
-          PrimaryButton(
-            label: 'Добавить событие',
-            icon: const Icon(Icons.add, color: AppColors.white, size: 18),
-            onPressed: () => _openEventSheet(context, null),
+          // ── Add buttons (side by side) ────────────────────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: PrimaryButton(
+                  label: 'Добавить событие',
+                  icon: const Icon(Icons.add, color: AppColors.white, size: 18),
+                  onPressed: () => _openEventSheet(context, null),
+                ),
+              ),
+              SizedBox(width: tokens.gapSm),
+              Expanded(
+                child: FeaturedButton(
+                  label: 'Добавить задачу',
+                  onPressed: () => _openTaskSheet(context, null),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -913,6 +1140,8 @@ class _InteractiveCalendarState extends ConsumerState<_InteractiveCalendar> {
     return '${weekdays[d.weekday - 1]}, ${d.day} ${months[d.month - 1]}';
   }
 }
+
+// ── Agenda event row ──────────────────────────────────────────────────────────
 
 class _AgendaEventRow extends StatelessWidget {
   const _AgendaEventRow({
@@ -975,20 +1204,21 @@ class _AgendaEventRow extends StatelessWidget {
                         ),
                         child: Text(
                           'Ералы',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                   ],
                 ),
                 Text(
                   time,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.inkSecondary,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.inkSecondary),
                 ),
               ],
             ),
@@ -1022,6 +1252,104 @@ class _AgendaEventRow extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+// ── Todo row (used in calendar day agenda) ────────────────────────────────────
+
+class _TodoRow extends StatelessWidget {
+  const _TodoRow({
+    required this.item,
+    required this.tokens,
+    required this.onToggle,
+    required this.onTap,
+  });
+
+  final TodoItem item;
+  final AppTokens tokens;
+  final VoidCallback onToggle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: tokens.gapSm),
+        child: Row(
+          children: [
+            GestureDetector(
+              onTap: onToggle,
+              behavior: HitTestBehavior.opaque,
+              child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: item.done
+                          ? AppColors.successGreen
+                          : AppColors.white,
+                      border: Border.all(
+                        color: item.done
+                            ? AppColors.successGreen
+                            : AppColors.border,
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: item.done
+                        ? const Icon(
+                            Icons.check,
+                            color: AppColors.white,
+                            size: 15,
+                          )
+                        : null,
+                  )
+                  .animate(target: item.done ? 1 : 0)
+                  .scaleXY(begin: 1, end: 1.18, duration: 120.ms)
+                  .then()
+                  .scaleXY(begin: 1.18, end: 1, duration: 120.ms),
+            ),
+            SizedBox(width: tokens.gapMd),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: item.done ? AppColors.inkSecondary : AppColors.ink,
+                      decoration: item.done
+                          ? TextDecoration.lineThrough
+                          : TextDecoration.none,
+                      decorationColor: AppColors.inkSecondary,
+                    ),
+                  ),
+                  if (item.description.isNotEmpty && !item.done) ...[
+                    SizedBox(height: tokens.gapXs),
+                    Text(
+                      item.description,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.inkSecondary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right,
+              color: AppColors.border,
+              size: 18,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1096,22 +1424,18 @@ class _EventSheetState extends ConsumerState<_EventSheet> {
     if (title.isEmpty) return;
     final desc = _descCtrl.text.trim();
     if (widget.existing == null) {
-      ref
-          .read(userEventsProvider.notifier)
-          .add(
-            title,
-            desc.isEmpty ? null : desc,
-            _scheduledAt,
-          );
+      ref.read(userEventsProvider.notifier).add(
+        title,
+        desc.isEmpty ? null : desc,
+        _scheduledAt,
+      );
     } else {
-      ref
-          .read(userEventsProvider.notifier)
-          .update(
-            widget.existing!.id,
-            title,
-            desc.isEmpty ? null : desc,
-            _scheduledAt,
-          );
+      ref.read(userEventsProvider.notifier).update(
+        widget.existing!.id,
+        title,
+        desc.isEmpty ? null : desc,
+        _scheduledAt,
+      );
     }
     Navigator.of(context).pop();
   }
@@ -1258,8 +1582,11 @@ class _EventSheetState extends ConsumerState<_EventSheet> {
                           SizedBox(width: tokens.gapSm),
                           Text(
                             'Удалить событие',
-                            style: Theme.of(context).textTheme.labelLarge
-                                ?.copyWith(color: AppColors.errorRed),
+                            style: Theme.of(
+                              context,
+                            ).textTheme.labelLarge?.copyWith(
+                              color: AppColors.errorRed,
+                            ),
                           ),
                         ],
                       ),
@@ -1275,227 +1602,14 @@ class _EventSheetState extends ConsumerState<_EventSheet> {
   }
 }
 
-// ── Today Task Card ───────────────────────────────────────────────────────────
-
-class _TodayTaskCard extends StatelessWidget {
-  const _TodayTaskCard({required this.tokens});
-  final AppTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Задание на сегодня',
-            style: Theme.of(
-              context,
-            ).textTheme.headlineMedium?.copyWith(color: AppColors.ink),
-          ),
-          SizedBox(height: tokens.gapSm),
-          Text(
-            'Урок: Сравнение вероятностей — продолжи с того места, где остановился.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyLarge?.copyWith(color: AppColors.inkSecondary),
-          ),
-          SizedBox(height: tokens.gapLg),
-          PrimaryButton(
-            label: 'Продолжить',
-            onPressed: () => context.go('/lesson'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Task List with CRUD ───────────────────────────────────────────────────────
-
-class _TaskListCard extends StatelessWidget {
-  const _TaskListCard({
-    required this.todos,
-    required this.tokens,
-    required this.ref,
-  });
-
-  final List<TodoItem> todos;
-  final AppTokens tokens;
-  final WidgetRef ref;
-
-  void _openTaskSheet(BuildContext context, TodoItem? item) {
-    unawaited(
-      showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (_) => _TaskSheet(existing: item),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Сегодняшние задачи',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.headlineMedium?.copyWith(color: AppColors.ink),
-                ),
-              ),
-              GestureDetector(
-                onTap: () => _openTaskSheet(context, null),
-                behavior: HitTestBehavior.opaque,
-                child: const SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: Icon(
-                    Icons.add_circle_outline,
-                    color: AppColors.primary,
-                    size: 24,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: tokens.gapSm),
-          if (todos.isEmpty)
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: tokens.gapMd),
-              child: Text(
-                'Задач нет. Нажмите + чтобы добавить.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.copyWith(color: AppColors.inkSecondary),
-              ),
-            )
-          else
-            ...todos.map(
-              (item) => _TodoRow(
-                item: item,
-                tokens: tokens,
-                onToggle: () => ref.read(todoProvider.notifier).toggle(item.id),
-                onTap: () => _openTaskSheet(context, item),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TodoRow extends StatelessWidget {
-  const _TodoRow({
-    required this.item,
-    required this.tokens,
-    required this.onToggle,
-    required this.onTap,
-  });
-
-  final TodoItem item;
-  final AppTokens tokens;
-  final VoidCallback onToggle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: tokens.gapSm),
-        child: Row(
-          children: [
-            GestureDetector(
-              onTap: onToggle,
-              behavior: HitTestBehavior.opaque,
-              child:
-                  AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: item.done
-                              ? AppColors.successGreen
-                              : AppColors.white,
-                          border: Border.all(
-                            color: item.done
-                                ? AppColors.successGreen
-                                : AppColors.border,
-                            width: 2,
-                          ),
-                          borderRadius: BorderRadius.circular(7),
-                        ),
-                        child: item.done
-                            ? const Icon(
-                                Icons.check,
-                                color: AppColors.white,
-                                size: 15,
-                              )
-                            : null,
-                      )
-                      .animate(target: item.done ? 1 : 0)
-                      .scaleXY(begin: 1, end: 1.18, duration: 120.ms)
-                      .then()
-                      .scaleXY(begin: 1.18, end: 1, duration: 120.ms),
-            ),
-            SizedBox(width: tokens.gapMd),
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: item.done ? AppColors.inkSecondary : AppColors.ink,
-                      decoration: item.done
-                          ? TextDecoration.lineThrough
-                          : TextDecoration.none,
-                      decorationColor: AppColors.inkSecondary,
-                    ),
-                  ),
-                  if (item.description.isNotEmpty && !item.done) ...[
-                    SizedBox(height: tokens.gapXs),
-                    Text(
-                      item.description,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.inkSecondary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.chevron_right,
-              color: AppColors.border,
-              size: 18,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // ── Task Sheet ────────────────────────────────────────────────────────────────
 
 class _TaskSheet extends ConsumerStatefulWidget {
-  const _TaskSheet({this.existing});
+  const _TaskSheet({required this.initialDate, this.existing});
   final TodoItem? existing;
+
+  /// Day to assign when creating a new task.
+  final DateTime initialDate;
 
   @override
   ConsumerState<_TaskSheet> createState() => _TaskSheetState();
@@ -1527,11 +1641,17 @@ class _TaskSheetState extends ConsumerState<_TaskSheet> {
     final title = _titleCtrl.text.trim();
     if (title.isEmpty) return;
     if (widget.existing == null) {
-      ref.read(todoProvider.notifier).add(title, _descCtrl.text.trim());
+      ref.read(todoProvider.notifier).add(
+        title,
+        _descCtrl.text.trim(),
+        widget.initialDate,
+      );
     } else {
-      ref
-          .read(todoProvider.notifier)
-          .update(widget.existing!.id, title, _descCtrl.text.trim());
+      ref.read(todoProvider.notifier).update(
+        widget.existing!.id,
+        title,
+        _descCtrl.text.trim(),
+      );
     }
     Navigator.of(context).pop();
   }
@@ -1546,7 +1666,7 @@ class _TaskSheetState extends ConsumerState<_TaskSheet> {
     final tokens =
         Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
     final isNew = widget.existing == null;
-    final title = isNew ? 'Новая задача' : (widget.existing!.title);
+    final title = isNew ? 'Новая задача' : widget.existing!.title;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -1590,8 +1710,11 @@ class _TaskSheetState extends ConsumerState<_TaskSheet> {
                         _editing
                             ? (isNew ? 'Новая задача' : 'Редактировать')
                             : title,
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(color: AppColors.ink),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.headlineMedium?.copyWith(
+                          color: AppColors.ink,
+                        ),
                       ),
                     ),
                     if (!isNew && !_editing)
@@ -1660,8 +1783,11 @@ class _TaskSheetState extends ConsumerState<_TaskSheet> {
                           SizedBox(width: tokens.gapSm),
                           Text(
                             'Удалить задачу',
-                            style: Theme.of(context).textTheme.labelLarge
-                                ?.copyWith(color: AppColors.errorRed),
+                            style: Theme.of(
+                              context,
+                            ).textTheme.labelLarge?.copyWith(
+                              color: AppColors.errorRed,
+                            ),
                           ),
                         ],
                       ),
@@ -1785,8 +1911,9 @@ class _CareerTestCard extends StatelessWidget {
                   children: [
                     Text(
                       'Узнай свою профессию',
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(color: AppColors.ink),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.headlineMedium?.copyWith(color: AppColors.ink),
                     ),
                     SizedBox(height: tokens.gapXs),
                     Text(

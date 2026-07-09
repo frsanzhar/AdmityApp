@@ -1,4 +1,5 @@
 import 'package:admity/core/theme/app_colors.dart';
+import 'package:admity/l10n/gen/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 /// A single tab descriptor for [AppBottomNav].
@@ -8,14 +9,25 @@ class AppNavItem {
     required this.icon,
     required this.activeIcon,
     this.isAccent = false,
+    this.l10nKey,
   });
 
+  /// Hardcoded fallback label (used when [l10nKey] is null or localizations
+  /// are not available in the current context).
   final String label;
   final IconData icon;
   final IconData activeIcon;
 
   /// When true the tab is styled as the accent centre tab (Ералы).
   final bool isAccent;
+
+  /// Optional ARB key for localizing the tab label.
+  ///
+  /// Supported values: `'sharedNavHome'`, `'sharedNavUniversities'`,
+  /// `'sharedNavEraly'`, `'sharedNavOpportunities'`, `'sharedNavProfile'`.
+  /// When non-null, [AppBottomNav] resolves the display label from
+  /// [AppLocalizations]; [label] is only used as a fallback.
+  final String? l10nKey;
 }
 
 /// Admity design-system bottom navigation bar (DESIGN_SYSTEM.md §5).
@@ -154,7 +166,7 @@ class _NavTab extends StatelessWidget {
                 height: 1,
               ),
               child: Text(
-                item.label,
+                _resolveLabel(context, item),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -165,32 +177,61 @@ class _NavTab extends StatelessWidget {
   }
 }
 
+/// Resolves the display label for [item].
+///
+/// When `item.l10nKey` is set and [AppLocalizations] is available in `context`,
+/// the localised string is returned.  Falls back to `item.label` otherwise.
+String _resolveLabel(BuildContext context, AppNavItem item) {
+  final key = item.l10nKey;
+  if (key == null) return item.label;
+  // Gracefully degrade if localizations are absent (e.g. bare widget tests).
+  final l10n = Localizations.of<AppLocalizations>(context, AppLocalizations);
+  if (l10n == null) return item.label;
+  return switch (key) {
+    'sharedNavHome' => l10n.sharedNavHome,
+    'sharedNavUniversities' => l10n.sharedNavUniversities,
+    'sharedNavEraly' => l10n.sharedNavEraly,
+    'sharedNavOpportunities' => l10n.sharedNavOpportunities,
+    'sharedNavProfile' => l10n.sharedNavProfile,
+    _ => item.label,
+  };
+}
+
 /// Default five tabs matching DESIGN_SYSTEM.md §5.
+///
+/// Labels are resolved from [AppLocalizations] at build time via `l10nKey` so
+/// they update automatically when the student switches the app language.
+/// The `label` strings serve as compile-time fallbacks only.
 const defaultNavItems = <AppNavItem>[
   AppNavItem(
     label: 'Главная',
     icon: Icons.home_outlined,
     activeIcon: Icons.home_rounded,
+    l10nKey: 'sharedNavHome',
   ),
   AppNavItem(
     label: 'Вузы',
     icon: Icons.account_balance_outlined,
     activeIcon: Icons.account_balance_rounded,
+    l10nKey: 'sharedNavUniversities',
   ),
   AppNavItem(
     label: 'Ералы',
     icon: Icons.forum_outlined,
     activeIcon: Icons.forum_rounded,
     isAccent: true,
+    l10nKey: 'sharedNavEraly',
   ),
   AppNavItem(
     label: 'Возможности',
     icon: Icons.explore_outlined,
     activeIcon: Icons.explore_rounded,
+    l10nKey: 'sharedNavOpportunities',
   ),
   AppNavItem(
     label: 'Профиль',
     icon: Icons.person_outline_rounded,
     activeIcon: Icons.person_rounded,
+    l10nKey: 'sharedNavProfile',
   ),
 ];

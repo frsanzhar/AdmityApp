@@ -20,9 +20,11 @@ library;
 
 import 'dart:convert';
 
+import 'package:admity/core/config/app_config.dart';
 import 'package:admity/features/profile/domain/profile_model.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 // ── Abstract interface ────────────────────────────────────────────────────────
 
@@ -106,7 +108,34 @@ class HiveProfileRepository implements ProfileRepository {
   @override
   Future<void> saveProfile(StudentProfile profile) async {
     await _profile.put(_profileKey, json.encode(profile.toJson()));
-    // TODO(sync): push to Supabase when online sync is implemented
+    await _syncProfileToSupabase(profile);
+  }
+
+  /// Mirrors the profile JSON to the `app_profiles` table when Supabase is
+  /// configured AND a user is signed in. Guests (no session) stay local-only.
+  /// Non-fatal — never throws, never blocks local persistence.
+  Future<void> _syncProfileToSupabase(StudentProfile profile) async {
+    if (!AppConfig.hasSupabase) return;
+    try {
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
+      if (user == null) return;
+      // PII-minimise: Supabase Auth already owns the email/provider, so don't
+      // duplicate them into the synced JSON (CLAUDE.md privacy rule for minors).
+      final sanitised = Map<String, dynamic>.from(profile.toJson())
+        ..remove('auth_email')
+        ..remove('auth_provider');
+      await client.from('app_profiles').upsert({
+        'id': user.id,
+        // Email in its own column for easy querying; the rest of the profile
+        // (grade, city, majors, scores, plan…) goes in `data`.
+        'email': user.email ?? profile.authEmail,
+        'data': sanitised,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      });
+    } on Object catch (e) {
+      debugPrint('[ProfileRepository] supabase sync skipped: $e');
+    }
   }
 
   @override

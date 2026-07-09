@@ -16,6 +16,7 @@ const _fakeCatalog = UniversityCatalog(
       nameRu: 'Назарбаев Университет',
       city: 'Астана',
       type: UniversityType.autonomous,
+      hasDormitory: true,
     ),
     UniversityRecord(
       id: 'kaznu',
@@ -23,18 +24,37 @@ const _fakeCatalog = UniversityCatalog(
       city: 'Алматы',
       type: UniversityType.national,
     ),
+    UniversityRecord(
+      id: 'kbtu',
+      nameRu: 'КБТУ',
+      city: 'Алматы',
+      type: UniversityType.private,
+    ),
   ],
   programs: [
     EducationProgram(
       code: 'B057',
       nameRu: 'Информационные технологии',
+      field: 'informatics',
       entSubject1: 'Математика',
       entSubject2: 'Информатика',
+    ),
+    EducationProgram(
+      code: 'B073',
+      nameRu: 'Архитектура',
+      field: 'engineering',
+    ),
+    EducationProgram(
+      code: 'B001',
+      nameRu: 'Педагогика и психология',
+      field: 'natural',
     ),
   ],
   offerings: [
     UniversityProgram(universityId: 'nu', programCode: 'B057'),
     UniversityProgram(universityId: 'kaznu', programCode: 'B057'),
+    UniversityProgram(universityId: 'kaznu', programCode: 'B073'),
+    UniversityProgram(universityId: 'kbtu', programCode: 'B073'),
   ],
   thresholds: [
     GrantThreshold(
@@ -77,14 +97,14 @@ Widget _themed(Widget child) {
 
 Widget _router() {
   final router = GoRouter(
-    initialLocation: '/universities',
+    initialLocation: '/uni-kz',
     routes: [
       GoRoute(
-        path: '/universities',
+        path: '/uni-kz',
         builder: (context, state) => const UniversitiesScreen(),
       ),
       GoRoute(
-        path: '/universities/:id',
+        path: '/uni-kz/:id',
         builder: (context, state) => Scaffold(
           body: Center(child: Text('Detail:${state.pathParameters['id']}')),
         ),
@@ -120,7 +140,7 @@ void main() {
       await tester.pumpWidget(_themed(const UniversitiesScreen()));
       await tester.pumpAndSettle();
       expect(find.text('Вузы'), findsOneWidget);
-      expect(find.textContaining('2 вузов'), findsOneWidget);
+      expect(find.textContaining('3 вузов'), findsOneWidget);
     });
 
     testWidgets('shows MascotSlot', (tester) async {
@@ -129,11 +149,20 @@ void main() {
       expect(find.byType(MascotSlot), findsOneWidget);
     });
 
-    testWidgets('shows Город and Тип filter chips', (tester) async {
+    testWidgets('filter chips are present and left-aligned', (tester) async {
       await tester.pumpWidget(_themed(const UniversitiesScreen()));
       await tester.pumpAndSettle();
+
       expect(find.text('Город'), findsOneWidget);
+      expect(find.text('Направление'), findsOneWidget);
       expect(find.text('Тип'), findsOneWidget);
+      // 'Общежитие' appears in both the filter chip and the NU card.
+      expect(find.text('Общежитие'), findsWidgets);
+      expect(find.text('Балл до…'), findsOneWidget);
+
+      // The filter row must be within a SingleChildScrollView so it is
+      // horizontally scrollable (not centred or truncated).
+      expect(find.byType(SingleChildScrollView), findsWidgets);
     });
 
     testWidgets('lists universities with type badge and honest score', (
@@ -169,6 +198,112 @@ void main() {
 
       expect(find.text('Назарбаев Университет'), findsOneWidget);
       expect(find.text('КазНУ им. аль-Фараби'), findsNothing);
+    });
+
+    testWidgets('filtering by major (IT) shows only IT universities', (
+      tester,
+    ) async {
+      final container = ProviderContainer(overrides: _overrides);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: ThemeData(extensions: [AppTokens.defaults()]),
+            home: const UniversitiesScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Only nu and kaznu have IT (B057).
+      container.read(catalogFilterProvider.notifier).setMajor(MajorCategory.it);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Назарбаев Университет'), findsOneWidget);
+      expect(find.text('КазНУ им. аль-Фараби'), findsOneWidget);
+      // kbtu only has engineering (B073) — should be hidden.
+      expect(find.text('КБТУ'), findsNothing);
+    });
+
+    testWidgets('filtering by engineering shows only engineering universities', (
+      tester,
+    ) async {
+      final container = ProviderContainer(overrides: _overrides);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: ThemeData(extensions: [AppTokens.defaults()]),
+            home: const UniversitiesScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      container
+          .read(catalogFilterProvider.notifier)
+          .setMajor(MajorCategory.engineering);
+      await tester.pumpAndSettle();
+
+      // kaznu and kbtu have engineering (B073).
+      expect(find.text('КазНУ им. аль-Фараби'), findsOneWidget);
+      expect(find.text('КБТУ'), findsOneWidget);
+      // nu only has IT (B057) — should be hidden.
+      expect(find.text('Назарбаев Университет'), findsNothing);
+    });
+
+    testWidgets('dormitory filter shows only universities with dormitories', (
+      tester,
+    ) async {
+      final container = ProviderContainer(overrides: _overrides);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: ThemeData(extensions: [AppTokens.defaults()]),
+            home: const UniversitiesScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      container.read(catalogFilterProvider.notifier).toggleDormitory();
+      await tester.pumpAndSettle();
+
+      // Only nu has hasDormitory: true.
+      expect(find.text('Назарбаев Университет'), findsOneWidget);
+      expect(find.text('КазНУ им. аль-Фараби'), findsNothing);
+      expect(find.text('КБТУ'), findsNothing);
+    });
+
+    testWidgets('score filter hides universities above the threshold', (
+      tester,
+    ) async {
+      final container = ProviderContainer(overrides: _overrides);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: ThemeData(extensions: [AppTokens.defaults()]),
+            home: const UniversitiesScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // NU has minScore 120 — set limit to 100 so NU is filtered out.
+      container.read(catalogFilterProvider.notifier).setMaxScore(100);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Назарбаев Университет'), findsNothing);
+      // kaznu has minScore 90 — should still show.
+      expect(find.text('КазНУ им. аль-Фараби'), findsOneWidget);
+      // kbtu has no score data — let it through.
+      expect(find.text('КБТУ'), findsOneWidget);
     });
 
     testWidgets('empty state when no city matches', (tester) async {
@@ -211,6 +346,38 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Сбросить'), findsOneWidget);
+    });
+
+    testWidgets('Сбросить clears all active filters', (tester) async {
+      final container = ProviderContainer(overrides: _overrides);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: ThemeData(extensions: [AppTokens.defaults()]),
+            home: const UniversitiesScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Set two filters.
+      container.read(catalogFilterProvider.notifier).setCity('Астана');
+      container
+          .read(catalogFilterProvider.notifier)
+          .setMajor(MajorCategory.it);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Сбросить'), findsOneWidget);
+
+      // Clear all.
+      await tester.tap(find.text('Сбросить'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Назарбаев Университет'), findsOneWidget);
+      expect(find.text('КазНУ им. аль-Фараби'), findsOneWidget);
+      expect(find.text('КБТУ'), findsOneWidget);
     });
   });
 

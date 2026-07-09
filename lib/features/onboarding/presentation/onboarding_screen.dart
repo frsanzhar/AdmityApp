@@ -1,14 +1,15 @@
 /// Animated onboarding flow — premium hand-crafted style.
 ///
-/// 14 steps: role selection, mascot greeting, motivation, sound, age, subject,
-/// trust, knowledge level, topic universe, daily goal + schedule,
-/// notifications, 3-step plan, plan creation, and completion.
+/// 13 steps: role selection, mascot greeting, motivation (3 opts), age, subject,
+/// universities trust, confidence, academic stats, topic universe,
+/// daily goal + schedule, notifications, 3-step plan, plan creation, and completion.
 /// Each step animates in with flutter_animate (fade + slide).
 /// On finish: saves profile with onboardingComplete=true → /home.
 library;
 
 import 'dart:async';
 
+import 'package:admity/core/notifications/notifications_service.dart';
 import 'package:admity/core/theme/app_colors.dart';
 import 'package:admity/core/theme/app_tokens.dart';
 import 'package:admity/features/profile/application/profile_notifier.dart';
@@ -35,6 +36,46 @@ Widget _animWrap(bool noAnim, int delayMs, Widget child) {
       .slideY(begin: 0.12, end: 0, duration: 400.ms);
 }
 
+// ── Study plan generator ──────────────────────────────────────────────────────
+
+/// Generates a 4-6 step study plan purely from profile data.
+///
+/// No network calls — pure Dart so the plan is always available offline.
+List<String> _generateStudyPlan({
+  required List<String> targetMajors,
+  required String? confidence,
+  required String? schedule,
+  required String? motivation,
+}) {
+  final major = targetMajors.isNotEmpty ? targetMajors.first : 'выбранному направлению';
+  final timeLabel = switch (schedule) {
+    'Утро' => 'утром',
+    'День' => 'днём',
+    'Вечер' => 'вечером',
+    _ => 'в удобное время',
+  };
+
+  // Starter plan — order varies by confidence level.
+  final isEarlyStage = confidence == 'Только начинаю' || confidence == 'Ещё не уверен';
+
+  final steps = <String>[
+    if (isEarlyStage)
+      'Пройди профориентационный тест, чтобы подтвердить интерес к $major'
+    else
+      'Убедись, что профиль — ЕНТ, ГПА, оценки — актуален и точен',
+    'Изучи вступительные требования и проходные баллы по направлению $major',
+    'Составь список целевых вузов (Казахстан и/или за рубежом) с дедлайнами',
+    'Выдели $timeLabel ежедневное время для подготовки и придерживайся расписания',
+    'Практикуй тестовые задания ЕНТ / международные экзамены по выбранным предметам',
+    if (motivation == 'Поступить в вуз за рубежом')
+      'Подготовь документы для международных заявок: эссе, рекомендации, языковые сертификаты'
+    else
+      'Собери пакет документов: аттестат, транскрипт, рекомендательные письма',
+  ];
+
+  return steps;
+}
+
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 /// Premium onboarding flow for Admity.
@@ -50,27 +91,34 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   int _step = 0;
+
+  // Total visible steps: 0..12 (the finish step at 12 calls _finish on button tap).
+  // Steps: 0=role, 1=mascot, 2=motivation, 3=age, 4=subject, 5=trust,
+  //        6=confidence, 7=stats, 8=topic-universe, 9=goal+schedule,
+  //        10=notifications, 11=plan-preview, 12=plan-creation, 13=finish.
   static const _totalSteps = 14;
 
   // ── Step state ────────────────────────────────────────────────────────────
 
   String? _role; // step 0
   String? _motivation; // step 2
-  String? _soundPreference; // step 3
-  int? _age; // step 4
+  int? _age; // step 3
   final _ageCtrl = TextEditingController();
-  final Set<String> _majors = {}; // step 5 — что интересно как Major
-  String? _knowledgeLevel; // step 7
-  int? _dailyGoalMinutes; // step 9
-  String? _schedule; // step 9
-
-  // Backward-compat fields (city step removed but kept for profile compatibility)
-  String? _city;
-  String? _grade;
-  final _cityCtrl = TextEditingController();
+  final Set<String> _majors = {}; // step 4
+  String? _confidence; // step 6
+  // Step 7 — academic stats (all optional / skippable).
   final _gpaCtrl = TextEditingController();
   final _ieltsCtrl = TextEditingController();
   final _satCtrl = TextEditingController();
+  int? _dailyGoalMinutes; // step 9
+  String? _schedule; // step 9
+
+  // Backward-compat note: study plan is generated in _finish and saved to profile.
+
+  // Backward-compat fields kept for profile compatibility.
+  String? _city;
+  String? _grade;
+  final _cityCtrl = TextEditingController();
   final _toeflCtrl = TextEditingController();
   final Set<String> _interests = {};
 
@@ -94,45 +142,71 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _finish() async {
+    // Generate study plan from collected profile data before saving.
+    final plan = _generateStudyPlan(
+      targetMajors: _majors.toList(),
+      confidence: _confidence,
+      schedule: _schedule,
+      motivation: _motivation,
+    );
+
     final currentProfile = ref.read(profileProvider).profile;
     final updated = currentProfile.copyWith(
       role: _role,
       motivation: _motivation,
-      soundPreference: _soundPreference,
       age: _age,
       subject: _majors.isEmpty ? null : _majors.first,
       targetMajors: _majors.toList(),
-      knowledgeLevel: _knowledgeLevel,
+      confidence: _confidence,
+      gpa: _gpaCtrl.text.trim().isEmpty ? null : _gpaCtrl.text.trim(),
+      ieltsScore: _ieltsCtrl.text.trim().isEmpty ? null : _ieltsCtrl.text.trim(),
+      satScore: _satCtrl.text.trim().isEmpty ? null : _satCtrl.text.trim(),
       dailyGoalMinutes: _dailyGoalMinutes,
       schedule: _schedule,
       city: _cityCtrl.text.trim().isNotEmpty ? _cityCtrl.text.trim() : _city,
       grade: _grade,
-      gpa: _gpaCtrl.text.trim().isEmpty ? null : _gpaCtrl.text.trim(),
       interests: _interests.toList(),
+      studyPlan: plan,
       onboardingComplete: true,
     );
     await ref.read(profileProvider.notifier).saveProfile(updated);
+
+    // Ask for notification permission and schedule a real daily study reminder.
+    // Fire-and-forget — navigation must not wait on the OS permission dialog.
+    unawaited(_scheduleStudyReminder(_schedule, _dailyGoalMinutes));
+
     if (mounted) context.go('/home');
+  }
+
+  /// Requests notification permission, then schedules a daily reminder at the
+  /// hour matching the student's chosen [schedule] (morning / day / evening).
+  Future<void> _scheduleStudyReminder(
+    String? schedule,
+    int? dailyGoalMinutes,
+  ) async {
+    final granted = await NotificationsService.requestPermission();
+    if (!granted) return;
+    final hour = switch (schedule) {
+      'Утро' => 9,
+      'День' => 14,
+      'Вечер' => 19,
+      _ => 18,
+    };
+    final minutes = dailyGoalMinutes ?? 20;
+    await NotificationsService.scheduleDailyReminder(
+      id: 1001,
+      hour: hour,
+      minute: 0,
+      title: 'Время учиться с Admity 🎓',
+      body: 'Удели $minutes мин подготовке к поступлению — ты на верном пути!',
+    );
   }
 
   // ── Determine if Далее button is enabled ──────────────────────────────────
 
-  bool get _canAdvance {
-    switch (_step) {
-      case 0:
-        return _role != null;
-      case 2:
-        return _motivation != null;
-      case 3:
-        return _soundPreference != null;
-      case 5:
-        return _majors.isNotEmpty;
-      case 7:
-        return _knowledgeLevel != null;
-      default:
-        return true;
-    }
-  }
+  /// Every step is skippable: all profile fields are nullable, so the student
+  /// may advance without answering — nothing in onboarding is mandatory.
+  bool get _canAdvance => true;
 
   @override
   Widget build(BuildContext context) {
@@ -193,18 +267,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           onSelect: (v) => setState(() => _motivation = v),
         );
       case 3:
-        return _SoundStep(
-          tokens: tokens,
-          selected: _soundPreference,
-          onSelect: (v) => setState(() => _soundPreference = v),
-        );
-      case 4:
         return _AgeStep(
           tokens: tokens,
           controller: _ageCtrl,
           onChanged: (v) => setState(() => _age = v),
         );
-      case 5:
+      case 4:
         return _SubjectStep(
           tokens: tokens,
           selected: _majors,
@@ -212,13 +280,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             if (!_majors.remove(v)) _majors.add(v);
           }),
         );
-      case 6:
+      case 5:
         return _UniversitiesTrustStep(tokens: tokens);
-      case 7:
-        return _KnowledgeLevelStep(
+      case 6:
+        return _ConfidenceStep(
           tokens: tokens,
-          selected: _knowledgeLevel,
-          onSelect: (v) => setState(() => _knowledgeLevel = v),
+          selected: _confidence,
+          onSelect: (v) => setState(() => _confidence = v),
+        );
+      case 7:
+        return _StatsStep(
+          tokens: tokens,
+          gpaCtrl: _gpaCtrl,
+          ieltsCtrl: _ieltsCtrl,
+          satCtrl: _satCtrl,
         );
       case 8:
         return _TopicUniverseStep(tokens: tokens);
@@ -257,6 +332,8 @@ class _ProgressBar extends StatelessWidget {
   final AppTokens tokens;
   final VoidCallback onPrev;
 
+  // Segments shown = total steps minus the last two (plan-creation + finish
+  // which have no progress bar).
   static const _totalSegments = 12;
 
   @override
@@ -555,7 +632,7 @@ class _MascotGreetingStep extends StatelessWidget {
   }
 }
 
-// ── Step 2: Motivation ────────────────────────────────────────────────────────
+// ── Step 2: Motivation (3 options) ────────────────────────────────────────────
 
 class _MotivationStep extends StatelessWidget {
   const _MotivationStep({
@@ -568,33 +645,29 @@ class _MotivationStep extends StatelessWidget {
   final String? selected;
   final ValueChanged<String> onSelect;
 
-  static const List<
-    ({String value, OptionDiagram3DVariant variant, String label, String desc})
-  >
+  /// Exactly 3 motivation options as per spec.
+  static const List<({String value, IconData icon, Color color, String label, String desc})>
   _options = [
     (
-      value: 'goal',
-      variant: OptionDiagram3DVariant.motivation,
-      label: 'Высокая цель',
-      desc: 'Поступить в топ-вуз',
+      value: 'Поступить в топ-вуз Казахстана',
+      icon: Icons.account_balance_rounded,
+      color: AppColors.primary,
+      label: 'Поступить в топ-вуз Казахстана',
+      desc: 'НУ, КБТУ, КазНУ и другие',
     ),
     (
-      value: 'knowledge',
-      variant: OptionDiagram3DVariant.beginner,
-      label: 'Новые знания',
-      desc: 'Учиться с нуля',
+      value: 'Поступить в вуз за рубежом',
+      icon: Icons.flight_takeoff_rounded,
+      color: AppColors.successGreen,
+      label: 'Поступить в вуз за рубежом',
+      desc: 'США, Европа, Азия и другие страны',
     ),
     (
-      value: 'career',
-      variant: OptionDiagram3DVariant.advanced,
-      label: 'Карьера',
-      desc: 'Получить хорошую работу',
-    ),
-    (
-      value: 'interest',
-      variant: OptionDiagram3DVariant.explorer,
-      label: 'Интерес',
-      desc: 'Просто нравится учиться',
+      value: 'Профориентация',
+      icon: Icons.explore_rounded,
+      color: AppColors.goldKey,
+      label: 'Профориентация',
+      desc: 'Ещё выбираю направление',
     ),
   ];
 
@@ -614,218 +687,110 @@ class _MotivationStep extends StatelessWidget {
             noAnim,
             0,
             Text(
-              'Что тебя мотивирует?',
+              'Какова твоя цель?',
               style: textTheme.headlineLarge?.copyWith(color: AppColors.ink),
             ),
           ),
-          SizedBox(height: tokens.gapXl),
+          SizedBox(height: tokens.gapSm),
           _animWrap(
             noAnim,
-            120,
-            GridView.count(
-              crossAxisCount: 2,
-              mainAxisSpacing: tokens.gapMd,
-              crossAxisSpacing: tokens.gapMd,
-              childAspectRatio: 0.95,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              children: _options.map((opt) {
-                final isSelected = selected == opt.value;
-                return GestureDetector(
-                  onTap: () => onSelect(opt.value),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppColors.primary.withValues(alpha: 0.08)
-                          : AppColors.surfaceTint,
-                      borderRadius: BorderRadius.circular(tokens.radiusLg),
-                      border: Border.all(
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.border,
-                        width: isSelected ? 2 : 1,
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 64,
-                          height: 64,
-                          child: OptionDiagram3D(variant: opt.variant),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          opt.label,
-                          textAlign: TextAlign.center,
-                          style: textTheme.titleLarge?.copyWith(
-                            color: isSelected
-                                ? AppColors.primary
-                                : AppColors.ink,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          opt.desc,
-                          textAlign: TextAlign.center,
-                          style: textTheme.bodySmall?.copyWith(
-                            color: AppColors.inkSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          SizedBox(height: tokens.gapXxl),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Step 3: Sound preference ──────────────────────────────────────────────────
-
-class _SoundStep extends StatelessWidget {
-  const _SoundStep({
-    required this.tokens,
-    required this.selected,
-    required this.onSelect,
-  });
-
-  final AppTokens tokens;
-  final String? selected;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final noAnim = MediaQuery.of(context).disableAnimations;
-
-    return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(horizontal: tokens.screenPadding),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(height: tokens.gapXxl),
-          _animWrap(
-            noAnim,
-            0,
+            80,
             Text(
-              'Как Ералы должен звучать?',
-              style: textTheme.headlineLarge?.copyWith(color: AppColors.ink),
-            ),
-          ),
-          SizedBox(height: tokens.gapXl),
-          _animWrap(
-            noAnim,
-            120,
-            Row(
-              children: [
-                Expanded(
-                  child: _SoundCard(
-                    tokens: tokens,
-                    value: 'melodic',
-                    label: 'Мелодичный',
-                    desc: 'Тёплый и дружелюбный',
-                    mood: MascotMood.happy,
-                    isSelected: selected == 'melodic',
-                    onTap: () => onSelect('melodic'),
-                  ),
-                ),
-                SizedBox(width: tokens.gapMd),
-                Expanded(
-                  child: _SoundCard(
-                    tokens: tokens,
-                    value: 'deep',
-                    label: 'Глубокий',
-                    desc: 'Уверенный и чёткий',
-                    mood: MascotMood.think,
-                    isSelected: selected == 'deep',
-                    onTap: () => onSelect('deep'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: tokens.gapXxl),
-        ],
-      ),
-    );
-  }
-}
-
-class _SoundCard extends StatelessWidget {
-  const _SoundCard({
-    required this.tokens,
-    required this.value,
-    required this.label,
-    required this.desc,
-    required this.mood,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final AppTokens tokens;
-  final String value;
-  final String label;
-  final String desc;
-  final MascotMood mood;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.all(tokens.cardPadding),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withValues(alpha: 0.08)
-              : AppColors.surfaceTint,
-          borderRadius: BorderRadius.circular(tokens.radiusLg),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            MascotSlot(size: 64, mood: mood),
-            SizedBox(height: tokens.gapSm),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: textTheme.titleLarge?.copyWith(
-                color: isSelected ? AppColors.primary : AppColors.ink,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              desc,
-              textAlign: TextAlign.center,
-              style: textTheme.bodySmall?.copyWith(
+              'Это поможет подобрать правильный путь',
+              style: textTheme.bodyMedium?.copyWith(
                 color: AppColors.inkSecondary,
               ),
             ),
-          ],
-        ),
+          ),
+          SizedBox(height: tokens.gapXl),
+          ..._options.asMap().entries.map((entry) {
+            final i = entry.key;
+            final opt = entry.value;
+            final isSelected = selected == opt.value;
+            return _animWrap(
+              noAnim,
+              120 + i * 80,
+              Padding(
+                padding: EdgeInsets.only(bottom: tokens.gapMd),
+                child: GestureDetector(
+                  onTap: () => onSelect(opt.value),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: double.infinity,
+                    padding: EdgeInsets.all(tokens.cardPadding),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? opt.color.withValues(alpha: 0.08)
+                          : AppColors.surfaceTint,
+                      borderRadius: BorderRadius.circular(tokens.radiusLg),
+                      border: Border.all(
+                        color: isSelected ? opt.color : AppColors.border,
+                        width: isSelected ? 2 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: opt.color.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(tokens.radiusMd),
+                          ),
+                          child: Icon(opt.icon, size: 24, color: opt.color),
+                        ),
+                        SizedBox(width: tokens.gapMd),
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                opt.label,
+                                style: textTheme.titleMedium?.copyWith(
+                                  color: isSelected ? opt.color : AppColors.ink,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                opt.desc,
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: AppColors.inkSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (isSelected)
+                          Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              color: opt.color,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.check,
+                              size: 13,
+                              color: AppColors.white,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+          SizedBox(height: tokens.gapXxl),
+        ],
       ),
     );
   }
 }
 
-// ── Step 4: Age ───────────────────────────────────────────────────────────────
+// ── Step 3: Age ───────────────────────────────────────────────────────────────
 
 class _AgeStep extends StatelessWidget {
   const _AgeStep({
@@ -918,7 +883,7 @@ class _AgeStep extends StatelessWidget {
   }
 }
 
-// ── Step 5: Subject ───────────────────────────────────────────────────────────
+// ── Step 4: Subject / Majors ──────────────────────────────────────────────────
 
 class _SubjectStep extends StatelessWidget {
   const _SubjectStep({
@@ -1108,7 +1073,7 @@ class _SubjectCard extends StatelessWidget {
   }
 }
 
-// ── Step 6: Universities trust ────────────────────────────────────────────────
+// ── Step 5: Universities trust ────────────────────────────────────────────────
 
 class _UniversitiesTrustStep extends StatelessWidget {
   const _UniversitiesTrustStep({required this.tokens});
@@ -1163,10 +1128,10 @@ class _UniversitiesTrustStep extends StatelessWidget {
   }
 }
 
-// ── Step 7: Knowledge level ───────────────────────────────────────────────────
+// ── Step 6: Confidence ────────────────────────────────────────────────────────
 
-class _KnowledgeLevelStep extends StatelessWidget {
-  const _KnowledgeLevelStep({
+class _ConfidenceStep extends StatelessWidget {
+  const _ConfidenceStep({
     required this.tokens,
     required this.selected,
     required this.onSelect,
@@ -1176,27 +1141,35 @@ class _KnowledgeLevelStep extends StatelessWidget {
   final String? selected;
   final ValueChanged<String> onSelect;
 
-  static const List<
-    ({String value, OptionDiagram3DVariant variant, String label, String desc})
-  >
+  static const List<({String value, IconData icon, Color color, String label, String desc})>
   _levels = [
     (
-      value: 'beginner',
-      variant: OptionDiagram3DVariant.beginner,
-      label: 'Новичок',
-      desc: 'Только начинаю разбираться',
+      value: 'Уверен на 100%',
+      icon: Icons.emoji_events_rounded,
+      color: AppColors.goldKey,
+      label: 'Уверен на 100%',
+      desc: 'Знаю, что поступлю',
     ),
     (
-      value: 'middle',
-      variant: OptionDiagram3DVariant.motivation,
-      label: 'Средний уровень',
-      desc: 'Знаю основы, хочу углубиться',
+      value: 'Скорее да',
+      icon: Icons.thumb_up_rounded,
+      color: AppColors.successGreen,
+      label: 'Скорее да',
+      desc: 'Хороший шанс есть',
     ),
     (
-      value: 'advanced',
-      variant: OptionDiagram3DVariant.advanced,
-      label: 'Продвинутый',
-      desc: 'Уверенно решаю задачи',
+      value: 'Ещё не уверен',
+      icon: Icons.help_outline_rounded,
+      color: AppColors.primary,
+      label: 'Ещё не уверен',
+      desc: 'Нужно больше подготовки',
+    ),
+    (
+      value: 'Только начинаю',
+      icon: Icons.directions_walk_rounded,
+      color: AppColors.errorRed,
+      label: 'Только начинаю',
+      desc: 'Ещё не разобрался с целями',
     ),
   ];
 
@@ -1216,8 +1189,19 @@ class _KnowledgeLevelStep extends StatelessWidget {
             noAnim,
             0,
             Text(
-              'Как ты оцениваешь свои знания?',
+              'Насколько ты уверен, что поступишь?',
               style: textTheme.headlineLarge?.copyWith(color: AppColors.ink),
+            ),
+          ),
+          SizedBox(height: tokens.gapSm),
+          _animWrap(
+            noAnim,
+            80,
+            Text(
+              'Честный ответ поможет правильно составить план',
+              style: textTheme.bodyMedium?.copyWith(
+                color: AppColors.inkSecondary,
+              ),
             ),
           ),
           SizedBox(height: tokens.gapXl),
@@ -1238,22 +1222,24 @@ class _KnowledgeLevelStep extends StatelessWidget {
                     padding: EdgeInsets.all(tokens.cardPadding),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? AppColors.primary.withValues(alpha: 0.08)
+                          ? level.color.withValues(alpha: 0.08)
                           : AppColors.surfaceTint,
                       borderRadius: BorderRadius.circular(tokens.radiusLg),
                       border: Border.all(
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.border,
+                        color: isSelected ? level.color : AppColors.border,
                         width: isSelected ? 2 : 1,
                       ),
                     ),
                     child: Row(
                       children: [
-                        SizedBox(
-                          width: 60,
-                          height: 60,
-                          child: OptionDiagram3D(variant: level.variant),
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: level.color.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(tokens.radiusMd),
+                          ),
+                          child: Icon(level.icon, size: 24, color: level.color),
                         ),
                         SizedBox(width: tokens.gapMd),
                         Expanded(
@@ -1263,10 +1249,9 @@ class _KnowledgeLevelStep extends StatelessWidget {
                             children: [
                               Text(
                                 level.label,
-                                style: textTheme.titleLarge?.copyWith(
-                                  color: isSelected
-                                      ? AppColors.primary
-                                      : AppColors.ink,
+                                style: textTheme.titleMedium?.copyWith(
+                                  color: isSelected ? level.color : AppColors.ink,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -1283,8 +1268,8 @@ class _KnowledgeLevelStep extends StatelessWidget {
                           Container(
                             width: 22,
                             height: 22,
-                            decoration: const BoxDecoration(
-                              color: AppColors.primary,
+                            decoration: BoxDecoration(
+                              color: level.color,
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -1303,6 +1288,163 @@ class _KnowledgeLevelStep extends StatelessWidget {
           SizedBox(height: tokens.gapXxl),
         ],
       ),
+    );
+  }
+}
+
+// ── Step 7: Academic stats ────────────────────────────────────────────────────
+
+/// Collects GPA, IELTS, and SAT in one combined step.
+///
+/// All fields are optional — a "Пропустить" option is provided via the
+/// standard Далее button (which is always enabled for this step).
+class _StatsStep extends StatelessWidget {
+  const _StatsStep({
+    required this.tokens,
+    required this.gpaCtrl,
+    required this.ieltsCtrl,
+    required this.satCtrl,
+  });
+
+  final AppTokens tokens;
+  final TextEditingController gpaCtrl;
+  final TextEditingController ieltsCtrl;
+  final TextEditingController satCtrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final noAnim = MediaQuery.of(context).disableAnimations;
+
+    return SingleChildScrollView(
+      padding: EdgeInsets.symmetric(horizontal: tokens.screenPadding),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(height: tokens.gapXxl),
+          _animWrap(
+            noAnim,
+            0,
+            Text(
+              'Твои академические показатели',
+              style: textTheme.headlineLarge?.copyWith(color: AppColors.ink),
+            ),
+          ),
+          SizedBox(height: tokens.gapSm),
+          _animWrap(
+            noAnim,
+            80,
+            Text(
+              'Необязательно — можно пропустить. Это нужно для честной оценки шансов.',
+              style: textTheme.bodyMedium?.copyWith(
+                color: AppColors.inkSecondary,
+              ),
+            ),
+          ),
+          SizedBox(height: tokens.gapXxl),
+          _animWrap(
+            noAnim,
+            160,
+            _StatsField(
+              tokens: tokens,
+              controller: gpaCtrl,
+              label: 'ГПА / Средний балл',
+              hint: 'Например: 4.8',
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            ),
+          ),
+          SizedBox(height: tokens.gapMd),
+          _animWrap(
+            noAnim,
+            240,
+            _StatsField(
+              tokens: tokens,
+              controller: ieltsCtrl,
+              label: 'IELTS (если есть)',
+              hint: 'Например: 7.0',
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            ),
+          ),
+          SizedBox(height: tokens.gapMd),
+          _animWrap(
+            noAnim,
+            320,
+            _StatsField(
+              tokens: tokens,
+              controller: satCtrl,
+              label: 'SAT (если есть)',
+              hint: 'Например: 1400',
+              keyboardType: TextInputType.number,
+            ),
+          ),
+          SizedBox(height: tokens.gapXxl),
+        ],
+      ),
+    );
+  }
+}
+
+/// A single labeled text field used in [_StatsStep].
+class _StatsField extends StatelessWidget {
+  const _StatsField({
+    required this.tokens,
+    required this.controller,
+    required this.label,
+    required this.hint,
+    required this.keyboardType,
+  });
+
+  final AppTokens tokens;
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final TextInputType keyboardType;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: textTheme.labelLarge?.copyWith(color: AppColors.ink),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          style: textTheme.bodyLarge?.copyWith(color: AppColors.ink),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: textTheme.bodyLarge?.copyWith(color: AppColors.border),
+            filled: true,
+            fillColor: AppColors.surfaceTint,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(tokens.radiusMd),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(tokens.radiusMd),
+              borderSide: const BorderSide(color: AppColors.border),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(tokens.radiusMd),
+              borderSide: const BorderSide(
+                color: AppColors.primary,
+                width: 2,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1877,12 +2019,12 @@ class _PlanCreationStepState extends State<_PlanCreationStep> {
       color: AppColors.primary,
     ),
     (
-      title: 'Подбираем курсы',
+      title: 'Подбираем вузы и направления',
       icon: Icons.auto_awesome_outlined,
       color: AppColors.accentLime,
     ),
     (
-      title: 'Строим путь',
+      title: 'Строим персональный путь',
       icon: Icons.route_outlined,
       color: AppColors.successGreen,
     ),
@@ -2088,77 +2230,11 @@ class _FinishStep extends ConsumerWidget {
           SizedBox(height: tokens.gapXxl),
           _animWrap(
             noAnim,
-            560,
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Чтобы сохранить прогресс в облаке, войди через:',
-                  textAlign: TextAlign.center,
-                  style: textTheme.bodySmall?.copyWith(
-                    color: AppColors.inkSecondary,
-                  ),
-                ),
-                SizedBox(height: tokens.gapMd),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _AuthGhostButton(
-                      label: 'Google',
-                      onTap: () {
-                        // TODO(auth): wire Google sign-in
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Скоро / Coming soon')),
-                        );
-                      },
-                    ),
-                    SizedBox(width: tokens.gapSm),
-                    _AuthGhostButton(
-                      label: 'Apple',
-                      onTap: () {
-                        // TODO(auth): wire Apple sign-in
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Скоро / Coming soon')),
-                        );
-                      },
-                    ),
-                    SizedBox(width: tokens.gapSm),
-                    _AuthGhostButton(
-                      label: 'Email',
-                      onTap: () {
-                        // TODO(auth): wire email sign-in
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Скоро / Coming soon')),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: tokens.gapXl),
-          _animWrap(
-            noAnim,
             650,
             FeaturedButton(
               label: 'Начать',
               isLoading: isSaving,
               onPressed: isSaving ? null : () => unawaited(onFinish()),
-            ),
-          ),
-          SizedBox(height: tokens.gapMd),
-          _animWrap(
-            noAnim,
-            730,
-            TextButton(
-              onPressed: isSaving ? null : () => unawaited(onFinish()),
-              child: Text(
-                'Продолжить без входа',
-                style: textTheme.labelLarge?.copyWith(
-                  color: AppColors.inkSecondary,
-                ),
-              ),
             ),
           ),
           SizedBox(height: tokens.gapXxl),
@@ -2168,30 +2244,5 @@ class _FinishStep extends ConsumerWidget {
   }
 }
 
-class _AuthGhostButton extends StatelessWidget {
-  const _AuthGhostButton({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceTint,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Text(
-          label,
-          style: textTheme.labelLarge?.copyWith(color: AppColors.ink),
-        ),
-      ),
-    );
-  }
-}
+// (Removed _AuthGhostButton — sign-in now happens up front on the /auth screen,
+// not at the end of onboarding.)

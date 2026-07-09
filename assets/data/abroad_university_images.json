@@ -1,0 +1,161 @@
+{
+ "_comment": "Map: abroad university id -> {campus: url, dorm: url}. IDs from universities_abroad.json.",
+ "amherst": {
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/Morrow_Dormitory%2C_Amherst_College%2C_Amherst%2C_Mass._%2812659497513%29.jpg/1280px-Morrow_Dormitory%2C_Amherst_College%2C_Amherst%2C_Mass._%2812659497513%29.jpg"
+ },
+ "amsterdam": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Amsterdam_-_Oudemanhuispoort_-_University_of_Amsterdam_Law_Faculty_-_Inside_Court_1757_by_G.Maybaum_-_View_NW.jpg/1280px-Amsterdam_-_Oudemanhuispoort_-_University_of_Amsterdam_Law_Faculty_-_Inside_Court_1757_by_G.Maybaum_-_View_NW.jpg"
+ },
+ "anu": {
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/AUS_Canberra%2C_Central%2C_Australian_National_University_042.jpg/1280px-AUS_Canberra%2C_Central%2C_Australian_National_University_042.jpg",
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Australian_National_Dictionary_Centre_March_2012.JPG/1280px-Australian_National_Dictionary_Centre_March_2012.JPG"
+ },
+ "bocconi": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dc/Bocconi_Grafton_Building_Milan.jpg/1280px-Bocconi_Grafton_Building_Milan.jpg"
+ },
+ "bowdoin": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Massachusetts_Hall%2C_Bowdoin_College.jpg/1280px-Massachusetts_Hall%2C_Bowdoin_College.jpg"
+ },
+ "caltech": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/California_Institute_of_Technology%2C_Pasadena%2C_California_%2814516438274%29.jpg/1280px-California_Institute_of_Technology%2C_Pasadena%2C_California_%2814516438274%29.jpg"
+ },
+ "cambridge": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Kings_College_Cambridge_Chapel_from_the_river.jpg/1280px-Kings_College_Cambridge_Chapel_from_the_river.jpg"
+ },
+ "columbia": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/26/Pupin_Hall.jpg/1280px-Pupin_Hall.jpg",
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/John_Jay_Hall_Columbia_University.jpg/1280px-John_Jay_Hall_Columbia_University.jpg"
+ },
+ "dartmouth": {
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/Dartmouth_College_campus_2007-06-23_Wheeler_Hall_02.JPG/1280px-Dartmouth_College_campus_2007-06-23_Wheeler_Hall_02.JPG",
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Theodor_Geisel_Room_Baker-Berry_Library_Dartmouth_College_Hanover_NH_October_2017.jpg/1280px-Theodor_Geisel_Room_Baker-Berry_Library_Dartmouth_College_Hanover_NH_October_2017.jpg"
+ },
+ "delft": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/73/Delft_University_of_Technology_SW2_building_low_part.jpg/1280px-Delft_University_of_Technology_SW2_building_low_part.jpg"
+ },
+ "edinburgh": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Playfair_Library%2C_Old_College%2C_University_of_Edinburgh.jpg/1280px-Playfair_Library%2C_Old_College%2C_University_of_Edinburgh.jpg"
+ },
+ "epfl": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/e/e2/EPFL_campus_2017.jpg"
+ },
+ "eth-zurich": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/3/38/ETH_Z%C3%BCrich_-_Hauptgeb%C3%A4ude_-_Unispital_2012-07-30_07-57-03_ShiftN.jpg"
+ },
+ "fu-berlin": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/4/43/Freie_Universitaet_Berlin_-_Gebaeudekomplex_Rost-_und_Silberlaube.jpg"
+ },
+ "harvard": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/William_James_Hall%2C_Harvard_University.jpg/1280px-William_James_Hall%2C_Harvard_University.jpg",
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/b/b2/Dunster_House.jpg"
+ },
+ "heidelberg": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fc/University_Hall%2C_Heidelberg_University.jpg/1280px-University_Hall%2C_Heidelberg_University.jpg"
+ },
+ "hku": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/HKU_%E9%A6%99%E6%B8%AF%E5%A4%A7%E5%AD%B8_ML_Pokfulam_Bonham_Road_campus_%E9%84%A7%E5%BF%97%E6%98%82%E6%A8%93_Tang_Chi_Ngong_Building_Dec-2017_IX1_name_sign.jpg/1280px-HKU_%E9%A6%99%E6%B8%AF%E5%A4%A7%E5%AD%B8_ML_Pokfulam_Bonham_Road_campus_%E9%84%A7%E5%BF%97%E6%98%82%E6%A8%93_Tang_Chi_Ngong_Building_Dec-2017_IX1_name_sign.jpg"
+ },
+ "hkust": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/Clear_Water_Bay%2C_Hong_Kong_-_panoramio.jpg/1280px-Clear_Water_Bay%2C_Hong_Kong_-_panoramio.jpg"
+ },
+ "imperial": {
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Gabor_Hall_%5E_Linstead_Hall_-_Imperial_College_London_-_geograph.org.uk_-_7829232.jpg/1280px-Gabor_Hall_%5E_Linstead_Hall_-_Imperial_College_London_-_geograph.org.uk_-_7829232.jpg",
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/Queen%27s_Tower%2C_Londres%2C_Inglaterra%2C_2022-11-25%2C_DD_103-105_HDR.jpg/1280px-Queen%27s_Tower%2C_Londres%2C_Inglaterra%2C_2022-11-25%2C_DD_103-105_HDR.jpg"
+ },
+ "kaist": {
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f9/Kaist_dormitory.jpg/1280px-Kaist_dormitory.jpg"
+ },
+ "kcl": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/Kingsbuilding.jpg/1280px-Kingsbuilding.jpg"
+ },
+ "ku-leuven": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0e/Castle_Arenberg%2C_Katholieke_Universiteit_Leuven_adj.jpg/1280px-Castle_Arenberg%2C_Katholieke_Universiteit_Leuven_adj.jpg"
+ },
+ "leiden": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Leiden_University_Wijnhaven_building_2.jpg/1280px-Leiden_University_Wijnhaven_building_2.jpg"
+ },
+ "lse": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/LSE_Buildings_%284770697517%29.jpg/1280px-LSE_Buildings_%284770697517%29.jpg",
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Visit_by_Queen_Mother_to_Rosebery_Avenue_Hall_of_Residence%2C_27th_February_1975_%284090206596%29.jpg/1280px-Visit_by_Queen_Mother_to_Rosebery_Avenue_Hall_of_Residence%2C_27th_February_1975_%284090206596%29.jpg"
+ },
+ "manchester": {
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/e/ec/Woolton_Hall%2C_University_of_Manchester%2C_Main_Entrance.jpg"
+ },
+ "mcgill": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Elizabeth_Wirth_Music_Building%2C_McGill_University%2C_Sep_06_2022.jpg/1280px-Elizabeth_Wirth_Music_Building%2C_McGill_University%2C_Sep_06_2022.jpg",
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/97/Mcgilldorms.jpg/1280px-Mcgilldorms.jpg"
+ },
+ "melbourne": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Old_Arts_Building._Parkville_Campus_of_University_of_Melbourne_%28cropped%29.JPG/1280px-Old_Arts_Building._Parkville_Campus_of_University_of_Melbourne_%28cropped%29.JPG",
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/IH_Melbourne_Dimmick_Courtyard.jpg/1280px-IH_Melbourne_Dimmick_Courtyard.jpg"
+ },
+ "mit": {
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Baker_House%2C_MIT%2C_Cambridge%2C_Massachusetts.JPG/1280px-Baker_House%2C_MIT%2C_Cambridge%2C_Massachusetts.JPG",
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bc/Great_dome_of_MIT%2C_Feb_2021.jpg/1280px-Great_dome_of_MIT%2C_Feb_2021.jpg"
+ },
+ "ntu": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Nanyang_Business_School_Campus_Building_-_3.jpg/1280px-Nanyang_Business_School_Campus_Building_-_3.jpg"
+ },
+ "nus": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Manasseh_Meyer_Building%2C_National_University_of_Singapore_Bukit_Timah_Campus%2C_October_2025.jpg/1280px-Manasseh_Meyer_Building%2C_National_University_of_Singapore_Bukit_Timah_Campus%2C_October_2025.jpg",
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/Dining_Hall_of_Raffles_Hall%2C_National_University_of_Singapore%2C_at_night_-_20070116.jpg/1280px-Dining_Hall_of_Raffles_Hall%2C_National_University_of_Singapore%2C_at_night_-_20070116.jpg"
+ },
+ "oxford": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2b/Radcliffe_Camera%2C_Oxford_-_Oct_2006.jpg/1280px-Radcliffe_Camera%2C_Oxford_-_Oct_2006.jpg"
+ },
+ "peking": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e2/Wanliu_Campus_of_Peking_University_%2820220925175136%29.jpg/1280px-Wanliu_Campus_of_Peking_University_%2820220925175136%29.jpg"
+ },
+ "princeton": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Center_Courtyard_of_East_Pyne_Building_Princeton_University_2024.jpg/1280px-Center_Courtyard_of_East_Pyne_Building_Princeton_University_2024.jpg",
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/a/a6/Princeton_University_halls2.jpg"
+ },
+ "sciences-po": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/0/0b/Paris_Institute_of_Political_Studies.png"
+ },
+ "stanford": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ed/Encina_Hall.jpg/1280px-Encina_Hall.jpg",
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Roble_Hall_at_Stanford_University_on_August_16_2022.jpg/1280px-Roble_Hall_at_Stanford_University_on_August_16_2022.jpg"
+ },
+ "tsinghua": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/Tsinghua_University_campus_1.jpg/1280px-Tsinghua_University_campus_1.jpg",
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Dormitory_of_Tsinghua_University_4.JPG/1280px-Dormitory_of_Tsinghua_University_4.JPG"
+ },
+ "tu-berlin": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/TU_Berlin_Hauptgebaeude070710_UlrichDahl.jpg/1280px-TU_Berlin_Hauptgebaeude070710_UlrichDahl.jpg"
+ },
+ "tu-munich": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/Bibliothek_der_TU_M%C3%BCnchen_13.jpg/1280px-Bibliothek_der_TU_M%C3%BCnchen_13.jpg"
+ },
+ "ubc": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9d/Iona_Building%2C_University_of_British_Columbia.jpg/1280px-Iona_Building%2C_University_of_British_Columbia.jpg",
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Cascades_Residences_%28UBC_Okanagan%29.JPG/1280px-Cascades_Residences_%28UBC_Okanagan%29.JPG"
+ },
+ "uchicago": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/Hutchinson_Court.jpg/1280px-Hutchinson_Court.jpg",
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/Burton-Judson_Courts.jpg/1280px-Burton-Judson_Courts.jpg"
+ },
+ "ucl": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/London_UCL_Wilkins_Building_portico_240_20220427_1049.jpg/1280px-London_UCL_Wilkins_Building_portico_240_20220427_1049.jpg"
+ },
+ "utokyo": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Hongo_Campus%2C_University_of_Tokyo_seen_from_Engineering_Building_11.jpg/1280px-Hongo_Campus%2C_University_of_Tokyo_seen_from_Engineering_Building_11.jpg"
+ },
+ "utoronto": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/University_of_Toronto_Scarborough_Campus.jpg/1280px-University_of_Toronto_Scarborough_Campus.jpg"
+ },
+ "waseda": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bb/Waseda_university_-_Waseda_campus.JPG/1280px-Waseda_university_-_Waseda_campus.JPG"
+ },
+ "waterloo": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/University_of_Waterloo_Stratford_School_Building.jpg/1280px-University_of_Waterloo_Stratford_School_Building.jpg"
+ },
+ "williams": {
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/Williams_College_-_Williams_dormitory.JPG/1280px-Williams_College_-_Williams_dormitory.JPG",
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Clark_Art_Institute%2C_Williamstown%2C_MA_-_main_entrance.JPG/1280px-Clark_Art_Institute%2C_Williamstown%2C_MA_-_main_entrance.JPG"
+ },
+ "yale": {
+  "campus": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Yale_Old_Campus_Alumni_Hall_and_Trumbull_Gallery%2C_by_G._S._Thomas.jpg/1280px-Yale_Old_Campus_Alumni_Hall_and_Trumbull_Gallery%2C_by_G._S._Thomas.jpg",
+  "dorm": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f4/Durfee_Hall_spring.JPG/1280px-Durfee_Hall_spring.JPG"
+ }
+}

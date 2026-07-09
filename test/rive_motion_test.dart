@@ -42,12 +42,13 @@ void main() {
       expect(find.byType(MascotSlot), findsOneWidget);
     });
 
-    testWidgets('shows optional tag label when provided', (tester) async {
+    testWidgets('does NOT render the tag caption (kept for API only)',
+        (tester) async {
       await tester.pumpWidget(
         _themed(const MascotSlot(tag: 'test-tag', size: 80)),
       );
       await tester.pumpAndSettle();
-      expect(find.text('test-tag'), findsOneWidget);
+      expect(find.text('test-tag'), findsNothing);
     });
 
     testWidgets('reduces to static blob when MediaQuery.disableAnimations',

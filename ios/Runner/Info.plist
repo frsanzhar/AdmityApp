@@ -14,6 +14,21 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.86817590124-v9c1rbjftnjsnvamj34kl89jjk3oqlq3</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>kz.admity.app</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleName</key>
 	<string>admity</string>
 	<key>CFBundlePackageType</key>
@@ -26,6 +41,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSUserNotificationUsageDescription</key>
+	<string>Admity напоминает о ежедневных занятиях и важных дедлайнах.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Разреши доступ к медиатеке, чтобы прикреплять документы и сертификаты (например фото аттестата) к своему профилю.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

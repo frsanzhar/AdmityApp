@@ -38,7 +38,7 @@ Core ideas:
 - Offline-first: local persistence is the source of truth; Supabase is write-through /
   two-way sync when configured. Everything degrades gracefully to a no-op when Supabase
   isn't wired (`!hasSupabase`), errors swallowed, local store stays authoritative.
-- Bundle id: `kz.admity.admity`.
+- Bundle id: `kz.admity.app`.
 
 ## Toolchain gotchas (carry these forward — they cost real time before)
 

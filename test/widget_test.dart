@@ -51,28 +51,26 @@ void main() {
     addTearDown(() => FlutterError.onError = prev);
 
     await tester.pumpWidget(_themed(const HomeScreen()));
-    await tester.pumpAndSettle();
+    // Bounded pumps — the streak tracker keeps a periodic flush timer alive,
+    // so pumpAndSettle would never settle on the home screen.
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 600));
 
     expect(errors, isEmpty, reason: 'no framework/layout errors on HomeScreen');
     expect(find.text('Привет!'), findsOneWidget);
-    expect(find.text('Задание на сегодня'), findsOneWidget);
-    expect(find.text('Сегодняшние задачи'), findsOneWidget);
+    // The «Задание на сегодня» block was removed on purpose (v1.1): new
+    // accounts have nothing to resume, so the block must NOT render.
+    expect(find.text('Задание на сегодня'), findsNothing);
   });
 
-  testWidgets('tapping a task opens its edit/delete sheet', (tester) async {
+  testWidgets('no fake seeded todos for new accounts', (tester) async {
     await tester.pumpWidget(_themed(const HomeScreen()));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 600));
 
-    const firstTodoText = 'Пройти урок по математике';
-    expect(find.text(firstTodoText), findsOneWidget);
-
-    // Tapping a task row opens the read/edit/delete sheet.
-    await tester.ensureVisible(find.text(firstTodoText));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(firstTodoText));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Удалить задачу'), findsOneWidget);
+    // Default placeholder tasks were removed in v1.1 — a fresh account
+    // starts with an empty unified day list (events + tasks).
+    expect(find.text('Пройти урок по математике'), findsNothing);
   });
 
   testWidgets('splash screen builds without errors', (tester) async {
@@ -106,27 +104,31 @@ void main() {
   });
 
   testWidgets('shell scaffold uses AppBottomNav after Phase 1', (tester) async {
-    final errors = <FlutterErrorDetails>[];
-    final prev = FlutterError.onError;
-    FlutterError.onError = errors.add;
-    addTearDown(() => FlutterError.onError = prev);
-
     // Seed a completed-onboarding profile so the splash routes to /home
     // (not /onboarding), and use an in-memory repo so no path_provider /
     // Hive platform channel is hit during the full-app boot.
     final repo = InMemoryProfileRepository();
-    await repo.saveProfile(const StudentProfile(onboardingComplete: true));
+    // appLanguage pinned to Russian so the localized bottom-nav labels are
+    // deterministic regardless of the test host locale.
+    await repo.saveProfile(
+      const StudentProfile(onboardingComplete: true, appLanguage: 'ru'),
+    );
     await tester.pumpWidget(
       ProviderScope(
         overrides: [profileRepositoryProvider.overrideWithValue(repo)],
         child: const AdmityApp(),
       ),
     );
-    // Pump past splash (1500 ms timer).
-    await tester.pump(const Duration(seconds: 2));
-    await tester.pumpAndSettle();
+    // Pump past splash (2500 ms navigation delay) with bounded pumps — the
+    // home streak tracker keeps a periodic flush timer alive, so
+    // pumpAndSettle would never settle once /home is mounted.
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 600));
 
-    expect(errors, isEmpty,
+    // NOTE: intentionally no FlutterError.onError override here — the binding
+    // stores framework errors itself; takeException surfaces the first one.
+    expect(tester.takeException(), isNull,
         reason: 'no framework/layout errors after nav to home');
     expect(find.byType(AppBottomNav), findsOneWidget);
     expect(find.text('Главная'), findsWidgets);

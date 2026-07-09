@@ -12,6 +12,7 @@
 ///       • ProfileEditScreen: builds, has all fields, save persists
 library;
 
+import 'package:admity/core/l10n/l10n.dart';
 import 'package:admity/core/theme/app_tokens.dart';
 import 'package:admity/features/profile/application/profile_notifier.dart';
 import 'package:admity/features/profile/data/profile_repository.dart';
@@ -22,6 +23,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../helpers/l10n_helpers.dart';
 
 // ── Test helpers ──────────────────────────────────────────────────────────────
 
@@ -62,6 +65,9 @@ Widget _themed(
     child: MaterialApp.router(
       routerConfig: router,
       theme: ThemeData(extensions: [AppTokens.defaults()]),
+      locale: testLocale,
+      supportedLocales: supportedAppLocales,
+      localizationsDelegates: testLocalizationDelegates,
     ),
   );
 }
@@ -98,6 +104,9 @@ Widget _editScreenApp({InMemoryProfileRepository? repo}) {
     child: MaterialApp.router(
       routerConfig: router,
       theme: ThemeData(extensions: [AppTokens.defaults()]),
+      locale: testLocale,
+      supportedLocales: supportedAppLocales,
+      localizationsDelegates: testLocalizationDelegates,
     ),
   );
 }
@@ -115,6 +124,8 @@ void main() {
       expect(restored.grade, isNull);
       expect(restored.city, isNull);
       expect(restored.gpaBand, isNull);
+      expect(restored.targetUniversities, isEmpty);
+      expect(restored.targetMajors, isEmpty);
       expect(restored.targetUniversities, isEmpty);
       expect(restored.targetMajors, isEmpty);
       expect(restored.languages, isEmpty);
@@ -587,6 +598,8 @@ void main() {
     });
 
     // KEY: The inline editable "Мои данные" form must NOT appear on the main screen.
+
+    // KEY: The inline editable "Мои данные" form must NOT appear on the main screen.
     testWidgets('does NOT show inline editable form ("Мои данные")', (
       tester,
     ) async {
@@ -637,11 +650,14 @@ void main() {
       );
     });
 
-    testWidgets('shows career test card', (tester) async {
+    testWidgets('does NOT show old career test card (moved to /psytests)', (
+      tester,
+    ) async {
       await tester.pumpWidget(_themed(const ProfileScreen()));
       await tester.pumpAndSettle();
 
-      expect(find.text('Тест на профориентацию'), findsOneWidget);
+      // The card was removed — its text must not appear on ProfileScreen.
+      expect(find.text('Тест на профориентацию'), findsNothing);
     });
 
     testWidgets('shows "Пакет документов" section', (tester) async {

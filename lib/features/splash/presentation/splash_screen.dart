@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:admity/core/config/app_config.dart';
 import 'package:admity/core/theme/app_colors.dart';
 import 'package:admity/features/profile/application/profile_notifier.dart';
 import 'package:admity/shared/rive/rive_assets.dart';
@@ -9,6 +10,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rive/rive.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 // TODO(rive-asset): Deliver assets/rive/splash.riv from designer.
 // State Machine contract: machine='SplashSM'
@@ -18,8 +20,9 @@ import 'package:rive/rive.dart';
 /// Splash screen (DESIGN_SYSTEM.md §7.1).
 ///
 /// After animation completes, loads the profile and routes:
-///   - onboardingComplete == true → /home
-///   - otherwise → /onboarding
+///   - onboardingComplete == true       → /home
+///   - not signed in (authProvider null) → /auth
+///   - signed in but not onboarded       → /onboarding (resume)
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
@@ -84,6 +87,19 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     _scheduleNavigation(const Duration(milliseconds: 2500));
   }
 
+  /// True when Supabase is configured AND holds a restored auth session.
+  ///
+  /// Guarded so the splash never throws when the app runs offline/guest-only
+  /// (Supabase.instance throws if initialize() was skipped).
+  bool _hasLiveSupabaseSession() {
+    if (!AppConfig.hasSupabase) return false;
+    try {
+      return Supabase.instance.client.auth.currentSession != null;
+    } on Object catch (_) {
+      return false;
+    }
+  }
+
   void _scheduleNavigation(Duration delay) {
     unawaited(
       Future<void>.delayed(delay, () async {
@@ -95,12 +111,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           if (!mounted) return;
           if (profile.onboardingComplete) {
             context.go('/home');
+          } else if (profile.authProvider == null && !_hasLiveSupabaseSession()) {
+            // First run — never signed in. Show the sign-in screen.
+            context.go('/auth');
           } else {
+            // Signed in (incl. guest) but onboarding unfinished — resume it.
+            // A live Supabase session also counts as signed-in even when the
+            // local profile was wiped (e.g. app data cleared mid-flow).
             context.go('/onboarding');
           }
         } on Object catch (_) {
-          // Any error — default to onboarding so the user can set up their profile.
-          if (mounted) context.go('/onboarding');
+          // Any error — default to the sign-in screen so the user can start.
+          if (mounted) context.go('/auth');
         }
       }),
     );

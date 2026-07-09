@@ -5,6 +5,7 @@ import 'package:admity/features/mentor/domain/chat_message.dart';
 import 'package:admity/features/mentor/domain/ghostwriting_guard.dart';
 import 'package:admity/features/mentor/domain/proposed_event.dart';
 import 'package:admity/features/mentor/domain/topic_plan.dart';
+import 'package:admity/features/profile/application/profile_notifier.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // ── Chat mode ────────────────────────────────────────────────────────────────
@@ -36,6 +37,7 @@ class MentorState {
     required this.questionnaire,
     required this.topicPlan,
     required this.pendingTopic,
+    required this.needsTonePick,
   });
 
   factory MentorState.initial() => const MentorState(
@@ -47,11 +49,16 @@ class MentorState {
     questionnaire: PlanQuestionnaire(),
     topicPlan: null,
     pendingTopic: null,
+    needsTonePick: false,
   );
 
   final List<ChatMessage> messages;
   final ChatMode mode;
   final bool isLoading;
+
+  /// True when the user has not yet chosen a tone and the picker should be
+  /// displayed before the input bar.
+  final bool needsTonePick;
 
   /// Events proposed by Ералы — NOT yet saved. Review gate is enforced here.
   final List<ProposedEvent> proposedEvents;
@@ -77,6 +84,7 @@ class MentorState {
     PlanQuestionnaire? questionnaire,
     TopicPlan? topicPlan,
     String? pendingTopic,
+    bool? needsTonePick,
   }) {
     return MentorState(
       messages: messages ?? this.messages,
@@ -87,6 +95,7 @@ class MentorState {
       questionnaire: questionnaire ?? this.questionnaire,
       topicPlan: topicPlan ?? this.topicPlan,
       pendingTopic: pendingTopic ?? this.pendingTopic,
+      needsTonePick: needsTonePick ?? this.needsTonePick,
     );
   }
 }
@@ -103,25 +112,114 @@ String _newId() {
 class MentorNotifier extends Notifier<MentorState> {
   @override
   MentorState build() {
-    // Greet the user on first load.
-    final greeting = ChatMessage(
+    // Use read (not watch) so a later profile save does not re-run build()
+    // and wipe the chat history.  Profile may still be loading on very first
+    // app launch — in that case we start with the tone-picker prompt and defer
+    // the full personalisation to [_initFromProfile].
+    final profileState = ref.read(profileProvider);
+    if (profileState.isLoading) {
+      // Schedule a check once the profile finishes loading.
+      // unawaited: intentional fire-and-forget inside a sync build().
+      // ignore: discarded_futures
+      Future.microtask(_initFromProfile);
+      // Return the tone-picker prompt immediately so the screen is never empty.
+      return _initialStateForProfile(null);
+    }
+    return _initialStateForProfile(profileState.profile.soundPreference);
+  }
+
+  /// Called asynchronously when the build-time profile was still loading.
+  Future<void> _initFromProfile() async {
+    // Wait for profile to finish loading (poll — maximum ~2 s).
+    for (var i = 0; i < 40; i++) {
+      if (!ref.mounted) return;
+      final ps = ref.read(profileProvider);
+      if (!ps.isLoading) {
+        if (!ref.mounted) return;
+        state = _initialStateForProfile(ps.profile.soundPreference);
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    // Timed out — treat as first-time user (no tone chosen).
+    if (!ref.mounted) return;
+    state = _initialStateForProfile(null);
+  }
+
+  /// Builds the initial [MentorState] based on the stored [soundPreference].
+  MentorState _initialStateForProfile(String? soundPreference) {
+    if (soundPreference != null) {
+      // Tone already set — greet normally.
+      final greeting = ChatMessage(
+        id: _newId(),
+        role: 'assistant',
+        text: _greetingForTone(soundPreference),
+        timestamp: DateTime.now(),
+      );
+      return MentorState.initial().copyWith(messages: [greeting]);
+    }
+
+    // First open — show tone-picker prompt before anything else.
+    final tonePrompt = ChatMessage(
       id: _newId(),
       role: 'assistant',
       text:
-          'Привет! Я Ералы — помогаю с поступлением в университет.\n\n'
-          'Расскажи о себе побольше, и я помогу с поступлением.',
+          'Привет! Я Ералы — твой AI-наставник по поступлению. '
+          'Прежде чем начать, выбери, как мне с тобой общаться:',
       timestamp: DateTime.now(),
     );
-    return MentorState.initial().copyWith(messages: [greeting]);
+    return MentorState.initial().copyWith(
+      messages: [tonePrompt],
+      needsTonePick: true,
+    );
   }
 
   EralyRepository get _repo => ref.read(eralyRepositoryProvider);
 
+  /// Returns the current tone from the profile, defaulting to 'friendly'.
+  String get _tone =>
+      ref.read(profileProvider).profile.soundPreference ?? 'friendly';
+
+  /// PII-minimised student context — read fresh on EVERY request, so both the
+  /// onboarding answers and any later profile edits reach Ералы automatically.
+  Map<String, dynamic> get _profileContext =>
+      buildEralyProfileContext(ref.read(profileProvider).profile);
+
+  // ── Tone pick ─────────────────────────────────────────────────────────────
+
+  /// Called by the UI when the student picks 'strict' or 'friendly'.
+  ///
+  /// Saves to profile and appends a personalised greeting from Ералы.
+  Future<void> pickTone(String tone) async {
+    // Persist immediately.
+    final currentProfile = ref.read(profileProvider).profile;
+    await ref
+        .read(profileProvider.notifier)
+        .saveProfile(currentProfile.copyWith(soundPreference: tone));
+
+    state = state.copyWith(needsTonePick: false);
+    _appendAssistant(_greetingForTone(tone));
+  }
+
+  static String _greetingForTone(String tone) {
+    if (tone == 'strict') {
+      return 'Хорошо. Работаем серьёзно: ставим цели, держим дисциплину '
+          'и не отвлекаемся на лишнее. Расскажи — куда поступаешь и '
+          'что уже сделал для этого?';
+    }
+    return 'Отлично! Я рядом — буду поддерживать и помогать на каждом шаге. '
+        'Расскажи о себе: куда хочешь поступить и с чего начнём?';
+  }
+
   // ── Public API ────────────────────────────────────────────────────────────
 
   /// Sends [text] from the user and gets Ералы's response.
+  ///
+  /// Ignored while the tone picker is still open — the student must choose a
+  /// tone before free-form conversation begins.
   Future<void> sendMessage(String text) async {
     if (text.trim().isEmpty) return;
+    if (state.needsTonePick) return;
 
     // 1. Ghostwriting guard — deflect immediately, no LLM round-trip.
     if (GhostwritingGuard.isGhostwritingRequest(text)) {
@@ -218,7 +316,10 @@ class MentorNotifier extends Notifier<MentorState> {
       _appendAssistant(
         'Отлично! Дай мне секунду — предложу несколько мероприятий...',
       );
-      final events = await _repo.proposeEvents(topic: text);
+      final events = await _repo.proposeEvents(
+        topic: text,
+        profileContext: _profileContext,
+      );
       state = state.copyWith(
         proposedEvents: events,
         isLoading: false,
@@ -239,13 +340,18 @@ class MentorNotifier extends Notifier<MentorState> {
       return;
     }
 
-    // General chat
+    // General chat. IMPORTANT: include ALL messages — the last one is the
+    // user's new text, which the repository sends as the current message
+    // (earlier code dropped it, so Ералы replied to stale history).
     state = state.copyWith(isLoading: true);
     final history = state.messages
-        .where((m) => m.id != state.messages.last.id)
         .map((m) => {'role': m.role, 'text': m.text})
         .toList();
-    final reply = await _repo.chat(messages: history);
+    final reply = await _repo.chat(
+      messages: history,
+      tone: _tone,
+      profileContext: _profileContext,
+    );
     state = state.copyWith(isLoading: false);
     _appendAssistant(reply);
   }
@@ -292,6 +398,7 @@ class MentorNotifier extends Notifier<MentorState> {
       resources: q.resources ?? '',
       availableTime: q.availableTime ?? '',
       internetAccess: q.internetAccess ?? false,
+      profileContext: _profileContext,
     );
 
     state = state.copyWith(

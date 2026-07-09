@@ -1,0 +1,1064 @@
+{
+  "@@locale": "ru",
+  "appTitle": "Admity",
+  "languageSectionTitle": "Язык приложения",
+  "languageSystem": "Как в системе",
+  "languageRussian": "Русский",
+  "languageKazakh": "Қазақша",
+  "languageEnglish": "English",
+  "authWelcomeTitle": "Добро пожаловать",
+  "authCreateAccountTitle": "Создать аккаунт",
+  "authSignInSubtitle": "Войдите, чтобы продолжить",
+  "authSignUpSubtitle": "Введите данные, чтобы начать",
+  "authEmailLabel": "Email",
+  "authPasswordLabel": "Пароль",
+  "authEmailRequired": "Введите email",
+  "authEmailInvalid": "Некорректный email",
+  "authPasswordRequired": "Введите пароль",
+  "authPasswordMinLength": "Минимум 6 символов",
+  "authSignInButton": "Войти",
+  "authSignUpButton": "Зарегистрироваться",
+  "authAlreadyHaveAccount": "Уже есть аккаунт? Войти",
+  "authNoAccount": "Нет аккаунта? Зарегистрироваться",
+  "authOrDivider": "или",
+  "authContinueWithGoogle": "Продолжить с Google",
+  "authContinueWithApple": "Продолжить с Apple",
+  "authContinueAsGuest": "Продолжить как гость",
+  "authErrorSignIn": "Не удалось войти. Проверьте подключение и попробуйте снова.",
+  "authErrorCreateAccount": "Не удалось создать аккаунт. Проверьте подключение и попробуйте снова.",
+  "authErrorGoogleNotConfigured": "Вход через Google ещё не настроен. Добавьте GOOGLE_WEB_CLIENT_ID.",
+  "authErrorCancelled": "Вход отменён.",
+  "authErrorGoogleTokenFailed": "Не удалось получить токен Google. Попробуйте снова.",
+  "authErrorGoogleSignIn": "Не удалось войти через Google. Попробуйте снова.",
+  "authErrorAppleTokenFailed": "Не удалось получить токен Apple. Попробуйте снова.",
+  "authErrorAppleSignIn": "Не удалось войти через Apple. Попробуйте снова.",
+  "authErrorAppleRaw": "Apple Sign In: {message}",
+  "@authErrorAppleRaw": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "authErrorGuestFailed": "Не удалось создать гостевой профиль.",
+  "authErrorInvalidCredentials": "Неверный email или пароль.",
+  "authErrorEmailNotConfirmed": "Подтвердите email по ссылке из письма.",
+  "authErrorEmailAlreadyRegistered": "Этот email уже зарегистрирован. Попробуйте войти.",
+  "authErrorPasswordTooShort": "Пароль должен содержать не менее 6 символов.",
+  "authErrorRateLimit": "Слишком много попыток. Подождите немного и повторите.",
+  "homeGreeting": "Привет!",
+  "homeGreetingSubtitle": "Готов к новым знаниям?",
+  "homeStreakSemanticLabel": "Серия: {count} {dayWord}",
+  "@homeStreakSemanticLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "dayWord": {
+        "type": "String"
+      }
+    }
+  },
+  "homeStreakStart": "Начни свою серию!",
+  "homeStreakActive": "Серия — {count, plural, one{{count} день} few{{count} дня} many{{count} дней} other{{count} дня}}",
+  "@homeStreakActive": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homeStreakDayDone": "День завершён!",
+  "homeStreakDayNotDone": "Ещё не завершён",
+  "homeStreakWeekSummary": "{count} из 7 дней на этой неделе",
+  "@homeStreakWeekSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "homeWeekdayMon": "Пн",
+  "homeWeekdayTue": "Вт",
+  "homeWeekdayWed": "Ср",
+  "homeWeekdayThu": "Чт",
+  "homeWeekdayFri": "Пт",
+  "homeWeekdaySat": "Сб",
+  "homeWeekdaySun": "Вс",
+  "homeCalendarMonthJan": "Январь",
+  "homeCalendarMonthFeb": "Февраль",
+  "homeCalendarMonthMar": "Март",
+  "homeCalendarMonthApr": "Апрель",
+  "homeCalendarMonthMay": "Май",
+  "homeCalendarMonthJun": "Июнь",
+  "homeCalendarMonthJul": "Июль",
+  "homeCalendarMonthAug": "Август",
+  "homeCalendarMonthSep": "Сентябрь",
+  "homeCalendarMonthOct": "Октябрь",
+  "homeCalendarMonthNov": "Ноябрь",
+  "homeCalendarMonthDec": "Декабрь",
+  "homeCalendarAgendaMonthGenJan": "января",
+  "homeCalendarAgendaMonthGenFeb": "февраля",
+  "homeCalendarAgendaMonthGenMar": "марта",
+  "homeCalendarAgendaMonthGenApr": "апреля",
+  "homeCalendarAgendaMonthGenMay": "мая",
+  "homeCalendarAgendaMonthGenJun": "июня",
+  "homeCalendarAgendaMonthGenJul": "июля",
+  "homeCalendarAgendaMonthGenAug": "августа",
+  "homeCalendarAgendaMonthGenSep": "сентября",
+  "homeCalendarAgendaMonthGenOct": "октября",
+  "homeCalendarAgendaMonthGenNov": "ноября",
+  "homeCalendarAgendaMonthGenDec": "декабря",
+  "homeCalendarWeekdayFullMon": "Понедельник",
+  "homeCalendarWeekdayFullTue": "Вторник",
+  "homeCalendarWeekdayFullWed": "Среда",
+  "homeCalendarWeekdayFullThu": "Четверг",
+  "homeCalendarWeekdayFullFri": "Пятница",
+  "homeCalendarWeekdayFullSat": "Суббота",
+  "homeCalendarWeekdayFullSun": "Воскресенье",
+  "homeCalendarNoEvents": "Событий нет. Добавьте первое!",
+  "homeCalendarEralyBadge": "Ералы",
+  "homeCalendarAddEvent": "Добавить событие",
+  "homeEventSheetTitleNew": "Новое событие",
+  "homeEventSheetTitleEdit": "Редактировать событие",
+  "homeEventSheetFieldTitleLabel": "Название",
+  "homeEventSheetFieldTitleHint": "Что запланировано?",
+  "homeEventSheetFieldDescLabel": "Описание",
+  "homeEventSheetFieldDescHint": "Подробности (необязательно)",
+  "homeEventSheetSave": "Сохранить",
+  "homeEventSheetDelete": "Удалить событие",
+  "homeTodayTaskTitle": "Задание на сегодня",
+  "homeTodayTaskBody": "Урок: Сравнение вероятностей — продолжи с того места, где остановился.",
+  "homeTodayTaskContinue": "Продолжить",
+  "homeTaskListTitle": "Сегодняшние задачи",
+  "homeTaskListEmpty": "Задач нет. Нажмите + чтобы добавить.",
+  "homeTaskSheetTitleNew": "Новая задача",
+  "homeTaskSheetTitleEdit": "Редактировать",
+  "homeTaskSheetFieldTitleLabel": "Название",
+  "homeTaskSheetFieldTitleHint": "Что нужно сделать?",
+  "homeTaskSheetFieldDescLabel": "Описание",
+  "homeTaskSheetFieldDescHint": "Подробности (необязательно)",
+  "homeTaskSheetNoDescription": "Описание не добавлено.",
+  "homeTaskSheetSave": "Сохранить",
+  "homeTaskSheetDelete": "Удалить задачу",
+  "homeDefaultTodo1Title": "Пройти урок по математике",
+  "homeDefaultTodo1Desc": "Раздел «Сравнение вероятностей» — примерно 15 минут.",
+  "homeDefaultTodo2Title": "Изучить стипендии БОЛАШАК",
+  "homeDefaultTodo2Desc": "Проверить требования для поступления и дедлайн подачи документов.",
+  "homeDefaultTodo3Title": "Обновить профиль",
+  "homeDefaultTodo3Desc": "Добавить последние оценки и загрузить актуальные документы.",
+  "homeDefaultTodo4Title": "Прочитать о ЕНТ требованиях",
+  "homeDefaultTodo4Desc": "Минимальные баллы по каждому предмету для поступления.",
+  "homeCareerCardTitle": "Узнай свою профессию",
+  "homeCareerCardSubtitle": "Ежедневный тест — 3 минуты",
+  "homeCareerCardButton": "Пройти тест",
+  "eralyName": "Ералы",
+  "eralySubtitle": "AI-наставник",
+  "eralyTypingText": "Ералы думает...",
+  "eralyReviewEventsButton": "Проверить все мероприятия",
+  "eralyOpenPlanButton": "Открыть план",
+  "eralyToneStrictLabel": "Строгий\nнаставник",
+  "eralyToneStrictDescription": "Прямо и по делу",
+  "eralyToneFriendlyLabel": "Дружеский\nнаставник",
+  "eralyToneFriendlyDescription": "Тепло и поддержка",
+  "eralyInputHint": "Напиши Ералы...",
+  "eralyTonePrompt": "Привет! Я Ералы — твой AI-наставник по поступлению. Прежде чем начать, выбери, как мне с тобой общаться:",
+  "eralyGreetingStrict": "Хорошо. Работаем серьёзно: ставим цели, держим дисциплину и не отвлекаемся на лишнее. Расскажи — куда поступаешь и что уже сделал для этого?",
+  "eralyGreetingFriendly": "Отлично! Я рядом — буду поддерживать и помогать на каждом шаге. Расскажи о себе: куда хочешь поступить и с чего начнём?",
+  "eralyEventsProposedAnnounce": "Я подготовил {count} мероприятия. Нажми «Проверить все мероприятия», чтобы просмотреть и изменить время.",
+  "@eralyEventsProposedAnnounce": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "eralyEventsProposeLoading": "Отлично! Дай мне секунду — предложу несколько мероприятий...",
+  "eralyEventsSaved": "Все мероприятия сохранены в календарь! Ты можешь просмотреть их в разделе «Главная». Чем ещё могу помочь?",
+  "eralyPlanGenerating": "Составляю план — одну секунду...",
+  "eralyPlanReady": "Готово! Я составил план «{topic}» из {lessonCount} уроков. Прокрути вниз, чтобы увидеть его. Если хочешь что-то изменить — спроси!",
+  "@eralyPlanReady": {
+    "placeholders": {
+      "topic": {
+        "type": "String"
+      },
+      "lessonCount": {
+        "type": "int"
+      }
+    }
+  },
+  "eralyQuestionResources": "Хорошо, начнём! Какие учебные материалы у тебя есть? (книги, онлайн-курсы, приложения — перечисли, что имеется)",
+  "eralyQuestionTime": "Понял. Сколько времени в неделю ты можешь уделять подготовке? (например: «2 часа в день» или «10 часов в неделю»)",
+  "eralyQuestionInternet": "Есть ли у тебя стабильный доступ к интернету для онлайн-ресурсов? (да / нет)",
+  "eralyOfflineIeltsStrict": "IELTS. Сначала скажи: какие материалы уже есть? Без чёткого инвентаря план не построить.",
+  "eralyOfflineIeltsFriendly": "IELTS — отличная цель! Давай составим персональный план. Для начала: какие материалы у тебя уже есть? (учебники, приложения, курсы — перечисли всё)",
+  "eralyOfflineSatStrict": "SAT требует системной работы. Какими ресурсами пользуешься? Перечисли конкретно.",
+  "eralyOfflineSatFriendly": "SAT — серьёзный шаг! Я помогу разбить подготовку на чёткие уроки. Расскажи, какими ресурсами ты пользуешься?",
+  "eralyOfflineEntStrict": "ЕНТ — главный экзамен. Сколько недель до него? Назови точную дату — составим план без воды.",
+  "eralyOfflineEntFriendly": "ЕНТ — ключевой экзамен. Хочешь составить поурочный план? Напиши, сколько времени у тебя есть до экзамена.",
+  "eralyOfflinePlanStrict": "Назови тему или экзамен. Потом задам три вопроса — и составлю план без лишних слов.",
+  "eralyOfflinePlanFriendly": "Конечно, помогу составить план! Назови тему или экзамен, и я задам несколько вопросов, чтобы сделать план под тебя.",
+  "eralyOfflineEventsStrict": "Укажи тему мероприятий. Предложу конкретные даты — ты проверяешь и подтверждаешь.",
+  "eralyOfflineEventsFriendly": "С удовольствием помогу! Напиши тему или цель мероприятий — я предложу несколько конкретных дат и могу поставить их в календарь.",
+  "eralyOfflineScholarshipStrict": "Стипендии: казахстанские или зарубежные? Ответь кратко — подберу варианты под профиль.",
+  "eralyOfflineScholarshipFriendly": "Стипендии — моя любимая тема! Расскажи: ты смотришь на казахстанские программы или зарубежные? Это поможет мне точнее подобрать варианты.",
+  "eralyOfflineUniversityStrict": "Конкретно: в какую страну и в какой университет целишься? Чем точнее — тем полезнее анализ.",
+  "eralyOfflineUniversityFriendly": "Поступление — большой шаг, и я рядом. В какую страну или университет ты целишься? Или пока только изучаешь варианты?",
+  "eralyOfflineGreetingStrict": "Начнём. Куда поступаешь и что уже сделал? Конкретика — основа работы.",
+  "eralyOfflineGreetingFriendly": "Привет! Расскажи немного о себе — куда хочешь поступить, что уже пробовал делать для этого? Чем больше ты расскажешь, тем точнее я смогу помочь.",
+  "eralyOfflineFollowUpStrict1": "Уточни задачу: экзамен, поступление или что-то другое? Коротко.",
+  "eralyOfflineFollowUpStrict2": "Понял. Скажи конкретнее — это для ЕНТ, международного экзамена или вуза?",
+  "eralyOfflineFollowUpStrict3": "Хорошо. Что именно нужно — план, анализ шансов или список стипендий?",
+  "eralyOfflineFollowUpFriendly1": "Интересно! Расскажи подробнее — я хочу понять, чем именно помочь.",
+  "eralyOfflineFollowUpFriendly2": "Хороший вопрос. Уточни, пожалуйста: ты спрашиваешь про экзамены, поступление или что-то другое?",
+  "eralyOfflineFollowUpFriendly3": "Понял. Чтобы дать точный ответ, скажи: это для ЕНТ, международного экзамена или для чего-то ещё?",
+  "eralyOfflineEventTitle1": "Старт: {topic}",
+  "@eralyOfflineEventTitle1": {
+    "placeholders": {
+      "topic": {
+        "type": "String"
+      }
+    }
+  },
+  "eralyOfflineEventDescription1": "Первое знакомство с темой — изучи ключевые понятия и составь список вопросов.",
+  "eralyOfflineEventTitle2": "Практика: {topic}",
+  "@eralyOfflineEventTitle2": {
+    "placeholders": {
+      "topic": {
+        "type": "String"
+      }
+    }
+  },
+  "eralyOfflineEventDescription2": "Практическое занятие — реши 10–15 задач или сделай пробный тест.",
+  "eralyOfflineEventTitle3": "Повторение: {topic}",
+  "@eralyOfflineEventTitle3": {
+    "placeholders": {
+      "topic": {
+        "type": "String"
+      }
+    }
+  },
+  "eralyOfflineEventDescription3": "Итоговое повторение — закрепи слабые места и проверь прогресс.",
+  "eralyOfflinePlanNotes": "Базовый офлайн-план. Подключитесь к интернету, чтобы Ералы составил план под ваши материалы и расписание.",
+  "eralyOfflinePlanLesson1Title": "Введение в {topic}",
+  "@eralyOfflinePlanLesson1Title": {
+    "placeholders": {
+      "topic": {
+        "type": "String"
+      }
+    }
+  },
+  "eralyOfflinePlanLesson2Title": "Ключевые концепции {topic}",
+  "@eralyOfflinePlanLesson2Title": {
+    "placeholders": {
+      "topic": {
+        "type": "String"
+      }
+    }
+  },
+  "eralyOfflinePlanLesson3Title": "Практические упражнения",
+  "eralyOfflinePlanLesson4Title": "Разбор ошибок и слабых мест",
+  "eralyOfflinePlanLesson5Title": "Пробный тест и итоговое повторение",
+  "eralyParsedEventFallbackTitle": "Событие {number}",
+  "@eralyParsedEventFallbackTitle": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "eralyParsedLessonFallbackTitle": "Урок {number}",
+  "@eralyParsedLessonFallbackTitle": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "onbIntro": "Поступление в университет — это большой шаг. Admity поможет пройти его уверенно.",
+  "onbWhoAreYou": "Кто ты?",
+  "onbRoleStudentLabel": "Я учусь",
+  "onbRoleStudentDesc": "Готовлюсь к поступлению",
+  "onbRoleParentLabel": "Родитель",
+  "onbRoleParentDesc": "Помогаю ребёнку поступить",
+  "onbRoleTeacherLabel": "Учитель",
+  "onbRoleTeacherDesc": "Готовлю учеников к вузу",
+  "onbNextButton": "Далее",
+  "onbMascotGreetingName": "Привет! Я — Ералы,",
+  "onbMascotGreetingDesc": "твой персональный наставник по поступлению. Расскажу, что нужно знать, и помогу не пропустить ни одной возможности.",
+  "onbMotivationTitle": "Какова твоя цель?",
+  "onbMotivationSubtitle": "Это поможет подобрать правильный путь",
+  "onbMotivationTopKzLabel": "Поступить в топ-вуз Казахстана",
+  "onbMotivationTopKzDesc": "НУ, КБТУ, КазНУ и другие",
+  "onbMotivationAbroadLabel": "Поступить в вуз за рубежом",
+  "onbMotivationAbroadDesc": "США, Европа, Азия и другие страны",
+  "onbMotivationExploreLabel": "Профориентация",
+  "onbMotivationExploreDesc": "Ещё выбираю направление",
+  "onbAgeTitle": "Сколько тебе лет?",
+  "onbAgeSubtitle": "Поможет подобрать контент по возрасту.",
+  "onbAgeHint": "16",
+  "onbSubjectTitle": "Какие предметы интересны как Major?",
+  "onbSubjectSubtitle": "Можно выбрать несколько",
+  "onbSubjectPsychologyLabel": "Психология",
+  "onbSubjectPsychologyDesc": "Поведение и психика",
+  "onbSubjectPoliticsLabel": "Политика",
+  "onbSubjectPoliticsDesc": "Политология и дипломатия",
+  "onbSubjectEconomicsLabel": "Экономика",
+  "onbSubjectEconomicsDesc": "Финансы и бизнес",
+  "onbSubjectChemistryLabel": "Химия",
+  "onbSubjectChemistryDesc": "Реакции и вещества",
+  "onbSubjectBiologyLabel": "Биология",
+  "onbSubjectBiologyDesc": "Жизнь и медицина",
+  "onbSubjectPhysicsLabel": "Физика",
+  "onbSubjectPhysicsDesc": "Механика и кванты",
+  "onbSubjectMathLabel": "Математика",
+  "onbSubjectMathDesc": "Алгебра и анализ",
+  "onbTrustTitle": "Построено с экспертами ведущих вузов",
+  "onbTrustSubtitle": "Контент разработан при участии методистов университетов Казахстана и международных партнёров.",
+  "onbConfidenceTitle": "Насколько ты уверен, что поступишь?",
+  "onbConfidenceSubtitle": "Честный ответ поможет правильно составить план",
+  "onbConfidence100Label": "Уверен на 100%",
+  "onbConfidence100Desc": "Знаю, что поступлю",
+  "onbConfidenceMostlyYesLabel": "Скорее да",
+  "onbConfidenceMostlyYesDesc": "Хороший шанс есть",
+  "onbConfidenceNotSureLabel": "Ещё не уверен",
+  "onbConfidenceNotSureDesc": "Нужно больше подготовки",
+  "onbConfidenceJustStartingLabel": "Только начинаю",
+  "onbConfidenceJustStartingDesc": "Ещё не разобрался с целями",
+  "onbStatsTitle": "Твои академические показатели",
+  "onbStatsSubtitle": "Необязательно — можно пропустить. Это нужно для честной оценки шансов.",
+  "onbStatsGpaLabel": "ГПА / Средний балл",
+  "onbStatsGpaHint": "Например: 4.8",
+  "onbStatsIeltsLabel": "IELTS (если есть)",
+  "onbStatsIeltsHint": "Например: 7.0",
+  "onbStatsSatLabel": "SAT (если есть)",
+  "onbStatsSatHint": "Например: 1400",
+  "onbTopicUniverseTitle": "Всё, что нужно — уже здесь",
+  "onbTopicUniverseMascotCaption": "Я знаю, с чего начать",
+  "onbGoalTitle": "Сколько времени в день?",
+  "onbGoalMinUnit": "мин",
+  "onbGoal10Subtitle": "Немного, но каждый день",
+  "onbGoal20Subtitle": "Стабильный прогресс",
+  "onbGoal30Subtitle": "Хороший темп",
+  "onbGoal60Subtitle": "Погружение",
+  "onbScheduleTitle": "Когда удобнее?",
+  "onbScheduleMorningLabel": "Утро",
+  "onbScheduleMorningSubtitle": "До начала дня",
+  "onbScheduleDayLabel": "День",
+  "onbScheduleDaySubtitle": "В свободное время",
+  "onbScheduleEveningLabel": "Вечер",
+  "onbScheduleEveningSubtitle": "После учёбы",
+  "onbScheduleFlexLabel": "Когда получится",
+  "onbScheduleFlexSubtitle": "Гибкий график",
+  "onbNotificationsTitle": "Напоминания",
+  "onbNotificationsBody": "Хочешь, чтобы Admity напоминал о занятиях?",
+  "onbNotificationsEnableButton": "Включить",
+  "onbNotificationsSkipButton": "Пропустить",
+  "onbThreeStepTitle": "Твой план на три шага",
+  "onbPlanStep1Title": "Изучи основы",
+  "onbPlanStep1Desc": "Разберём базу по твоему предмету",
+  "onbPlanStep2Title": "Практикуй",
+  "onbPlanStep2Desc": "Задачи, тесты, разборы ошибок",
+  "onbPlanStep3Title": "Проверь себя",
+  "onbPlanStep3Desc": "Финальный skill-check и анализ результатов",
+  "onbCreatePlanButton": "Создать мой план",
+  "onbPlanCreationTitle": "Создаём твой план…",
+  "onbPlanCreationCard1": "Анализируем твой профиль",
+  "onbPlanCreationCard2": "Подбираем вузы и направления",
+  "onbPlanCreationCard3": "Строим персональный путь",
+  "onbPlanCreationAlmost": "Почти готово…",
+  "onbFinishTitle": "Всё готово!",
+  "onbFinishSubtitle": "Твой персональный план создан. Начинаем?",
+  "onbFinishStartButton": "Начать",
+  "onbReminderTitle": "Время учиться с Admity 🎓",
+  "onbReminderBody": "Удели {minutes} мин подготовке к поступлению — ты на верном пути!",
+  "@onbReminderBody": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "onbStudyPlanCareerTest": "Пройди профориентационный тест, чтобы подтвердить интерес к {major}",
+  "@onbStudyPlanCareerTest": {
+    "placeholders": {
+      "major": {
+        "type": "String"
+      }
+    }
+  },
+  "onbStudyPlanUpdateProfile": "Убедись, что профиль — ЕНТ, ГПА, оценки — актуален и точен",
+  "onbStudyPlanExploreRequirements": "Изучи вступительные требования и проходные баллы по направлению {major}",
+  "@onbStudyPlanExploreRequirements": {
+    "placeholders": {
+      "major": {
+        "type": "String"
+      }
+    }
+  },
+  "onbStudyPlanTargetList": "Составь список целевых вузов (Казахстан и/или за рубежом) с дедлайнами",
+  "onbStudyPlanDailyTime": "Выдели {timeLabel} ежедневное время для подготовки и придерживайся расписания",
+  "@onbStudyPlanDailyTime": {
+    "placeholders": {
+      "timeLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "onbStudyPlanPracticeTests": "Практикуй тестовые задания ЕНТ / международные экзамены по выбранным предметам",
+  "onbStudyPlanIntlDocs": "Подготовь документы для международных заявок: эссе, рекомендации, языковые сертификаты",
+  "onbStudyPlanLocalDocs": "Собери пакет документов: аттестат, транскрипт, рекомендательные письма",
+  "onbStudyPlanTimeMorning": "утром",
+  "onbStudyPlanTimeDay": "днём",
+  "onbStudyPlanTimeEvening": "вечером",
+  "onbStudyPlanTimeFlex": "в удобное время",
+  "onbStudyPlanDefaultMajor": "выбранному направлению",
+  "oppScreenTitle": "Возможности",
+  "oppTabScholarships": "Стипендии",
+  "oppTabEvents": "Мероприятия",
+  "oppTabProjectIdeas": "Идеи проектов",
+  "oppFilterCityDefault": "Город",
+  "oppFilterFieldDefault": "Направление",
+  "oppFilterAccessibilityDefault": "Доступность",
+  "oppFilterReset": "Сбросить",
+  "oppFilterResetAll": "Сбросить фильтр",
+  "oppPickerCityTitle": "Выбрать город",
+  "oppPickerFieldTitle": "Выбрать направление",
+  "oppPickerAccessibilityTitle": "Выбрать доступность",
+  "oppCardMoreDetails": "Подробнее",
+  "oppScholarshipsEmpty": "Нет стипендий по выбранным фильтрам",
+  "oppEventsBannerNearby": "рядом с тобой — {city}",
+  "@oppEventsBannerNearby": {
+    "placeholders": {
+      "city": {
+        "type": "String"
+      }
+    }
+  },
+  "oppEventsBannerSetCity": "Укажи свой город в профиле, чтобы видеть мероприятия рядом",
+  "oppEventLocalBadge": "Рядом",
+  "oppIdeasBannerInterest": "по твоему интересу: {interest}",
+  "@oppIdeasBannerInterest": {
+    "placeholders": {
+      "interest": {
+        "type": "String"
+      }
+    }
+  },
+  "oppIdeasBannerAddInterests": "Добавь интересы в профиле — покажем идеи специально для тебя",
+  "oppAcademicFieldMathematics": "Математика",
+  "oppAcademicFieldEngineering": "Инженерия",
+  "oppAcademicFieldMedicine": "Медицина",
+  "oppAcademicFieldEconomics": "Экономика",
+  "oppAcademicFieldArts": "Искусство",
+  "oppAcademicFieldLaw": "Право",
+  "oppAcademicFieldInformatics": "Информатика",
+  "oppAcademicFieldNatural": "Естественные науки",
+  "oppAccessibilityEasy": "Легко",
+  "oppAccessibilityMedium": "Средне",
+  "oppAccessibilityHard": "Сложно",
+  "oppDifficultyEasy": "Легко",
+  "oppDifficultyHard": "Сложно",
+  "oppUniversityAppBarFallback": "Университет",
+  "oppUniversityNotFound": "Университет не найден",
+  "oppUniversityAboutSection": "О университете",
+  "oppUniversityProgramsSection": "Направления",
+  "oppUniversityAdmissionChancesSection": "Шансы поступления",
+  "oppUniversityAcceptanceRateLabel": "Уровень приёма — реалистичная оценка",
+  "oppUniversityEntThreshold": "ЕНТ ≥ {score} баллов",
+  "@oppUniversityEntThreshold": {
+    "placeholders": {
+      "score": {
+        "type": "int"
+      }
+    }
+  },
+  "oppUniversityRequirementsSection": "Требования",
+  "oppUniversityCostSection": "Стоимость и стипендии",
+  "oppUniversityAdmissionStepsSection": "Как поступить",
+  "oppUniversityOpenWebsite": "Открыть сайт: {label}",
+  "@oppUniversityOpenWebsite": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "oppEventAppBarFallback": "Мероприятие",
+  "oppEventNotFound": "Мероприятие не найдено",
+  "oppEventDiagramSlotLabel": "Мероприятие",
+  "oppEventAboutSection": "О мероприятии",
+  "oppEventPrizesSection": "Призы",
+  "oppEventRegistrationDeadline": "Дедлайн регистрации: {deadline}",
+  "@oppEventRegistrationDeadline": {
+    "placeholders": {
+      "deadline": {
+        "type": "String"
+      }
+    }
+  },
+  "oppEventHowToParticipateSection": "Как участвовать",
+  "oppEventAddToList": "Добавить в список мероприятий",
+  "oppEventSaved": "Мероприятие сохранено",
+  "oppScholarshipAppBarFallback": "Стипендия",
+  "oppScholarshipNotFound": "Стипендия не найдена",
+  "oppScholarshipCoverageSection": "Что покрывает",
+  "oppScholarshipHowToGetSection": "Как получить",
+  "oppScholarshipRequiredStatsSection": "Нужные показатели",
+  "oppScholarshipHowToBoostLabel": "Как их добить:",
+  "oppScholarshipDocumentsSection": "Требуемые документы",
+  "oppScholarshipApplyCta": "Подать заявку",
+  "oppIdeaAppBarFallback": "Идея проекта",
+  "oppIdeaNotFound": "Идея проекта не найдена",
+  "oppIdeaWhatSection": "Что за проект",
+  "oppIdeaWhySection": "Почему это твоё",
+  "oppIdeaStepsSection": "Шаги",
+  "oppIdeaOutcomeSection": "Что получишь в итоге",
+  "oppIdeaSaveIdea": "Сохранить идею",
+  "oppIdeaSavedSnackbar": "Идея сохранена в профиль",
+  "oppApplyAppBarTitle": "Подача заявки",
+  "oppApplyFormTitle": "Заполните заявку",
+  "oppApplyFormSubtitle": "Все поля обязательны. Данные хранятся локально.",
+  "oppApplyFieldFullName": "ФИО",
+  "oppApplyHintFullName": "Иванов Иван Иванович",
+  "oppApplyFieldContact": "Контакт (email или телефон)",
+  "oppApplyHintContact": "example@mail.kz или +7 777 000 00 00",
+  "oppApplyFieldMotivation": "Мотивационное письмо",
+  "oppApplyHintMotivation": "Расскажите, почему вы хотите получить эту стипендию и как она поможет вашему обучению...",
+  "oppApplySubmitButton": "Отправить заявку",
+  "oppApplyErrorFullNameEmpty": "Введите ФИО",
+  "oppApplyErrorContactEmpty": "Введите контакт",
+  "oppApplyErrorMotivationTooShort": "Напишите не менее 20 символов",
+  "oppApplySuccessTitle": "Заявка отправлена!",
+  "oppApplySuccessBody": "Мы сохранили твою заявку. Следи за статусом в разделе «Профиль → Документы».",
+  "oppApplySuccessCardTitle": "Заявка принята",
+  "oppApplySuccessCardSubtitle": "Данные сохранены локально",
+  "oppApplySuccessBackButton": "Вернуться к стипендиям",
+  "oppCareerTestTitle": "Узнай свою профессию",
+  "oppCareerTestProgressLabel": "{current} / {total}",
+  "@oppCareerTestProgressLabel": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "oppCareerTestCategoryLabel": "Работа с людьми",
+  "oppCareerCategoryAnalytical": "Аналитика",
+  "oppCareerCategoryCreative": "Творчество",
+  "oppCareerCategoryTechnical": "Технологии",
+  "oppCareerCategoryLeadership": "Управление",
+  "oppCareerAnswerYes": "Да",
+  "oppCareerAnswerNo": "Нет",
+  "oppCareerAnswerSometimes": "Иногда",
+  "oppCareerAnswerMaybe": "Возможно",
+  "oppCareerResultTitleDone": "Ты прошёл тест!",
+  "oppCareerResultTitleAlreadyDone": "Тест уже пройден!",
+  "oppCareerResultStrengthLabel": "Твоя сильная сторона:",
+  "oppCareerResultInsightFallback": "Продолжай развивать свои навыки!",
+  "oppCareerResultCategoriesHeader": "Результаты по категориям:",
+  "oppCareerResultReturnTomorrow": "Возвращайся завтра за новым тестом",
+  "oppCareerResultHomeButton": "На главную",
+  "oppCareerInsightSocial": "Ты прирождённый коммуникатор! Твои сильные стороны — эмпатия и умение находить общий язык. Тебе подойдут профессии: педагог, психолог, HR-менеджер, социальный работник, PR-специалист.",
+  "oppCareerInsightAnalytical": "Ты мыслишь системно и любишь разбираться в данных. Обрати внимание на: аналитик данных, финансист, учёный, программист, экономист.",
+  "oppCareerInsightCreative": "Ты видишь мир иначе и умеешь создавать что-то новое. Твои направления: дизайнер, художник, архитектор, режиссёр, UX-специалист, маркетолог.",
+  "oppCareerInsightTechnical": "Ты любишь разбираться в том, как всё устроено, и создавать реальные решения. Профессии для тебя: инженер, программист, IT-специалист, учёный, исследователь.",
+  "oppCareerInsightLeadership": "Ты умеешь вести за собой людей и достигать целей через команду. Тебе подойдут: менеджер, предприниматель, государственный деятель, топ-менеджер, стратег.",
+  "oppLessonIntroTitle": "Сравнение вероятностей",
+  "oppLessonIntroSubtitle": "Научись сравнивать шансы событий и понимать, что является достоверным, невозможным или случайным.",
+  "oppLessonStatTheoryCards": "{count} карточки теории",
+  "@oppLessonStatTheoryCards": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "oppLessonStatQuestions": "{count} вопроса",
+  "@oppLessonStatQuestions": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "oppLessonStatXp": "+50 XP",
+  "oppLessonStartButton": "Начать урок",
+  "oppLessonTheoryPill": "Теория  {current} / {total}",
+  "@oppLessonTheoryPill": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "oppLessonTheoryNextButton": "Далее",
+  "oppLessonTheoryToQuestionsButton": "К вопросам",
+  "oppLessonQuestionPill": "Вопрос {current} из {total}",
+  "@oppLessonQuestionPill": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "oppLessonCheckButton": "Проверить",
+  "oppLessonTrueFalseTrue": "Верно",
+  "oppLessonTrueFalseFalse": "Неверно",
+  "oppLessonFeedbackCorrect": "Верно!",
+  "oppLessonFeedbackIncorrect": "Неверно",
+  "oppLessonFeedbackXpBadge": "+{xp} XP",
+  "@oppLessonFeedbackXpBadge": {
+    "placeholders": {
+      "xp": {
+        "type": "int"
+      }
+    }
+  },
+  "oppLessonWhyExpander": "Почему?",
+  "oppLessonContinueButton": "Продолжить",
+  "oppLessonCompleteTitle": "Урок пройден!",
+  "oppLessonCompleteSubtitle": "Отличная работа! Ты завершил урок о вероятностях.",
+  "oppLessonXpEarned": "Заработано XP",
+  "oppLessonXpValue": "+{xp} XP",
+  "@oppLessonXpValue": {
+    "placeholders": {
+      "xp": {
+        "type": "int"
+      }
+    }
+  },
+  "oppLessonCorrectAnswersLabel": "Правильных ответов",
+  "oppLessonCorrectAnswersValue": "{correct} из {total}",
+  "@oppLessonCorrectAnswersValue": {
+    "placeholders": {
+      "correct": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "oppLessonDoneButton": "Готово",
+  "oppLessonTheoryProbabilityTitle": "Что такое вероятность?",
+  "oppLessonTheoryProbabilityBody": "Вероятность — это число от 0 до 1, которое описывает, насколько вероятно наступление события. Число 0 означает, что событие невозможно, а число 1 означает, что оно обязательно произойдёт. Все события «между» имеют вероятность строго больше 0 и меньше 1.",
+  "oppLessonTheoryFormulaTitle": "Классическая формула",
+  "oppLessonTheoryFormulaBody": "P(A) = m / n, где m — количество благоприятных исходов, n — общее количество равновозможных исходов. Пример: бросаем монету. n = 2 (орёл и решка), m = 1 (орёл). Значит P(орёл) = 1/2 = 0,5.",
+  "oppLessonTheoryComparingTitle": "Сравнение вероятностей",
+  "oppLessonTheoryComparingBody": "Вероятности сравниваются так же, как обычные дроби. P(A) > P(B) значит, что событие A произойдёт чаще, чем B. Например: вероятность вытащить красный шар из мешка (3 красных из 10) = 3/10 = 0,3, а синий = 7/10 = 0,7. Синий вероятнее.",
+  "oppLessonTheoryCertainTitle": "Достоверные и невозможные события",
+  "oppLessonTheoryCertainBody": "Достоверное событие происходит всегда (P = 1). Пример: при броске кубика выпадет число от 1 до 6 — это достоверно. Невозможное событие не происходит никогда (P = 0). Пример: на том же кубике выпадет 7.",
+  "oppLessonQ0Text": "Бросают монету. Какова вероятность выпадения орла?",
+  "oppLessonQ0Explanation": "Монета имеет два равновероятных исхода: орёл и решка. Поэтому вероятность орла = 1/2 = 0.5.",
+  "oppLessonQ1Text": "Вероятность достоверного события равна 1.",
+  "oppLessonQ1OptionTrue": "Верно",
+  "oppLessonQ1OptionFalse": "Неверно",
+  "oppLessonQ1Explanation": "Достоверное событие — то, которое обязательно произойдёт. По определению, его вероятность равна 1.",
+  "oppLessonQ2Text": "Вероятность невозможного события равна ____.",
+  "oppLessonQ2Explanation": "Невозможное событие не может произойти никогда. Его вероятность равна 0 по определению.",
+  "profScreenTitle": "Профиль",
+  "profAddDataPrompt": "Добавь данные о себе →",
+  "profEditTooltip": "Редактировать данные",
+  "profGoalChip": "Цель: {minutes} мин/день",
+  "@profGoalChip": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "profDocPackagesSectionTitle": "Пакет документов",
+  "profDocPackagesSectionSubtitle": "Отмечай документы по мере готовности и прикрепляй файлы",
+  "profMyDocsSectionTitle": "Мои документы",
+  "profMyDocsSectionSubtitle": "Прикрепляй файлы, открывай и делись с куратором",
+  "profCareerTestCardTitle": "Тест на профориентацию",
+  "profCareerTestCardSubtitleDuration": "Займёт ~10–15 минут",
+  "profCareerTestCardSubtitleRetake": "Результат: {result}. Пройти снова?",
+  "@profCareerTestCardSubtitleRetake": {
+    "placeholders": {
+      "result": {
+        "type": "String"
+      }
+    }
+  },
+  "profCareerTestDialogTitle": "Тест на профориентацию",
+  "profCareerTestDialogBody": "Тест займёт 10–15 минут. Отвечай честно — так результат будет точнее.",
+  "profCareerTestDialogCancel": "Отмена",
+  "profCareerTestDialogConfirm": "Продолжить",
+  "profNewPackageTitle": "Новый пакет",
+  "profNewPackageNameLabel": "Название пакета",
+  "profNewPackageNameHint": "Например: NU 2026",
+  "profNewPackageDescLabel": "Описание (необязательно)",
+  "profNewPackageDescHint": "Документы для Назарбаев Университета",
+  "profCreatePackageButton": "Создать пакет",
+  "profPackageProgress": "{attached} / {total} подтверждено",
+  "@profPackageProgress": {
+    "placeholders": {
+      "attached": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "profDocActionOpen": "Открыть",
+  "profDocActionReplace": "Заменить",
+  "profDocActionRemove": "Убрать из пакета",
+  "profDocAttachButton": "Прикрепить",
+  "profNoAttachedFiles": "Нет прикреплённых файлов",
+  "profAttachFileButton": "Прикрепить файл",
+  "profDocActionShare": "Поделиться",
+  "profDocActionDelete": "Удалить",
+  "profAddDocumentButton": "Добавить документ",
+  "profAddDocSheetTitle": "Добавить документ",
+  "profAddDocSheetSubtitle": "в пакет «{packageName}»",
+  "@profAddDocSheetSubtitle": {
+    "placeholders": {
+      "packageName": {
+        "type": "String"
+      }
+    }
+  },
+  "profAddDocUploadNew": "Загрузить новый файл",
+  "profAddDocAddSlot": "Добавить пункт без файла",
+  "profAddDocFromMyDocs": "Из моих документов",
+  "profAddDocNoSavedFiles": "Пока нет сохранённых файлов. Загрузи новый — он появится и в разделе «Мои документы».",
+  "profAddSlotDialogTitle": "Новый пункт",
+  "profAddSlotDialogHint": "Например: Рекомендательное письмо",
+  "profAddSlotDialogCancel": "Отмена",
+  "profAddSlotDialogAdd": "Добавить",
+  "profEditScreenTitle": "Мои данные",
+  "profEditSectionPersonal": "Личные данные",
+  "profEditFieldNameLabel": "Имя",
+  "profEditFieldNameHint": "Как тебя зовут?",
+  "profEditFieldGradeLabel": "Класс",
+  "profEditFieldGradeHint": "11 класс",
+  "profEditFieldCityLabel": "Город",
+  "profEditFieldCityHint": "Алматы, Астана...",
+  "profEditFieldGpaLabel": "Средний балл / ГПА",
+  "profEditFieldGpaHint": "4.8",
+  "profEditFieldLanguagesLabel": "Языки (через запятую)",
+  "profEditFieldLanguagesHint": "KZ, RU, EN",
+  "profEditSectionAcademic": "Направления и интересы",
+  "profEditFieldMajorsLabel": "Направления учёбы (через запятую)",
+  "profEditFieldMajorsHint": "IT, Медицина, Финансы...",
+  "profEditFieldInterestsLabel": "Интересы и хобби (через запятую)",
+  "profEditFieldInterestsHint": "Математика, Дизайн, Музыка...",
+  "profEditSectionExams": "Результаты экзаменов",
+  "profEditFieldIeltsLabel": "IELTS балл",
+  "profEditFieldIeltsHint": "7.0",
+  "profEditFieldSatLabel": "SAT балл",
+  "profEditFieldSatHint": "1400",
+  "profEditFieldToeflLabel": "TOEFL балл",
+  "profEditFieldToeflHint": "100",
+  "profEditSaveButton": "Сохранить",
+  "profEditSavedSnackbar": "Данные сохранены",
+  "profCareerTestScreenTitle": "Профориентация",
+  "profCareerTestProgress": "{current} / {total}",
+  "@profCareerTestProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "profCareerTestWarning": "Тест займёт ~10–15 минут. Ответь честно — результат будет точнее.",
+  "profCareerTestQuestionLabel": "Вопрос {number}",
+  "@profCareerTestQuestionLabel": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "profCareerTestAnswerNo": "Нет",
+  "profCareerTestAnswerNeutral": "Нейтрально",
+  "profCareerTestAnswerYes": "Да",
+  "profCareerResultTitle": "Результат готов!",
+  "profCareerResultProfileLabel": "Твой профиль",
+  "profCareerResultSavedNote": "Результат сохранён в твоём профиле. Ты можешь пройти тест снова в любое время.",
+  "profCareerResultCloseButton": "Закрыть",
+  "profNotifierLoadError": "Ошибка загрузки: {error}",
+  "@profNotifierLoadError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "profNotifierSaveError": "Ошибка сохранения: {error}",
+  "@profNotifierSaveError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "profSeedPackageName": "Стандартный пакет КЗ",
+  "profSeedPackageDesc": "Типовой набор документов для поступления в вузы Казахстана",
+  "profSeedItemId": "Удостоверение личности / Свидетельство о рождении",
+  "profSeedItemTranscript": "Аттестат / Транскрипт оценок",
+  "profSeedItemMedical": "Медицинская справка 086-У",
+  "profSeedItemPhotos": "Фотографии 3×4 (6 шт.)",
+  "profSeedItemUnt": "Сертификат ЕНТ / ЕГЭ",
+  "profSeedItemIntlExam": "Сертификат IELTS / TOEFL / SAT (при наличии)",
+  "profSeedItemMotivation": "Мотивационное письмо",
+  "profSeedItemRecommendations": "Рекомендательные письма (2 шт.)",
+  "profSeedItemApplication": "Заявление о поступлении",
+  "profSeedItemParentalConsent": "Согласие родителей (для несовершеннолетних)",
+  "profCareerResultEngineerResearcher": "Инженер-исследователь",
+  "profCareerResultArchitectDesigner": "Архитектор / Дизайнер продуктов",
+  "profCareerResultScientistInnovator": "Учёный-новатор",
+  "profCareerResultHrCoach": "HR-менеджер / Тренер",
+  "profCareerResultCfo": "Финансовый директор",
+  "profCareerResultArtTherapistEducator": "Арт-терапевт / Педагог-творец",
+  "profCareerResultEngineerTechnologist": "Инженер / Технолог",
+  "profCareerResultScientistAnalyst": "Учёный / Аналитик",
+  "profCareerResultCreativeDesigner": "Творческий деятель / Дизайнер",
+  "profCareerResultTeacherPsychologist": "Педагог / Психолог",
+  "profCareerResultEntrepreneurManager": "Предприниматель / Менеджер",
+  "profCareerResultFinancistAdministrator": "Финансист / Администратор",
+  "profCareerQ1": "Мне нравится собирать и чинить вещи своими руками",
+  "profCareerQ2": "Я предпочитаю работу на свежем воздухе",
+  "profCareerQ3": "Мне интересны технические устройства и механизмы",
+  "profCareerQ4": "Я люблю физический труд",
+  "profCareerQ5": "Мне нравится работать с инструментами и оборудованием",
+  "profCareerQ6": "Мне нравится решать сложные задачи и головоломки",
+  "profCareerQ7": "Я с удовольствием провожу время за чтением научных статей",
+  "profCareerQ8": "Мне интересно изучать, как устроен мир вокруг нас",
+  "profCareerQ9": "Я люблю анализировать данные и искать закономерности",
+  "profCareerQ10": "Мне нравится проводить эксперименты",
+  "profCareerQ11": "Я люблю рисовать, писать или музицировать",
+  "profCareerQ12": "Мне нравится создавать что-то красивое или оригинальное",
+  "profCareerQ13": "Я часто нахожу нестандартные решения",
+  "profCareerQ14": "Творческое самовыражение важно для меня",
+  "profCareerQ15": "Мне нравится дизайн и эстетика",
+  "profCareerQ16": "Мне нравится помогать другим людям",
+  "profCareerQ17": "Я хорошо чувствую настроение и эмоции других",
+  "profCareerQ18": "Мне нравится работать в команде",
+  "profCareerQ19": "Я с удовольствием обучаю других",
+  "profCareerQ20": "Волонтёрство и помощь обществу важны для меня",
+  "profCareerQ21": "Мне нравится убеждать людей и вести переговоры",
+  "profCareerQ22": "Я готов брать на себя ответственность и руководить",
+  "profCareerQ23": "Меня привлекает создание бизнеса",
+  "profCareerQ24": "Мне нравится соревноваться и побеждать",
+  "profCareerQ25": "Я умею продавать идеи и продукты",
+  "profCareerQ26": "Мне нравится работать с цифрами и документами",
+  "profCareerQ27": "Я ценю порядок и организованность",
+  "profCareerQ28": "Мне нравится следовать чётким правилам и инструкциям",
+  "profCareerQ29": "Мне интересна бухгалтерия, финансы или управление данными",
+  "profCareerQ30": "Я люблю систематизировать и классифицировать информацию",
+  "sharedNavHome": "Главная",
+  "sharedNavUniversities": "Вузы",
+  "sharedNavEraly": "Ералы",
+  "sharedNavOpportunities": "Возможности",
+  "sharedNavProfile": "Профиль",
+  "sharedNotifStudyReminderTitle": "Время учиться!",
+  "sharedNotifStudyBody10": "Всего 10 минут — и ты на шаг ближе к цели!",
+  "sharedNotifStudyBody20": "20 минут занятий сегодня — ты справишься!",
+  "sharedNotifStudyBody30": "Запланировано {minutes} минут учёбы. Начнём?",
+  "@sharedNotifStudyBody30": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedNotifStudyBodyBig": "Большая цель сегодня: {minutes} минут. Удачи!",
+  "@sharedNotifStudyBodyBig": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedNotifCalendarNowTitle": "Сейчас: {eventTitle}",
+  "@sharedNotifCalendarNowTitle": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedNotifCalendarNowBody": "Событие начинается!",
+  "sharedNotifCalendarSoonTitle": "Скоро: {eventTitle}",
+  "@sharedNotifCalendarSoonTitle": {
+    "placeholders": {
+      "eventTitle": {
+        "type": "String"
+      }
+    }
+  },
+  "sharedNotifCalendarSoonBody": "Запланировано на сегодня.",
+  "sharedNotifTodoNudgeTitle": "{count, plural, one{У тебя {count} задача на сегодня} few{У тебя {count} задачи на сегодня} many{У тебя {count} задач на сегодня} other{У тебя {count} задач на сегодня}}",
+  "@sharedNotifTodoNudgeTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedNotifChannelName": "Ежедневные напоминания",
+  "sharedNotifChannelDesc": "Напоминания о ежедневной учёбе и предстоящих событиях",
+  "uniTitle": "Вузы",
+  "uniSubtitleKz": "{count} вузов Казахстана",
+  "@uniSubtitleKz": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "uniErrorLoad": "Не удалось загрузить список вузов",
+  "uniEmptyList": "Список вузов пуст",
+  "uniNoResults": "Нет вузов по выбранным фильтрам",
+  "uniFilterCity": "Город",
+  "uniFilterType": "Тип",
+  "uniFilterReset": "Сбросить",
+  "uniPickCityTitle": "Выбрать город",
+  "uniPickTypeTitle": "Выбрать тип",
+  "uniFilterClearItem": "Сбросить фильтр",
+  "uniProgramCount": "{count, plural, one{{count} программа} few{{count} программы} many{{count} программ} other{{count} программ}}",
+  "@uniProgramCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "uniCompetitionFrom": "конкурс от {score} б.",
+  "@uniCompetitionFrom": {
+    "placeholders": {
+      "score": {
+        "type": "int"
+      }
+    }
+  },
+  "uniTypeNational": "Национальный",
+  "uniTypeState": "Государственный",
+  "uniTypeAutonomous": "Автономный",
+  "uniTypePrivate": "Частный",
+  "uniTypeInternational": "Международный",
+  "uniHubSubtitle": "Выбери, какие вузы хочешь изучить",
+  "uniHubKzTitle": "Вузы Казахстана",
+  "uniHubKzSubtitle": "Каталог 88+ вузов с конкурсными баллами и ГОП",
+  "uniHubAbroadTitle": "Вузы за рубежом",
+  "uniHubAbroadSubtitle": "Топ мировые университеты с финансовой помощью для иностранцев",
+  "uniAbroadTitle": "Вузы за рубежом",
+  "uniAbroadCountSubtitle": "{count} вузов мира",
+  "@uniAbroadCountSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "uniAbroadErrorLoad": "Не удалось загрузить список зарубежных вузов",
+  "uniAbroadEmptyList": "Список зарубежных вузов пуст",
+  "uniAbroadMatchBadge": "совпадение",
+  "uniAbroadTuitionPerYear": "${price}/год",
+  "@uniAbroadTuitionPerYear": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "uniFinAidNeedBlind": "Нужд-слепой приём",
+  "uniFinAidGenerous": "Щедрая финпомощь",
+  "uniFinAidLimited": "Ограниченная помощь",
+  "uniFinAidNone": "Без финпомощи",
+  "uniShortFinAidNeedBlind": "need-blind",
+  "uniShortFinAidGenerous": "щедрые гранты",
+  "uniShortFinAidLimited": "лимит. помощь",
+  "uniShortFinAidNone": "без помощи",
+  "uniDetailErrorLoad": "Не удалось загрузить данные",
+  "uniDetailNotFound": "Вуз не найден",
+  "uniDetailFinanceSection": "Финансы",
+  "uniDetailFinAidLabel": "Финансовая помощь",
+  "uniDetailTuitionLabel": "Стоимость в год",
+  "uniDetailMajorsSection": "Направления",
+  "uniDetailSourceLink": "Источник: {url}",
+  "@uniDetailSourceLink": {
+    "placeholders": {
+      "url": {
+        "type": "String"
+      }
+    }
+  },
+  "uniMajorCs": "CS",
+  "uniMajorEngineering": "Инженерия",
+  "uniMajorMathematics": "Математика",
+  "uniMajorPhysics": "Физика",
+  "uniMajorChemistry": "Химия",
+  "uniMajorBiology": "Биология",
+  "uniMajorMedicine": "Медицина",
+  "uniMajorEconomics": "Экономика",
+  "uniMajorBusiness": "Бизнес",
+  "uniMajorPsychology": "Психология",
+  "uniMajorPolitics": "Политология",
+  "uniDetailKzErrorLoad": "Не удалось загрузить вуз",
+  "uniDetailKzNotFound": "Вуз не найден",
+  "uniDetailHasDormYes": "Да",
+  "uniDetailHasDormNo": "Нет",
+  "uniDetailHasDormitory": "Есть общежитие",
+  "uniDetailStatPrograms": "программ",
+  "uniDetailStatCompetition": "конкурс от, б.",
+  "uniDetailStatDormitory": "общежитие",
+  "uniDetailAboutSection": "О вузе",
+  "uniDetailInfoSection": "Информация",
+  "uniDetailProgramsSection": "Программы ({count})",
+  "@uniDetailProgramsSection": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "uniDetailProgramsNote": "Балл — минимум для участия в конкурсе на грант (НЦТ). Это не проходной балл. Нажми на программу, чтобы раскрыть детали.",
+  "uniDetailCompetitionFrom": "Конкурс от {score} б.",
+  "@uniDetailCompetitionFrom": {
+    "placeholders": {
+      "score": {
+        "type": "int"
+      }
+    }
+  },
+  "uniDetailLanguagesLabel": "Языки обучения",
+  "uniDetailGrantPlacesLabel": "Грантовых мест",
+  "uniDetailTuitionKztLabel": "Стоимость в год",
+  "uniDetailNoScoreData": "Данных по баллам пока нет.",
+  "uniDetailScoresByYear": "Баллы по годам",
+  "uniDetailUnverified": "не подтверждено",
+  "uniDetailEmptyPrograms": "Для этого вуза пока нет данных по программам и грантам.",
+  "uniDetailSourcesTitle": "Источники данных",
+  "uniLangKz": "каз",
+  "uniLangRu": "рус",
+  "uniLangEn": "англ",
+  "uniQuotaGeneral": "Общий конкурс",
+  "uniQuotaRural": "Сельская квота",
+  "uniQuotaLyceum": "Квота лицеев",
+  "uniQuotaOrphan": "Квота сирот",
+  "uniQuotaDisability": "Квота по инвалидности",
+  "uniQuotaOralman": "Квота кандасов",
+  "uniQuotaOther": "Иная квота",
+  "uniGrantMetricCutoff": "Проходной балл на грант",
+  "uniGrantMetricCompetitionMin": "Минимум для участия в конкурсе на грант",
+  "uniGrantMetricPaidMin": "Минимум на платное",
+  "uniGrantMetricNationalFloor": "Пороговый минимум (приказ МНВО)"
+}
+

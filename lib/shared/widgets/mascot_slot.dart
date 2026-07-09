@@ -1,53 +1,19 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:admity/core/theme/app_colors.dart';
-import 'package:admity/shared/rive/rive_assets.dart';
-import 'package:admity/shared/rive/rive_state_machine_slot.dart';
 import 'package:admity/shared/widgets/mascot_painter.dart';
-import 'package:flutter/animation.dart' as flutter_anim;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:rive/rive.dart' hide Animation;
 
-// TODO(mascot): Replace the CustomPaint blob fallback with the final
-// designer Rive asset once delivered.  Search "MascotSlot" to find every
-// placement in the app.
-//
-// TODO(rive-asset): Wire to assets/rive/mascot.riv once delivered.
-// State Machine contract: machine='MascotSM'
-//   inputs  — isIdle (bool), isHappy (bool)
-//   triggers — flyDown, celebrate
-// Until the asset lands the blob CustomPaint renders as the animated fallback.
-
-/// Slot for the Admity green blob mascot.
+/// Admity mascot — a friendly green "sprout buddy" drawn and animated in pure
+/// Flutter (no Rive dependency). Gentle float + breathing, periodic blink, and
+/// a mood-driven smile.
 ///
-/// ### Public API (additive — no breaking changes to existing callers)
-///
-/// ```dart
-/// MascotSlot(size: 120, tag: 'home')                    // idle blob
-/// MascotSlot(size: 80, state: MascotState.celebrate)    // Rive celebrate
-/// MascotSlot(size: 80, mood: MascotMood.celebrate)      // painted expression
-/// MascotSlot(size: 120, flyIn: true)                    // fly-up entrance
-/// ```
-///
-/// [state] drives the **Rive State Machine** (Phase 7 motion).
-/// [mood]  drives the **painted blob expression** (always visible as fallback;
-///         also meaningful when Rive isn't available).
-/// [flyIn] when true (and motion is allowed) plays a fly-up entrance: the
-///         figure rises from below and settles into position. Safe to use
-///         on onboarding screens.
-/// Both [state] and [mood] are independent so screens can set each to match
-/// their context.
-///
-/// ### reduceMotion
-/// When `MediaQuery.disableAnimations` is true the static blob always renders
-/// regardless of [state] or [flyIn]. Micro-animations are also suppressed.
-///
-/// ### Missing Rive asset
-/// When assets/rive/mascot.riv is absent the blob [CustomPaint] renders with
-/// procedural animations.
-class MascotSlot extends StatefulWidget {
+/// The public API ([size], [tag], [state], [mood], [flyIn]) is unchanged so all
+/// existing callers keep working. When `MediaQuery.disableAnimations` is true it
+/// renders a calm static pose.
+class MascotSlot extends StatelessWidget {
+  /// Creates a mascot of [size]×[size] logical pixels.
   const MascotSlot({
     super.key,
     this.size = 120,
@@ -57,232 +23,118 @@ class MascotSlot extends StatefulWidget {
     this.flyIn = false,
   });
 
-  /// Bounding box dimension (width = height = [size]).
+  /// Diameter of the mascot (width = height = [size]).
   final double size;
 
-  /// Optional context label shown under the mascot (e.g. "home" / "lesson").
+  /// Optional context label rendered under the mascot.
   final String? tag;
 
-  /// Drives the Rive State Machine inputs/triggers (Phase 7 motion).
+  /// Retained for API compatibility — mapped onto [mood]-style expression.
   final MascotState state;
 
-  /// Drives the painted blob expression.
-  ///
-  /// Defaults to [MascotMood.idle]. Independent of [state] — screens may
-  /// set [mood] to [MascotMood.celebrate] while [state] stays at
-  /// [MascotState.idle] if the Rive animation is not yet active.
+  /// Facial expression.
   final MascotMood mood;
 
-  /// When true (and `MediaQuery.disableAnimations` is false), the mascot plays
-  /// a fly-up entrance: rises from below its natural position and settles in
-  /// place with a gentle overshoot bounce. Intended for onboarding and
-  /// lesson-complete screens.
+  /// When true (and motion is allowed), plays a fade + rise entrance.
   final bool flyIn;
-
-  @override
-  State<MascotSlot> createState() => _MascotSlotState();
-}
-
-/// The logical state that maps to Rive State Machine inputs/triggers.
-enum MascotState {
-  /// Default: idle looping animation.
-  idle,
-
-  /// Happy face — e.g. shown when user loads the home screen.
-  happy,
-
-  /// Mascot flies down from above — triggered on "Start Lesson" tap.
-  flyDown,
-
-  /// Confetti celebration — lesson complete screen.
-  celebrate,
-}
-
-class _MascotSlotState extends State<MascotSlot> {
-  RiveWidgetController? _ctrl;
-  MascotState? _previousState;
-
-  void _onController(RiveWidgetController ctrl) {
-    _ctrl = ctrl;
-    _applyState(widget.state);
-  }
-
-  void _applyState(MascotState st) {
-    final ctrl = _ctrl;
-    if (ctrl == null) return;
-    final sm = ctrl.stateMachine;
-
-    // ignore: deprecated_member_use // SMI inputs deprecated in rive 0.14.x; assets not yet migrated to Data Binding.
-    sm.boolean(kMascotInputIdle)?.value = st == MascotState.idle;
-    // ignore: deprecated_member_use // Same: assets not yet migrated.
-    sm.boolean(kMascotInputHappy)?.value = st == MascotState.happy;
-
-    if (st == MascotState.flyDown && _previousState != MascotState.flyDown) {
-      // ignore: deprecated_member_use // Assets not yet migrated to Data Binding.
-      sm.trigger(kMascotTriggerFlyDown)?.fire();
-    }
-    if (st == MascotState.celebrate &&
-        _previousState != MascotState.celebrate) {
-      // ignore: deprecated_member_use // Assets not yet migrated to Data Binding.
-      sm.trigger(kMascotTriggerCelebrate)?.fire();
-    }
-    _previousState = st;
-  }
-
-  @override
-  void didUpdateWidget(MascotSlot oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.state != widget.state && _ctrl != null) {
-      _applyState(widget.state);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
-    // Animated blob fallback — used when Rive asset isn't available or when
-    // reduceMotion is true (in which case the blob is static).
-    final blobFallback = _BlobFallback(
-      size: widget.size,
-      mood: widget.mood,
-      flyIn: widget.flyIn,
+    Widget figure = _AnimatedMascot(
+      size: size,
+      mood: _effectiveMood,
       reduceMotion: reduceMotion,
     );
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        RiveStateMachineSlot(
-          assetPath: kMascotRivAsset,
-          machineName: kMascotMachineName,
-          staticFallback: blobFallback,
-          onController: _onController,
-          width: widget.size,
-          height: widget.size,
-        ),
-        if (widget.tag != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            widget.tag!,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: AppColors.inkSecondary,
-            ),
-          ),
-        ],
-      ],
-    );
+    if (flyIn && !reduceMotion) {
+      figure = figure
+          .animate()
+          .fadeIn(duration: 360.ms)
+          .slideY(begin: 0.28, end: 0, duration: 420.ms, curve: Curves.easeOut);
+    }
+
+    // [tag] is intentionally NOT rendered — it used to show a small caption
+    // under the mascot ("home", "profile_header", …) which read as debug text.
+    // The param stays for API compatibility and identification in tests.
+    return figure;
+  }
+
+  /// Celebration/happy states map to a happy face.
+  MascotMood get _effectiveMood {
+    if (mood != MascotMood.idle) return mood;
+    switch (state) {
+      case MascotState.celebrate:
+        return MascotMood.celebrate;
+      case MascotState.happy:
+        return MascotMood.happy;
+      case MascotState.idle:
+      case MascotState.flyDown:
+        return MascotMood.idle;
+    }
   }
 }
 
-// ── Animated blob fallback ────────────────────────────────────────────────────
+/// Retained for API compatibility with existing callers.
+enum MascotState {
+  /// Default idle.
+  idle,
 
-/// Renders the animated green blob mascot via [BlobMascotPainter].
-///
-/// Provides layered micro-animation (all suppressed when [reduceMotion] is
-/// true):
-///   1. **Breathing**: a gentle sine-wave vertical bob (~3.8 s period).
-///   2. **Blink**: eyes close quickly every 3–5 s and reopen (140 ms).
-///   3. **Glance**: pupils drift left/right subtly every 6–10 s.
-///   4. **Arm wave**: oscillation synced to the breathing controller.
-///   5. **Fly-in entrance**: [flyIn]=true plays a rise-and-settle animation
-///      via flutter_animate when the widget first mounts.
-class _BlobFallback extends StatefulWidget {
-  const _BlobFallback({
+  /// Happy.
+  happy,
+
+  /// Fly-down entrance.
+  flyDown,
+
+  /// Celebration.
+  celebrate,
+}
+
+// ── Animated figure ───────────────────────────────────────────────────────────
+
+class _AnimatedMascot extends StatefulWidget {
+  const _AnimatedMascot({
     required this.size,
     required this.mood,
-    required this.flyIn,
     required this.reduceMotion,
   });
 
   final double size;
   final MascotMood mood;
-  final bool flyIn;
   final bool reduceMotion;
 
   @override
-  State<_BlobFallback> createState() => _BlobFallbackState();
+  State<_AnimatedMascot> createState() => _AnimatedMascotState();
 }
 
-class _BlobFallbackState extends State<_BlobFallback>
+class _AnimatedMascotState extends State<_AnimatedMascot>
     with TickerProviderStateMixin {
-  // ── Controllers ──────────────────────────────────────────────────────────────
-
-  /// Breathing + arm-wave: slow continuous oscillation.
-  late final AnimationController _breathCtrl;
-
-  /// Blink: drives blinkT 0→1→0 per blink event.
+  late final AnimationController _floatCtrl;
   late final AnimationController _blinkCtrl;
-
-  /// Glance: drives glanceX between positions.
-  late final AnimationController _glanceCtrl;
-
-  // Explicit flutter_anim.Animation<double> avoids the ambiguous 'Animation'
-  // name exported by both flutter/animation.dart and rive/rive.dart.
-  late flutter_anim.Animation<double> _glanceAnim;
-
   Timer? _blinkTimer;
-  Timer? _glanceTimer;
   final _rng = math.Random();
-
-  // ── Animated values ──────────────────────────────────────────────────────────
-
-  double get _breathT {
-    // Sine wave → positive half only, so the bob goes in one direction.
-    return (math.sin(_breathCtrl.value * math.pi * 2) + 1) / 2;
-  }
-
-  double get _blinkT => _blinkCtrl.value;
-
-  // _glanceAnim.value is a double; map 0..1 → -1..+1 for the painter.
-  double get _glanceX => (_glanceAnim.value - 0.5) * 2;
-
-  double get _armWave => _breathCtrl.value;
-
-  // ── Lifecycle ────────────────────────────────────────────────────────────────
 
   @override
   void initState() {
     super.initState();
-
-    _breathCtrl = AnimationController(
+    _floatCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3800),
+      duration: const Duration(milliseconds: 2600),
     );
-
     _blinkCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 140),
+      duration: const Duration(milliseconds: 150),
     );
-
-    _glanceCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-    _glanceAnim = flutter_anim.Tween<double>(
-      begin: 0.5,
-      end: 0.5,
-    ).animate(_glanceCtrl);
-
     if (!widget.reduceMotion) {
-      _startMicroAnimations();
+      unawaited(_floatCtrl.repeat());
+      _scheduleBlink();
     }
   }
 
-  void _startMicroAnimations() {
-    unawaited(_breathCtrl.repeat());
-    _scheduleBlink();
-    _scheduleGlance();
-  }
-
   void _scheduleBlink() {
-    // Blink every 3–5 seconds.
-    final delayMs = 3000 + _rng.nextInt(2000);
-    _blinkTimer = Timer(Duration(milliseconds: delayMs), () {
+    _blinkTimer = Timer(Duration(milliseconds: 2600 + _rng.nextInt(2600)), () {
       if (!mounted) return;
-      // Forward (close eyes) then reverse (open eyes).
       unawaited(
         _blinkCtrl.forward().then((_) {
           if (mounted) unawaited(_blinkCtrl.reverse());
@@ -292,103 +144,255 @@ class _BlobFallbackState extends State<_BlobFallback>
     });
   }
 
-  void _scheduleGlance() {
-    // Glance every 6–10 seconds.
-    final delayMs = 6000 + _rng.nextInt(4000);
-    _glanceTimer = Timer(Duration(milliseconds: delayMs), () {
-      if (!mounted) return;
-      // Pick a random glance direction.
-      final target = _rng.nextDouble();
-      _glanceAnim =
-          flutter_anim.Tween<double>(
-            begin: _glanceAnim.value,
-            end: target,
-          ).animate(
-            CurvedAnimation(parent: _glanceCtrl, curve: Curves.easeInOut),
-          );
-      _glanceCtrl.reset();
-      unawaited(
-        _glanceCtrl.forward().then((_) {
-          if (!mounted) return;
-          // Return to centre after a short pause.
-          Timer(const Duration(milliseconds: 800), () {
-            if (!mounted) return;
-            _glanceAnim =
-                flutter_anim.Tween<double>(
-                  begin: _glanceAnim.value,
-                  end: 0.5,
-                ).animate(
-                  CurvedAnimation(parent: _glanceCtrl, curve: Curves.easeInOut),
-                );
-            _glanceCtrl.reset();
-            unawaited(_glanceCtrl.forward());
-          });
-        }),
-      );
-      _scheduleGlance();
-    });
-  }
-
   @override
   void dispose() {
-    _breathCtrl.dispose();
-    _blinkCtrl.dispose();
-    _glanceCtrl.dispose();
     _blinkTimer?.cancel();
-    _glanceTimer?.cancel();
+    _floatCtrl.dispose();
+    _blinkCtrl.dispose();
     super.dispose();
   }
 
-  // ── Build ────────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
-    Widget painter = AnimatedBuilder(
-      animation: Listenable.merge([_breathCtrl, _blinkCtrl, _glanceCtrl]),
-      builder: (context, _) {
-        return SizedBox.square(
-          dimension: widget.size,
-          child: CustomPaint(
-            painter: BlobMascotPainter(
-              size: widget.size,
+    return SizedBox.square(
+      dimension: widget.size,
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_floatCtrl, _blinkCtrl]),
+        builder: (context, _) {
+          return CustomPaint(
+            painter: _MascotPainter(
+              floatT: _floatCtrl.value,
+              blinkT: _blinkCtrl.value,
               mood: widget.mood,
-              blinkT: widget.reduceMotion ? 0 : _blinkT,
-              glanceX: widget.reduceMotion ? 0 : _glanceX,
-              armWave: widget.reduceMotion ? 0 : _armWave,
-              breathT: widget.reduceMotion ? 0 : _breathT,
+              reduceMotion: widget.reduceMotion,
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ── Painter ───────────────────────────────────────────────────────────────────
+
+class _MascotPainter extends CustomPainter {
+  _MascotPainter({
+    required this.floatT,
+    required this.blinkT,
+    required this.mood,
+    required this.reduceMotion,
+  });
+
+  final double floatT;
+  final double blinkT;
+  final MascotMood mood;
+  final bool reduceMotion;
+
+  static const _bodyTop = Color(0xFF5AE577);
+  static const _bodyBottom = Color(0xFF2FC24C);
+  static const _rim = Color(0xFF1FA83E);
+  static const _leaf = Color(0xFF41C85C);
+  static const _leafDark = Color(0xFF2AA847);
+  static const _pupil = Color(0xFF20372E);
+  static const _cheek = Color(0xFFFF8FA8);
+  static const _mouth = Color(0xFF176B33);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.shortestSide;
+    final cx = s / 2;
+
+    final phase = reduceMotion ? 0.0 : math.sin(floatT * 2 * math.pi);
+    final offsetY = -phase * s * 0.03;
+    final sx = 1 + 0.028 * phase;
+    final sy = 1 - 0.028 * phase;
+    final eyeOpen = reduceMotion ? 1.0 : (1 - blinkT).clamp(0.10, 1.0);
+    final happy = mood == MascotMood.happy || mood == MascotMood.celebrate;
+
+    // ── Ground shadow ──────────────────────────────────────────────────────
+    final shadowScale = 1 - phase * 0.12;
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(cx, s * 0.92),
+        width: s * 0.46 * shadowScale,
+        height: s * 0.07 * shadowScale,
+      ),
+      Paint()..color = Colors.black.withValues(alpha: 0.12),
     );
 
-    // Fly-in entrance animation (only when enabled and motion allowed).
-    if (widget.flyIn && !widget.reduceMotion) {
-      painter = painter
-          .animate()
-          .slideY(
-            begin: 0.40,
-            end: 0,
-            duration: 520.ms,
-            curve: Curves.easeOut,
-          )
-          .then()
-          .slideY(
-            begin: 0,
-            end: -0.05,
-            duration: 160.ms,
-            curve: Curves.easeOut,
-          )
-          .then()
-          .slideY(
-            begin: -0.05,
-            end: 0,
-            duration: 200.ms,
-            curve: Curves.easeIn,
-          )
-          .fadeIn(duration: 280.ms, curve: Curves.easeIn);
+    canvas
+      ..save()
+      ..translate(0, offsetY);
+
+    final bodyCenter = Offset(cx, s * 0.56);
+    canvas
+      ..save()
+      ..translate(bodyCenter.dx, bodyCenter.dy)
+      ..scale(sx, sy)
+      ..translate(-bodyCenter.dx, -bodyCenter.dy);
+
+    // ── Body ───────────────────────────────────────────────────────────────
+    final bodyRect = Rect.fromCenter(
+      center: bodyCenter,
+      width: s * 0.66,
+      height: s * 0.68,
+    );
+    final bodyPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [_bodyTop, _bodyBottom],
+      ).createShader(bodyRect);
+    canvas
+      ..drawOval(bodyRect, Paint()..color = _rim)
+      ..drawOval(bodyRect.deflate(s * 0.012), bodyPaint);
+
+    // Soft top highlight.
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(cx - s * 0.10, s * 0.40),
+        width: s * 0.22,
+        height: s * 0.13,
+      ),
+      Paint()..color = Colors.white.withValues(alpha: 0.18),
+    );
+
+    // ── Sprout (stem + two leaves) ─────────────────────────────────────────
+    final stem = Path()
+      ..moveTo(cx, s * 0.26)
+      ..quadraticBezierTo(cx + s * 0.01, s * 0.17, cx, s * 0.12);
+    canvas.drawPath(
+      stem,
+      Paint()
+        ..color = _leafDark
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = s * 0.022
+        ..strokeCap = StrokeCap.round,
+    );
+    _leafShape(canvas, Offset(cx - s * 0.005, s * 0.14), s, left: true);
+    _leafShape(canvas, Offset(cx + s * 0.005, s * 0.16), s, left: false);
+
+    // ── Eyes ───────────────────────────────────────────────────────────────
+    final eyeY = s * 0.545;
+    final eyeDx = s * 0.135;
+    _eye(canvas, Offset(cx - eyeDx, eyeY), s, eyeOpen);
+    _eye(canvas, Offset(cx + eyeDx, eyeY), s, eyeOpen);
+
+    // ── Cheeks ─────────────────────────────────────────────────────────────
+    if (happy) {
+      final cheekPaint = Paint()..color = _cheek.withValues(alpha: 0.55);
+      canvas
+        ..drawCircle(Offset(cx - s * 0.22, s * 0.63), s * 0.045, cheekPaint)
+        ..drawCircle(Offset(cx + s * 0.22, s * 0.63), s * 0.045, cheekPaint);
     }
 
-    return painter;
+    // ── Mouth ──────────────────────────────────────────────────────────────
+    _mouthShape(canvas, cx, s);
+
+    canvas
+      ..restore()
+      ..restore();
   }
+
+  void _leafShape(Canvas canvas, Offset tip, double s, {required bool left}) {
+    final dir = left ? -1.0 : 1.0;
+    final path = Path()
+      ..moveTo(tip.dx, tip.dy + s * 0.02)
+      ..quadraticBezierTo(
+        tip.dx + dir * s * 0.11,
+        tip.dy - s * 0.06,
+        tip.dx + dir * s * 0.02,
+        tip.dy - s * 0.08,
+      )
+      ..quadraticBezierTo(
+        tip.dx - dir * s * 0.02,
+        tip.dy - s * 0.03,
+        tip.dx,
+        tip.dy + s * 0.02,
+      )
+      ..close();
+    canvas.drawPath(path, Paint()..color = _leaf);
+  }
+
+  void _eye(Canvas canvas, Offset center, double s, double open) {
+    if (open < 0.22) {
+      // Closed / blink — a gentle downward arc.
+      final arc = Path()
+        ..moveTo(center.dx - s * 0.05, center.dy)
+        ..quadraticBezierTo(
+          center.dx,
+          center.dy + s * 0.03,
+          center.dx + s * 0.05,
+          center.dy,
+        );
+      canvas.drawPath(
+        arc,
+        Paint()
+          ..color = _pupil
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = s * 0.02
+          ..strokeCap = StrokeCap.round,
+      );
+      return;
+    }
+    // Open eye: white sclera + pupil + highlight.
+    final rx = s * 0.062;
+    final ry = s * 0.085 * open;
+    canvas.drawOval(
+      Rect.fromCenter(center: center, width: rx * 2, height: ry * 2),
+      Paint()..color = Colors.white,
+    );
+    final pupilC = Offset(center.dx, center.dy + ry * 0.15);
+    canvas.drawCircle(pupilC, s * 0.036 * open, Paint()..color = _pupil);
+    canvas.drawCircle(
+      Offset(pupilC.dx - s * 0.014, pupilC.dy - s * 0.02),
+      s * 0.014 * open,
+      Paint()..color = Colors.white,
+    );
+  }
+
+  void _mouthShape(Canvas canvas, double cx, double s) {
+    final my = s * 0.66;
+    if (mood == MascotMood.celebrate) {
+      // Open happy mouth.
+      final rect = Rect.fromCenter(
+        center: Offset(cx, my + s * 0.01),
+        width: s * 0.14,
+        height: s * 0.11,
+      );
+      canvas.drawArc(rect, 0, math.pi, true, Paint()..color = _mouth);
+      canvas.drawArc(
+        Rect.fromCenter(
+          center: Offset(cx, my + s * 0.035),
+          width: s * 0.09,
+          height: s * 0.06,
+        ),
+        0,
+        math.pi,
+        true,
+        Paint()..color = _cheek,
+      );
+      return;
+    }
+    final width = mood == MascotMood.happy ? s * 0.19 : s * 0.13;
+    final depth = mood == MascotMood.happy ? s * 0.055 : s * 0.035;
+    final smile = Path()
+      ..moveTo(cx - width / 2, my)
+      ..quadraticBezierTo(cx, my + depth, cx + width / 2, my);
+    canvas.drawPath(
+      smile,
+      Paint()
+        ..color = _mouth
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = s * 0.022
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_MascotPainter old) =>
+      old.floatT != floatT ||
+      old.blinkT != blinkT ||
+      old.mood != mood ||
+      old.reduceMotion != reduceMotion;
 }

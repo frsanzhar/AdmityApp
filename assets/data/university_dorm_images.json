@@ -1,0 +1,3 @@
+{
+ "_comment": "Map: university id -> dormitory photo URL. Fill manually: id from universities.json, direct image link (e.g. Wikimedia). Missing -> no dorm photo shown."
+}

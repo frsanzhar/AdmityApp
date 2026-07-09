@@ -1,3 +1,4 @@
+import 'package:admity/features/auth/presentation/auth_screen.dart';
 import 'package:admity/features/career/presentation/daily_career_test_screen.dart';
 import 'package:admity/features/home/presentation/home_screen.dart';
 import 'package:admity/features/lesson/presentation/lesson_screen.dart';
@@ -11,26 +12,45 @@ import 'package:admity/features/opportunities/presentation/scholarship_detail_sc
 import 'package:admity/features/opportunities/presentation/university_detail_screen.dart';
 import 'package:admity/features/profile/presentation/profile_edit_screen.dart';
 import 'package:admity/features/profile/presentation/profile_screen.dart';
+import 'package:admity/features/psytests/presentation/psytests_routes.dart';
 import 'package:admity/features/splash/presentation/splash_screen.dart';
+import 'package:admity/features/universities/presentation/abroad_universities_screen.dart';
+import 'package:admity/features/universities/presentation/universities_hub_screen.dart';
 import 'package:admity/features/universities/presentation/universities_screen.dart';
 import 'package:admity/features/universities/presentation/university_catalog_detail_screen.dart';
 import 'package:admity/shared/widgets/app_bottom_nav.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+/// Creates the application router.
 GoRouter createRouter() {
   return GoRouter(
     initialLocation: '/',
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
+      // Authentication screen — shown to unauthenticated users.
+      GoRoute(path: '/auth', builder: (context, state) => const AuthScreen()),
       // Animated onboarding — full-screen, shown when profile is incomplete.
       GoRoute(path: '/onboarding', builder: (context, state) => const OnboardingScreen()),
       // Daily career-orientation test — full-screen, a new test each day.
       GoRoute(path: '/career-test', builder: (context, state) => const DailyCareerTestScreen()),
-      // Catalog university detail — programs (ГОП) + honest grant figures.
+      // Psych-tests roadmap (Duolingo-style path of 12 tests).
+      ...psytestsRoutes,
+      // KZ universities catalog — list view.
+      GoRoute(path: '/uni-kz', builder: (context, state) => const UniversitiesScreen()),
+      // KZ university detail — programs (ГОП) + honest grant figures.
       GoRoute(
-        path: '/universities/:id',
+        path: '/uni-kz/:id',
         builder: (context, state) => UniversityCatalogDetailScreen(
+          universityId: state.pathParameters['id'] ?? '',
+        ),
+      ),
+      // Abroad universities — list view.
+      GoRoute(path: '/uni-abroad', builder: (context, state) => const AbroadUniversitiesScreen()),
+      // Abroad university detail.
+      GoRoute(
+        path: '/uni-abroad/:id',
+        builder: (context, state) => AbroadUniversityDetailScreen(
           universityId: state.pathParameters['id'] ?? '',
         ),
       ),
@@ -78,8 +98,9 @@ GoRouter createRouter() {
           StatefulShellBranch(
             routes: [GoRoute(path: '/home', builder: (context, state) => const HomeScreen())],
           ),
+          // Tab index 1: Universities hub (KZ catalog + Abroad picker).
           StatefulShellBranch(
-            routes: [GoRoute(path: '/universities', builder: (context, state) => const UniversitiesScreen())],
+            routes: [GoRoute(path: '/universities', builder: (context, state) => const UniversitiesHubScreen())],
           ),
           StatefulShellBranch(
             routes: [GoRoute(path: '/mentor', builder: (context, state) => const MentorScreen())],

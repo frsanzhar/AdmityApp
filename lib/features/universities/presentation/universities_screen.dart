@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:admity/core/theme/app_colors.dart';
 import 'package:admity/core/theme/app_tokens.dart';
+import 'package:admity/features/profile/application/profile_notifier.dart';
 import 'package:admity/features/universities/data/university_catalog_providers.dart';
 import 'package:admity/features/universities/domain/university_catalog.dart';
 import 'package:admity/shared/widgets/app_card.dart';
@@ -30,6 +31,12 @@ class UniversitiesScreen extends ConsumerWidget {
     final catalogAsync = ref.watch(universityCatalogProvider);
 
     return AppScaffold(
+      appBar: AppBar(
+        backgroundColor: AppColors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        leading: const BackButton(color: AppColors.ink),
+      ),
       body: catalogAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) => _MessageState(
@@ -45,7 +52,13 @@ class UniversitiesScreen extends ConsumerWidget {
               message: 'Список вузов пуст',
             );
           }
-          return _CatalogBody(catalog: catalog, tokens: tokens);
+          final profile = ref.watch(profileProvider).profile;
+          return _CatalogBody(
+            catalog: catalog,
+            tokens: tokens,
+            profileCity: profile.city,
+            profileMajors: profile.targetMajors,
+          );
         },
       ),
     );
@@ -55,15 +68,31 @@ class UniversitiesScreen extends ConsumerWidget {
 // ── Body ───────────────────────────────────────────────────────────────────────
 
 class _CatalogBody extends ConsumerWidget {
-  const _CatalogBody({required this.catalog, required this.tokens});
+  const _CatalogBody({
+    required this.catalog,
+    required this.tokens,
+    this.profileCity,
+    this.profileMajors = const [],
+  });
 
   final UniversityCatalog catalog;
   final AppTokens tokens;
 
+  /// Student's current city from their profile — used to boost local unis.
+  final String? profileCity;
+
+  /// Student's target majors — used to boost matching universities.
+  final List<String> profileMajors;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final filter = ref.watch(catalogFilterProvider);
-    final universities = applyCatalogFilter(catalog.universities, filter);
+    final filtered = applyCatalogFilter(catalog, filter);
+    final universities = _sortedByProfile(
+      filtered,
+      profileCity: profileCity,
+      profileMajors: profileMajors,
+    );
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -107,6 +136,7 @@ class _Header extends ConsumerWidget {
       color: AppColors.white,
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: EdgeInsets.fromLTRB(
@@ -142,11 +172,11 @@ class _Header extends ConsumerWidget {
               ],
             ),
           ),
-          // ── Filter row ──────────────────────────────────────────────────────
+          // ── Filter row (left-aligned, horizontally scrollable) ────────────
           Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: tokens.screenPadding,
-              vertical: tokens.gapSm,
+            padding: EdgeInsets.only(
+              left: tokens.screenPadding,
+              bottom: tokens.gapSm,
             ),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -160,16 +190,41 @@ class _Header extends ConsumerWidget {
                   ),
                   SizedBox(width: tokens.gapSm),
                   _FilterChip(
+                    label: filter.major != null
+                        ? majorCategoryLabel(filter.major!)
+                        : 'Направление',
+                    isActive: filter.major != null,
+                    onTap: () => _pickMajor(context, ref),
+                  ),
+                  SizedBox(width: tokens.gapSm),
+                  _FilterChip(
                     label: filter.type != null
                         ? universityTypeLabel(filter.type!)
                         : 'Тип',
                     isActive: filter.type != null,
                     onTap: () => _pickType(context, ref),
                   ),
+                  SizedBox(width: tokens.gapSm),
+                  _ToggleChip(
+                    label: 'Общежитие',
+                    isActive: filter.hasDormitory == true,
+                    onTap: () =>
+                        ref.read(catalogFilterProvider.notifier).toggleDormitory(),
+                  ),
+                  SizedBox(width: tokens.gapSm),
+                  _FilterChip(
+                    label: filter.maxScore != null
+                        ? 'Балл до ${filter.maxScore}'
+                        : 'Балл до…',
+                    isActive: filter.maxScore != null,
+                    onTap: () => _pickScore(context, ref),
+                  ),
                   if (!filter.isEmpty) ...[
                     SizedBox(width: tokens.gapSm),
                     _ResetChip(onTap: notifier.clearAll, tokens: tokens),
                   ],
+                  // trailing scroll affordance
+                  SizedBox(width: tokens.screenPadding),
                 ],
               ),
             ),
@@ -217,6 +272,44 @@ class _Header extends ConsumerWidget {
       ),
     );
   }
+
+  void _pickMajor(BuildContext context, WidgetRef ref) {
+    final cats = catalog.majorCategoriesPresent;
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        builder: (_) => _PickerSheet(
+          title: 'Выбрать направление',
+          items: cats.map(majorCategoryLabel).toList(),
+          selected: ref.read(catalogFilterProvider).major != null
+              ? majorCategoryLabel(ref.read(catalogFilterProvider).major!)
+              : null,
+          onSelect: (v) {
+            final cat =
+                cats.firstWhere((c) => majorCategoryLabel(c) == v);
+            ref.read(catalogFilterProvider.notifier).setMajor(cat);
+          },
+          onClear: () =>
+              ref.read(catalogFilterProvider.notifier).setMajor(null),
+        ),
+      ),
+    );
+  }
+
+  void _pickScore(BuildContext context, WidgetRef ref) {
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        builder: (_) => _ScorePickerSheet(
+          selected: ref.read(catalogFilterProvider).maxScore,
+          onSelect: (s) =>
+              ref.read(catalogFilterProvider.notifier).setMaxScore(s),
+          onClear: () =>
+              ref.read(catalogFilterProvider.notifier).setMaxScore(null),
+        ),
+      ),
+    );
+  }
 }
 
 // ── List ───────────────────────────────────────────────────────────────────────
@@ -245,7 +338,7 @@ class _UniversitiesList extends StatelessWidget {
           programCount: catalog.offeringCountFor(u.id),
           minCompetition: catalog.minCompetitionScoreFor(u.id),
           tokens: tokens,
-          onTap: () => context.push('/universities/${u.id}'),
+          onTap: () => context.push('/uni-kz/${u.id}'),
         ).animate().fadeIn(
           delay: Duration(milliseconds: 40 * (i % 12)),
           duration: const Duration(milliseconds: 260),
@@ -277,67 +370,101 @@ class _UniversityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppCard(
       onTap: onTap,
+      padding: EdgeInsets.zero,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  university.nameRu,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: AppColors.ink,
-                  ),
-                ),
+          // ── Photo (when available) ───────────────────────────────────────
+          if (university.imageUrl != null)
+            ClipRRect(
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(tokens.radiusMd),
               ),
-              if (university.type != null) ...[
-                SizedBox(width: tokens.gapSm),
-                _TypeBadge(type: university.type!, tokens: tokens),
+              child: _UniImage(url: university.imageUrl!, height: 110),
+            ),
+          // ── Text content ─────────────────────────────────────────────────
+          Padding(
+            padding: EdgeInsets.all(tokens.cardPadding),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        university.nameRu,
+                        style:
+                            Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: AppColors.ink,
+                        ),
+                      ),
+                    ),
+                    if (university.type != null) ...[
+                      SizedBox(width: tokens.gapSm),
+                      _TypeBadge(type: university.type!, tokens: tokens),
+                    ],
+                  ],
+                ),
+                SizedBox(height: tokens.gapSm),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.location_on_outlined,
+                      size: 14,
+                      color: AppColors.inkSecondary,
+                    ),
+                    SizedBox(width: tokens.gapXs),
+                    Expanded(
+                      child: Text(
+                        university.city,
+                        style: Theme.of(context).textTheme.bodySmall,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (university.hasDormitory == true) ...[
+                      const Icon(
+                        Icons.bed_rounded,
+                        size: 14,
+                        color: AppColors.inkSecondary,
+                      ),
+                      SizedBox(width: tokens.gapXs),
+                      Text(
+                        'Общежитие',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.inkSecondary,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                SizedBox(height: tokens.gapMd),
+                Row(
+                  children: [
+                    if (programCount > 0)
+                      _InfoBadge(
+                        label: '$programCount ${_programWord(programCount)}',
+                        tokens: tokens,
+                      ),
+                    if (minCompetition != null) ...[
+                      SizedBox(width: tokens.gapSm),
+                      _InfoBadge(
+                        label: 'конкурс от $minCompetition б.',
+                        tokens: tokens,
+                      ),
+                    ],
+                    const Spacer(),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 16,
+                      color: AppColors.primary,
+                    ),
+                  ],
+                ),
               ],
-            ],
-          ),
-          SizedBox(height: tokens.gapSm),
-          Row(
-            children: [
-              const Icon(
-                Icons.location_on_outlined,
-                size: 14,
-                color: AppColors.inkSecondary,
-              ),
-              SizedBox(width: tokens.gapXs),
-              Expanded(
-                child: Text(
-                  university.city,
-                  style: Theme.of(context).textTheme.bodySmall,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: tokens.gapMd),
-          Row(
-            children: [
-              if (programCount > 0)
-                _InfoBadge(
-                  label: '$programCount ${_programWord(programCount)}',
-                  tokens: tokens,
-                ),
-              if (minCompetition != null) ...[
-                SizedBox(width: tokens.gapSm),
-                _InfoBadge(
-                  label: 'конкурс от $minCompetition б.',
-                  tokens: tokens,
-                ),
-              ],
-              const Spacer(),
-              const Icon(
-                Icons.arrow_forward_rounded,
-                size: 16,
-                color: AppColors.primary,
-              ),
-            ],
+            ),
           ),
         ],
       ),
@@ -352,6 +479,61 @@ class _UniversityCard extends StatelessWidget {
       return 'программы';
     }
     return 'программ';
+  }
+}
+
+// ── University image ──────────────────────────────────────────────────────────
+
+/// Loads a remote university photo with fade-in and a grey placeholder.
+class _UniImage extends StatelessWidget {
+  const _UniImage({required this.url, required this.height});
+
+  final String url;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: height,
+      child: Image.network(
+        url,
+        fit: BoxFit.cover,
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          if (wasSynchronouslyLoaded || frame != null) return child;
+          return AnimatedOpacity(
+            opacity: frame == null ? 0 : 1,
+            duration: const Duration(milliseconds: 350),
+            child: child,
+          );
+        },
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return _ImagePlaceholder(height: height);
+        },
+        errorBuilder: (context, e, s) => _ImagePlaceholder(height: height),
+      ),
+    );
+  }
+}
+
+class _ImagePlaceholder extends StatelessWidget {
+  const _ImagePlaceholder({required this.height});
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: height,
+      color: AppColors.surfaceTint,
+      child: const Icon(
+        Icons.school_outlined,
+        size: 32,
+        color: AppColors.border,
+      ),
+    );
   }
 }
 
@@ -478,6 +660,63 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
+/// A toggle chip — no dropdown arrow; tapping toggles the active state.
+class _ToggleChip extends StatelessWidget {
+  const _ToggleChip({
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: tokens.gapMd,
+          vertical: tokens.gapXs,
+        ),
+        decoration: BoxDecoration(
+          color: isActive
+              ? AppColors.primary.withValues(alpha: 0.08)
+              : AppColors.surfaceTint,
+          borderRadius: BorderRadius.circular(tokens.radiusSm),
+          border: Border.all(
+            color: isActive ? AppColors.primary : AppColors.border,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isActive)
+              Padding(
+                padding: EdgeInsets.only(right: tokens.gapXs),
+                child: const Icon(
+                  Icons.check_rounded,
+                  size: 14,
+                  color: AppColors.primary,
+                ),
+              ),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: isActive ? AppColors.primary : AppColors.inkSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ResetChip extends StatelessWidget {
   const _ResetChip({required this.onTap, required this.tokens});
 
@@ -572,10 +811,13 @@ class _PickerSheet extends StatelessWidget {
                       return ListTile(
                         title: Text(
                           item,
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: isSelected ? AppColors.primary : AppColors.ink,
-                            fontWeight:
-                                isSelected ? FontWeight.w600 : FontWeight.w500,
+                          style:
+                              Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color:
+                                isSelected ? AppColors.primary : AppColors.ink,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.w500,
                           ),
                         ),
                         trailing: isSelected
@@ -596,6 +838,86 @@ class _PickerSheet extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Score-preset picker for the "Балл до N" filter.
+class _ScorePickerSheet extends StatelessWidget {
+  const _ScorePickerSheet({
+    required this.onSelect,
+    required this.onClear,
+    this.selected,
+  });
+
+  final int? selected;
+  final ValueChanged<int> onSelect;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.all(tokens.screenPadding),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Максимальный конкурсный балл',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                color: AppColors.ink,
+              ),
+            ),
+            SizedBox(height: tokens.gapXs),
+            Text(
+              'Показать вузы с конкурсным минимумом не выше выбранного.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.inkSecondary,
+              ),
+            ),
+            SizedBox(height: tokens.gapMd),
+            if (selected != null)
+              ListTile(
+                leading: const Icon(
+                  Icons.close_rounded,
+                  color: AppColors.inkSecondary,
+                ),
+                title: const Text('Без ограничения'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onClear();
+                },
+              ),
+            ...catalogScorePresets.map((score) {
+              final isSelected = score == selected;
+              return ListTile(
+                title: Text(
+                  '$score баллов',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: isSelected ? AppColors.primary : AppColors.ink,
+                    fontWeight:
+                        isSelected ? FontWeight.w600 : FontWeight.w500,
+                  ),
+                ),
+                trailing: isSelected
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      )
+                    : null,
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onSelect(score);
+                },
+              );
+            }),
+          ],
         ),
       ),
     );
@@ -635,4 +957,43 @@ class _MessageState extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── KZ catalog sorting ────────────────────────────────────────────────────────
+
+/// Returns a sorted copy of [universities] most-suitable-first for the profile.
+///
+/// Sort key (stable, two-level):
+/// 1. Universities in the student's city come first, then all others.
+/// 2. Within each group: universities whose programs share tokens with
+///    [profileMajors] precede those with no match.
+///
+/// Original order is preserved within equal-rank entries (stable sort).
+List<UniversityRecord> _sortedByProfile(
+  List<UniversityRecord> universities, {
+  String? profileCity,
+  List<String> profileMajors = const [],
+}) {
+  if (profileCity == null && profileMajors.isEmpty) return universities;
+
+  final cityLower = profileCity?.toLowerCase().trim();
+  final majorLower = profileMajors.map((m) => m.toLowerCase()).toSet();
+
+  /// Lower = better.
+  int rank(UniversityRecord u) {
+    final inCity =
+        cityLower != null && u.city.toLowerCase().trim() == cityLower ? 0 : 1;
+    // We do not have per-university major data in UniversityRecord, so we
+    // match the university description + nameRu loosely as a best-effort.
+    final descText =
+        '${u.nameRu} ${u.nameEn ?? ''} ${u.description ?? ''}'.toLowerCase();
+    final hasMajorMatch = majorLower.any(descText.contains) ? 0 : 1;
+    return inCity * 10 + hasMajorMatch;
+  }
+
+  final copy = [...universities];
+  // Dart's sort is stable in practice (TimSort), so equal-rank entries keep
+  // their original relative order.
+  copy.sort((a, b) => rank(a).compareTo(rank(b)));
+  return copy;
 }

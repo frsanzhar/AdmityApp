@@ -9,6 +9,8 @@ analyzer:
     - "**/*.g.dart"
     - "**/*.freezed.dart"
     - "build/**"
+    # flutter gen-l10n output — generated, not hand-maintained.
+    - "lib/l10n/gen/**"
 
 linter:
   rules:

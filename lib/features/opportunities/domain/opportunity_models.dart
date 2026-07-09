@@ -3,12 +3,13 @@
 // When a repository is wired, replace the seed constants with async calls
 // that return these same types.
 
-/// The four top-level sections of the Opportunities tab.
+/// The top-level sections of the Opportunities tab.
 enum OpportunitySection {
   scholarships,
   universities,
   events,
   projectIdeas,
+  materials,
 }
 
 /// Academic field / направление — used for filtering + project ideas.

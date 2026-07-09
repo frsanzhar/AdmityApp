@@ -3,7 +3,7 @@
 /// Layout:
 ///   1. Identity header — name, career badge, daily goal.  Pencil icon opens
 ///      ProfileEditScreen (/profile/edit).  "Мои данные" form is NOT shown here.
-///   2. Профориентация card — navigates to /career-test.
+///   2. Пакет документов — pre-seeded KZ pack (career-test card removed).
 ///   3. Пакет документов — pre-seeded KZ pack; each item shows attach/confirm
 ///      button (file_picker); missing items clearly distinguish from attached.
 ///
@@ -16,9 +16,11 @@ library;
 
 import 'dart:async';
 
+import 'package:admity/core/l10n/l10n.dart';
 import 'package:admity/core/theme/app_colors.dart';
 import 'package:admity/core/theme/app_tokens.dart';
 import 'package:admity/features/profile/application/profile_notifier.dart';
+import 'package:admity/features/profile/data/document_store.dart';
 import 'package:admity/features/profile/domain/profile_model.dart';
 import 'package:admity/shared/widgets/app_card.dart';
 import 'package:admity/shared/widgets/app_scaffold.dart';
@@ -95,17 +97,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                     SizedBox(height: tokens.gapXxl),
 
-                    // ── 2. Career test CTA ─────────────────────────────────
-                    _CareerTestCard(
-                      careerResult: state.profile.careerResult,
-                      tokens: tokens,
-                    ).animate().fadeIn(
-                      delay: 80.ms,
-                      duration: 350.ms,
-                    ),
+                    // ── 1.5 Путь психологических тестов ────────────────────
+                    _PsytestsBanner(tokens: tokens),
                     SizedBox(height: tokens.gapXxl),
 
-                    // ── 3. Пакет документов ────────────────────────────────
+                    // ── 2. Пакет документов ────────────────────────────────
                     _SectionHeader(
                       title: 'Пакет документов',
                       subtitle:
@@ -117,6 +113,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       packages: state.packages,
                       tokens: tokens,
                     ).animate().fadeIn(delay: 160.ms, duration: 350.ms),
+
+                    SizedBox(height: tokens.gapXxl),
+
+                    // ── 4. Мои документы ───────────────────────────────────
+                    _SectionHeader(
+                      title: 'Мои документы',
+                      subtitle:
+                          'Прикрепляй файлы, открывай и делись с куратором',
+                      tokens: tokens,
+                    ),
+                    SizedBox(height: tokens.gapMd),
+                    _MyDocsSection(
+                      attachedDocs: state.profile.attachedDocs,
+                      tokens: tokens,
+                    ).animate().fadeIn(delay: 240.ms, duration: 350.ms),
+
+                    SizedBox(height: tokens.gapXxl),
+
+                    // ── 5. Язык приложения ─────────────────────────────────
+                    _SectionHeader(
+                      title: context.l10n.languageSectionTitle,
+                      tokens: tokens,
+                    ),
+                    SizedBox(height: tokens.gapMd),
+                    _LanguageSection(
+                      current: state.profile.appLanguage,
+                      tokens: tokens,
+                    ).animate().fadeIn(delay: 300.ms, duration: 350.ms),
 
                     SizedBox(height: tokens.gapXxl),
                   ],
@@ -259,6 +283,60 @@ class _GoalChip extends StatelessWidget {
   }
 }
 
+// ── Psytests banner ───────────────────────────────────────────────────────────
+
+/// Entry point to the psych-tests roadmap («Путь тестов», /psytests).
+class _PsytestsBanner extends StatelessWidget {
+  const _PsytestsBanner({required this.tokens});
+
+  final AppTokens tokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      onTap: () => context.push('/psytests'),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.psychology_outlined,
+              color: AppColors.primary,
+              size: 28,
+            ),
+          ),
+          SizedBox(width: tokens.gapLg),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Открой свою профессию',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Путь из 12 тестов о тебе — проходи по одному в день',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.inkSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right, color: AppColors.inkSecondary),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Section header ────────────────────────────────────────────────────────────
 
 class _SectionHeader extends StatelessWidget {
@@ -289,104 +367,6 @@ class _SectionHeader extends StatelessWidget {
         ],
       ],
     );
-  }
-}
-
-// ── Career test card ──────────────────────────────────────────────────────────
-
-class _CareerTestCard extends StatelessWidget {
-  const _CareerTestCard({
-    required this.careerResult,
-    required this.tokens,
-  });
-
-  final String? careerResult;
-  final AppTokens tokens;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return AppCard(
-      onTap: () => _showConfirmDialog(context),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(tokens.radiusMd),
-            ),
-            child: const Icon(
-              Icons.psychology_outlined,
-              color: AppColors.primary,
-              size: 24,
-            ),
-          ),
-          SizedBox(width: tokens.gapMd),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Тест на профориентацию',
-                  style: textTheme.titleLarge?.copyWith(color: AppColors.ink),
-                ),
-                SizedBox(height: tokens.gapXs),
-                Text(
-                  careerResult != null
-                      ? 'Результат: $careerResult. Пройти снова?'
-                      : 'Займёт ~10–15 минут',
-                  style: textTheme.bodySmall,
-                ),
-              ],
-            ),
-          ),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: AppColors.inkSecondary,
-            size: 22,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showConfirmDialog(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Тест на профориентацию'),
-        content: const Text(
-          'Тест займёт 10–15 минут. Отвечай честно — так результат будет точнее.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Отмена'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.ink,
-              foregroundColor: AppColors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 0,
-            ),
-            child: const Text('Продолжить'),
-          ),
-        ],
-      ),
-    );
-    if ((confirmed ?? false) && context.mounted) {
-      unawaited(context.push('/career-test'));
-    }
   }
 }
 
@@ -569,7 +549,24 @@ class _PackageCard extends ConsumerWidget {
               ),
             ),
           ],
+
+          SizedBox(height: tokens.gapMd),
+          _AddDocButton(onTap: () => _showAddDocumentSheet(context, pkg)),
         ],
+      ),
+    );
+  }
+
+  void _showAddDocumentSheet(BuildContext context, DocumentPackage pkg) {
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: AppColors.white,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (_) => _AddDocumentSheet(package: pkg),
       ),
     );
   }
@@ -577,8 +574,9 @@ class _PackageCard extends ConsumerWidget {
 
 /// A single document row inside a package card.
 ///
-/// Shows attached status clearly: green check + file name when attached;
-/// grey outline + "Прикрепить" button when missing.
+/// When a file is attached the row shows a green check + tappable file name
+/// (opens in-app via the native preview) plus replace/remove actions. An empty
+/// slot shows a grey outline + "Прикрепить" button and a remove action.
 class _DocumentRow extends ConsumerWidget {
   const _DocumentRow({
     required this.item,
@@ -594,6 +592,31 @@ class _DocumentRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final isAttached = item.isAttached;
+    final hasFile = item.filePath != null && item.filePath!.isNotEmpty;
+
+    Future<void> openDoc() async {
+      if (!hasFile) return;
+      final err = await ref.read(documentStoreProvider).open(item.filePath!);
+      if (err != null && context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(err)));
+      }
+    }
+
+    Future<void> replaceFile() async {
+      await ref
+          .read(profileProvider.notifier)
+          .attachFileToItem(packageId: packageId, itemId: item.id);
+    }
+
+    void removeItem() {
+      unawaited(
+        ref
+            .read(profileProvider.notifier)
+            .removeItemFromPackage(packageId: packageId, itemId: item.id),
+      );
+    }
 
     return Padding(
       padding: EdgeInsets.symmetric(vertical: tokens.gapXs),
@@ -609,56 +632,70 @@ class _DocumentRow extends ConsumerWidget {
           ),
           SizedBox(width: tokens.gapSm),
 
-          // Label + file name
+          // Label + file name (tappable to open when a file is attached)
           Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.label,
-                  style: textTheme.bodyLarge?.copyWith(
-                    color: isAttached ? AppColors.inkSecondary : AppColors.ink,
-                    decoration: isAttached
-                        ? TextDecoration.none
-                        : TextDecoration.none,
-                  ),
-                ),
-                if (isAttached && item.filePath != null) ...[
-                  const SizedBox(height: 2),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: hasFile ? () => unawaited(openDoc()) : null,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    _fileName(item.filePath!),
-                    style: textTheme.bodySmall?.copyWith(
-                      color: AppColors.successGreen,
+                    item.label,
+                    style: textTheme.bodyLarge?.copyWith(
+                      color: isAttached
+                          ? AppColors.inkSecondary
+                          : AppColors.ink,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
+                  if (hasFile) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      _fileName(item.filePath!),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: AppColors.successGreen,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
 
-          SizedBox(width: tokens.gapSm),
+          SizedBox(width: tokens.gapXs),
 
-          // Attach / re-attach button
-          _AttachButton(
-            isAttached: isAttached,
-            onTap: () async {
-              final picked = await ref
-                  .read(profileProvider.notifier)
-                  .attachFileToItem(
-                    packageId: packageId,
-                    itemId: item.id,
-                  );
-              // If file picker returned nothing but we still want to mark
-              // this as confirmed via toggle, do nothing extra — user must
-              // pick a file to confirm.
-              if (!picked) {
-                // User cancelled — no action.
-              }
-            },
-            tokens: tokens,
+          // Actions: open (if file) · attach/replace · remove
+          if (hasFile)
+            _DocAction(
+              icon: Icons.open_in_new_rounded,
+              tooltip: 'Открыть',
+              color: AppColors.primary,
+              onTap: () => unawaited(openDoc()),
+            )
+          else
+            _AttachButton(
+              isAttached: isAttached,
+              onTap: () => unawaited(replaceFile()),
+              tokens: tokens,
+            ),
+          if (hasFile) ...[
+            SizedBox(width: tokens.gapXs),
+            _DocAction(
+              icon: Icons.swap_horiz_rounded,
+              tooltip: 'Заменить',
+              color: AppColors.inkSecondary,
+              onTap: () => unawaited(replaceFile()),
+            ),
+          ],
+          SizedBox(width: tokens.gapXs),
+          _DocAction(
+            icon: Icons.close_rounded,
+            tooltip: 'Убрать из пакета',
+            color: AppColors.errorRed,
+            onTap: removeItem,
           ),
         ],
       ),
@@ -717,6 +754,598 @@ class _AttachButton extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── My Documents section ──────────────────────────────────────────────────────
+
+/// Displays the list of files stored in [StudentProfile.attachedDocs].
+///
+/// Each row shows the filename with three actions: open (via share sheet),
+/// share, and delete.  A "Прикрепить файл" button invokes [DocumentStore.pickAndSave].
+class _MyDocsSection extends ConsumerStatefulWidget {
+  const _MyDocsSection({
+    required this.attachedDocs,
+    required this.tokens,
+  });
+
+  final List<String> attachedDocs;
+  final AppTokens tokens;
+
+  @override
+  ConsumerState<_MyDocsSection> createState() => _MyDocsSectionState();
+}
+
+class _MyDocsSectionState extends ConsumerState<_MyDocsSection> {
+  bool _busy = false;
+
+  Future<void> _pickFile() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final store = ref.read(documentStoreProvider);
+    await store.pickAndSave();
+    if (mounted) setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = widget.tokens;
+    final docs = widget.attachedDocs;
+    final textTheme = Theme.of(context).textTheme;
+
+    return AppCard(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (docs.isEmpty) ...[
+            Row(
+              children: [
+                const Icon(
+                  Icons.folder_open_outlined,
+                  color: AppColors.inkSecondary,
+                  size: 22,
+                ),
+                SizedBox(width: tokens.gapSm),
+                Expanded(
+                  child: Text(
+                    'Нет прикреплённых файлов',
+                    style: textTheme.bodyLarge?.copyWith(
+                      color: AppColors.inkSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: tokens.gapMd),
+          ] else ...[
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: docs.length,
+              separatorBuilder: (_, _) => const Divider(
+                height: 1,
+                color: AppColors.border,
+              ),
+              itemBuilder: (_, i) => _DocRow(
+                path: docs[i],
+                tokens: tokens,
+              ),
+            ),
+            SizedBox(height: tokens.gapMd),
+          ],
+
+          // Attach button
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _busy ? null : _pickFile,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(tokens.radiusMd),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              icon: _busy
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primary,
+                      ),
+                    )
+                  : const Icon(Icons.attach_file_rounded, size: 18),
+              label: Text(
+                'Прикрепить файл',
+                style: textTheme.labelLarge?.copyWith(
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A single row for an attached document file.
+///
+/// Shows the filename (truncated), plus open/share/delete actions.
+class _DocRow extends ConsumerWidget {
+  const _DocRow({required this.path, required this.tokens});
+
+  final String path;
+  final AppTokens tokens;
+
+  /// Extracts the display name — strips the timestamp prefix added by
+  /// [DocumentStore.pickAndSave] (e.g. `1234567890_resume.pdf` → `resume.pdf`).
+  String _displayName(String filePath) {
+    final parts = filePath.replaceAll(r'\', '/').split('/');
+    final raw = parts.isNotEmpty ? parts.last : filePath;
+    // Strip leading timestamp prefix (<digits>_) if present.
+    final match = RegExp(r'^\d+_(.+)$').firstMatch(raw);
+    return match?.group(1) ?? raw;
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
+    final store = ref.read(documentStoreProvider);
+    final name = _displayName(path);
+
+    Future<void> openDoc() async {
+      final err = await store.open(path);
+      if (err != null && context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(err)));
+      }
+    }
+
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: tokens.gapSm),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.insert_drive_file_outlined,
+            color: AppColors.inkSecondary,
+            size: 20,
+          ),
+          SizedBox(width: tokens.gapSm),
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => unawaited(openDoc()),
+              child: Text(
+                name,
+                style: textTheme.bodyLarge?.copyWith(color: AppColors.ink),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          SizedBox(width: tokens.gapXs),
+
+          // Open inside the app (Quick Look / native preview).
+          _DocAction(
+            icon: Icons.open_in_new_rounded,
+            tooltip: 'Открыть',
+            color: AppColors.primary,
+            onTap: () => unawaited(openDoc()),
+          ),
+          SizedBox(width: tokens.gapXs),
+
+          // Share
+          _DocAction(
+            icon: Icons.share_outlined,
+            tooltip: 'Поделиться',
+            color: AppColors.inkSecondary,
+            onTap: () => unawaited(store.share(path)),
+          ),
+          SizedBox(width: tokens.gapXs),
+
+          // Delete
+          _DocAction(
+            icon: Icons.delete_outline_rounded,
+            tooltip: 'Удалить',
+            color: AppColors.errorRed,
+            onTap: () => unawaited(store.delete(path)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A compact icon-button used by [_DocRow].
+class _DocAction extends StatelessWidget {
+  const _DocAction({
+    required this.icon,
+    required this.tooltip,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Tooltip(
+          message: tooltip,
+          child: Icon(icon, color: color, size: 20),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Add-document button + sheet ───────────────────────────────────────────────
+
+/// Full-width "Добавить документ" button shown inside each package card.
+class _AddDocButton extends StatelessWidget {
+  const _AddDocButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primary,
+          side: BorderSide(color: AppColors.primary.withValues(alpha: 0.4)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(tokens.radiusMd),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+        ),
+        icon: const Icon(Icons.add_rounded, size: 18),
+        label: Text(
+          'Добавить документ',
+          style: Theme.of(
+            context,
+          ).textTheme.labelLarge?.copyWith(color: AppColors.primary),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom sheet to add a document to a [DocumentPackage].
+///
+/// Three paths, matching the student's mental model:
+///   • "Загрузить новый файл" — picks + saves a file (also lands in
+///     «Мои документы» so it is reusable).
+///   • "Добавить пункт без файла" — a labelled slot to attach later.
+///   • "Из моих документов" — reuse a file the student already saved.
+class _AddDocumentSheet extends ConsumerStatefulWidget {
+  const _AddDocumentSheet({required this.package});
+
+  final DocumentPackage package;
+
+  @override
+  ConsumerState<_AddDocumentSheet> createState() => _AddDocumentSheetState();
+}
+
+class _AddDocumentSheetState extends ConsumerState<_AddDocumentSheet> {
+  bool _busy = false;
+
+  /// Strips the timestamp prefix added by [DocumentStore.pickAndSave].
+  String _displayName(String path) {
+    final parts = path.replaceAll(r'\', '/').split('/');
+    final raw = parts.isNotEmpty ? parts.last : path;
+    final match = RegExp(r'^\d+_(.+)$').firstMatch(raw);
+    return match?.group(1) ?? raw;
+  }
+
+  Future<void> _uploadNew() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final path = await ref.read(documentStoreProvider).pickAndSave();
+    if (path != null) {
+      await ref
+          .read(profileProvider.notifier)
+          .addExistingDocToPackage(
+            packageId: widget.package.id,
+            filePath: path,
+            label: _displayName(path),
+          );
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (path != null) Navigator.of(context).pop();
+  }
+
+  Future<void> _addExisting(String path) async {
+    await ref
+        .read(profileProvider.notifier)
+        .addExistingDocToPackage(
+          packageId: widget.package.id,
+          filePath: path,
+          label: _displayName(path),
+        );
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _addLabelSlot() async {
+    final controller = TextEditingController();
+    final label = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Новый пункт'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Например: Рекомендательное письмо',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Отмена'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.ink,
+              foregroundColor: AppColors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Добавить'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (label != null && label.isNotEmpty) {
+      await ref
+          .read(profileProvider.notifier)
+          .addItemToPackage(packageId: widget.package.id, label: label);
+    }
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    final textTheme = Theme.of(context).textTheme;
+    final attachedDocs = ref.watch(profileProvider).profile.attachedDocs;
+    final usedPaths = widget.package.items
+        .map((i) => i.filePath)
+        .whereType<String>()
+        .toSet();
+    final available = attachedDocs
+        .where((p) => !usedPaths.contains(p))
+        .toList();
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          tokens.screenPadding,
+          tokens.gapLg,
+          tokens.screenPadding,
+          tokens.gapLg,
+        ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.7,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Добавить документ',
+                style: textTheme.headlineMedium?.copyWith(
+                  color: AppColors.ink,
+                ),
+              ),
+              SizedBox(height: tokens.gapXs),
+              Text(
+                'в пакет «${widget.package.name}»',
+                style: textTheme.bodySmall?.copyWith(
+                  color: AppColors.inkSecondary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              SizedBox(height: tokens.gapLg),
+
+              _SheetAction(
+                icon: Icons.upload_file_rounded,
+                label: 'Загрузить новый файл',
+                busy: _busy,
+                onTap: () => unawaited(_uploadNew()),
+              ),
+              SizedBox(height: tokens.gapSm),
+              _SheetAction(
+                icon: Icons.playlist_add_rounded,
+                label: 'Добавить пункт без файла',
+                onTap: () => unawaited(_addLabelSlot()),
+              ),
+
+              SizedBox(height: tokens.gapLg),
+              if (available.isNotEmpty) ...[
+                Text(
+                  'Из моих документов',
+                  style: textTheme.labelLarge?.copyWith(color: AppColors.ink),
+                ),
+                SizedBox(height: tokens.gapSm),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: available.length,
+                    separatorBuilder: (_, _) =>
+                        const Divider(height: 1, color: AppColors.border),
+                    itemBuilder: (_, i) {
+                      final path = available[i];
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(
+                          Icons.insert_drive_file_outlined,
+                          color: AppColors.inkSecondary,
+                        ),
+                        title: Text(
+                          _displayName(path),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.bodyLarge?.copyWith(
+                            color: AppColors.ink,
+                          ),
+                        ),
+                        trailing: const Icon(
+                          Icons.add_rounded,
+                          color: AppColors.primary,
+                        ),
+                        onTap: () => unawaited(_addExisting(path)),
+                      );
+                    },
+                  ),
+                ),
+              ] else
+                Text(
+                  'Пока нет сохранённых файлов. Загрузи новый — он появится и '
+                  'в разделе «Мои документы».',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: AppColors.inkSecondary,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A left-aligned, full-width action button used inside [_AddDocumentSheet].
+class _SheetAction extends StatelessWidget {
+  const _SheetAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.busy = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens =
+        Theme.of(context).extension<AppTokens>() ?? AppTokens.defaults();
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: busy ? null : onTap,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primary,
+          side: BorderSide(color: AppColors.primary.withValues(alpha: 0.4)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(tokens.radiusMd),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          alignment: Alignment.centerLeft,
+        ),
+        icon: busy
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.primary,
+                ),
+              )
+            : Icon(icon, size: 18),
+        label: Text(
+          label,
+          style: Theme.of(
+            context,
+          ).textTheme.labelLarge?.copyWith(color: AppColors.primary),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Language section ──────────────────────────────────────────────────────────
+
+/// UI-language picker: system default (device / Apple ID language), Russian,
+/// Kazakh or English. Persists to `StudentProfile.appLanguage`; the app
+/// rebuilds instantly because `AdmityApp` watches [appLocaleProvider].
+class _LanguageSection extends ConsumerWidget {
+  const _LanguageSection({required this.current, required this.tokens});
+
+  final String current;
+  final AppTokens tokens;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final options = <(String, String)>[
+      ('system', l10n.languageSystem),
+      ('kk', l10n.languageKazakh),
+      ('ru', l10n.languageRussian),
+      ('en', l10n.languageEnglish),
+    ];
+
+    return AppCard(
+      child: Wrap(
+        spacing: tokens.gapSm,
+        runSpacing: tokens.gapSm,
+        children: [
+          for (final (code, label) in options)
+            ChoiceChip(
+              label: Text(label),
+              selected: current == code,
+              onSelected: (_) {
+                final profile = ref.read(profileProvider).profile;
+                unawaited(
+                  ref
+                      .read(profileProvider.notifier)
+                      .saveProfile(profile.copyWith(appLanguage: code)),
+                );
+              },
+              selectedColor: AppColors.primary.withValues(alpha: 0.12),
+              labelStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: current == code ? AppColors.primary : AppColors.ink,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(tokens.radiusSm),
+                side: BorderSide(
+                  color: current == code ? AppColors.primary : AppColors.border,
+                ),
+              ),
+              backgroundColor: AppColors.white,
+              showCheckmark: false,
+            ),
+        ],
       ),
     );
   }

@@ -14,6 +14,7 @@ import 'package:go_router/go_router.dart';
 ///
 /// Routes:
 ///   /             → SplashScreen
+///   /auth         → placeholder Scaffold
 ///   /onboarding   → placeholder Scaffold
 ///   /home         → placeholder Scaffold
 Widget _splashApp({InMemoryProfileRepository? repo}) {
@@ -24,6 +25,11 @@ Widget _splashApp({InMemoryProfileRepository? repo}) {
       GoRoute(
         path: '/',
         builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(
+        path: '/auth',
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('AuthScreen'))),
       ),
       GoRoute(
         path: '/onboarding',

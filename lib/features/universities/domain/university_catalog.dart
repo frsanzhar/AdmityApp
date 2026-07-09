@@ -11,6 +11,118 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
+// ── MajorCategory ─────────────────────────────────────────────────────────────
+
+/// High-level academic direction used for catalog filtering.
+///
+/// Maps program codes / field values onto user-friendly buckets following the
+/// КЗ МНВО ГОП classification (codes B001–BM089).
+enum MajorCategory {
+  /// IT, информационная безопасность, телекоммуникации (B057–B059, B158).
+  it,
+
+  /// Инженерия, строительство, транспортные технологии (field=engineering).
+  engineering,
+
+  /// Медицина, фармация, стоматология (field=medicine).
+  medicine,
+
+  /// Менеджмент, финансы, маркетинг (field=economics, excl. B049).
+  economics,
+
+  /// Право (B049).
+  law,
+
+  /// Педагогика, подготовка учителей (B001–B020).
+  pedagogy,
+
+  /// Естественные, точные науки, аграрные науки (B050–B082, B183).
+  naturalScience,
+
+  /// Искусство, дизайн, гуманитарные науки (field=arts).
+  arts,
+
+  /// Социология, политология, международные отношения (field=informatics, B038–B043, B140).
+  social,
+
+  /// Туризм, спорт, прочее (field=null).
+  other,
+}
+
+/// Russian label for a [MajorCategory].
+String majorCategoryLabel(MajorCategory cat) {
+  switch (cat) {
+    case MajorCategory.it:
+      return 'IT';
+    case MajorCategory.engineering:
+      return 'Инженерия';
+    case MajorCategory.medicine:
+      return 'Медицина';
+    case MajorCategory.economics:
+      return 'Экономика';
+    case MajorCategory.law:
+      return 'Право';
+    case MajorCategory.pedagogy:
+      return 'Педагогика';
+    case MajorCategory.naturalScience:
+      return 'Естественные науки';
+    case MajorCategory.arts:
+      return 'Искусство / Гуманитарные';
+    case MajorCategory.social:
+      return 'Социальные науки';
+    case MajorCategory.other:
+      return 'Прочее';
+  }
+}
+
+/// Classifies a program code into a [MajorCategory].
+///
+/// Uses both the program's [EducationProgram.code] (numeric range) and
+/// [EducationProgram.field] so that ambiguous buckets in the raw data are
+/// correctly split (e.g. field=informatics contains both IT and social sciences;
+/// field=natural contains pedagogy, exact sciences, and agriculture).
+MajorCategory majorCategoryFromProgram(EducationProgram p) {
+  final code = p.code;
+  final field = p.field;
+
+  // ── IT codes (B057–B059 = Информационные технологии / ИБ / Телеком; B158 = Криптология)
+  if (code == 'B057' || code == 'B058' || code == 'B059' || code == 'B158') {
+    return MajorCategory.it;
+  }
+
+  // ── Engineering (all field=engineering codes)
+  if (field == 'engineering') return MajorCategory.engineering;
+
+  // ── Medicine
+  if (field == 'medicine') return MajorCategory.medicine;
+
+  // ── Law (B049 = Право)
+  if (code == 'B049') return MajorCategory.law;
+
+  // ── Economics (remaining field=economics codes)
+  if (field == 'economics') return MajorCategory.economics;
+
+  // ── Pedagogy vs. Natural science — both field=natural
+  if (field == 'natural') {
+    // Extract the numeric part of the code (B001 → 1, BM086 → 86).
+    final numeric = int.tryParse(code.replaceAll(RegExp('[^0-9]'), ''));
+    if (numeric != null && numeric >= 1 && numeric <= 20) {
+      return MajorCategory.pedagogy;
+    }
+    return MajorCategory.naturalScience;
+  }
+
+  // ── Social sciences vs. IT — both can appear as field=informatics
+  // (B038–B043, B140 are social sciences; B057–B059, B158 were caught above).
+  if (field == 'informatics') return MajorCategory.social;
+
+  // ── Arts / humanities
+  if (field == 'arts') return MajorCategory.arts;
+
+  // ── Everything else (field=null: tourism, sport, social work, etc.)
+  return MajorCategory.other;
+}
+
 /// Ownership / status class of a university.
 enum UniversityType {
   /// Национальный.
@@ -143,6 +255,8 @@ class UniversityRecord {
     this.hasDormitory,
     this.description,
     this.sourceUrl,
+    this.imageUrl,
+    this.dormImageUrl,
   });
 
   /// Builds a [UniversityRecord] from a decoded JSON map.
@@ -160,6 +274,8 @@ class UniversityRecord {
       hasDormitory: json['has_dormitory'] as bool?,
       description: json['description'] as String?,
       sourceUrl: json['source_url'] as String?,
+      imageUrl: json['image_url'] as String?,
+      dormImageUrl: json['dorm_image_url'] as String?,
     );
   }
 
@@ -192,6 +308,52 @@ class UniversityRecord {
 
   /// Provenance URL for this record.
   final String? sourceUrl;
+
+  /// Optional photo URL (Wikimedia Commons or similar static CDN).
+  ///
+  /// Null for most universities — the UI must always show a graceful
+  /// placeholder icon when this is null or the request fails.
+  final String? imageUrl;
+
+  /// Optional dormitory photo URL — same sourcing/placeholder rules as
+  /// [imageUrl].
+  final String? dormImageUrl;
+
+  /// Returns a copy with [imageUrl] set (used by the image-merge loader).
+  UniversityRecord withImageUrl(String? url) {
+    return UniversityRecord(
+      id: id,
+      nameRu: nameRu,
+      nameKz: nameKz,
+      nameEn: nameEn,
+      city: city,
+      type: type,
+      website: website,
+      hasDormitory: hasDormitory,
+      description: description,
+      sourceUrl: sourceUrl,
+      imageUrl: url,
+      dormImageUrl: dormImageUrl,
+    );
+  }
+
+  /// Returns a copy with [dormImageUrl] set (used by the image-merge loader).
+  UniversityRecord withDormImageUrl(String? url) {
+    return UniversityRecord(
+      id: id,
+      nameRu: nameRu,
+      nameKz: nameKz,
+      nameEn: nameEn,
+      city: city,
+      type: type,
+      website: website,
+      hasDormitory: hasDormitory,
+      description: description,
+      sourceUrl: sourceUrl,
+      imageUrl: imageUrl,
+      dormImageUrl: url,
+    );
+  }
 }
 
 /// An education program group (ГОП — группа образовательных программ).
@@ -502,5 +664,23 @@ class UniversityCatalog {
   List<UniversityType> get typesPresent {
     final set = universities.map((u) => u.type).whereType<UniversityType>().toSet();
     return UniversityType.values.where(set.contains).toList();
+  }
+
+  /// The set of [MajorCategory] values covered by [universityId]'s programs.
+  ///
+  /// Used to decide whether a university passes the major filter.
+  Set<MajorCategory> universityCategoriesFor(String universityId) {
+    final programsForUni = programsForUniversity(universityId);
+    return programsForUni.map(majorCategoryFromProgram).toSet();
+  }
+
+  /// Distinct [MajorCategory] values that appear in at least one university's
+  /// program list, in the enum declaration order.
+  List<MajorCategory> get majorCategoriesPresent {
+    final set = <MajorCategory>{};
+    for (final u in universities) {
+      set.addAll(universityCategoriesFor(u.id));
+    }
+    return MajorCategory.values.where(set.contains).toList();
   }
 }

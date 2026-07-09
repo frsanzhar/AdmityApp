@@ -81,6 +81,7 @@ class ProfileNotifier extends Notifier<ProfileState> {
   // ── Load ──────────────────────────────────────────────────────────────────
 
   Future<void> _load() async {
+    if (!ref.mounted) return;
     state = state.copyWith(isLoading: true);
     try {
       final results = await Future.wait([
@@ -88,6 +89,7 @@ class ProfileNotifier extends Notifier<ProfileState> {
         _repo.loadNotes(),
         _repo.loadPackages(),
       ]);
+      if (!ref.mounted) return;
       state = state.copyWith(
         profile: results[0] as StudentProfile,
         notes: results[1] as List<ProfileNote>,
@@ -95,6 +97,7 @@ class ProfileNotifier extends Notifier<ProfileState> {
         isLoading: false,
       );
     } on Object catch (e) {
+      if (!ref.mounted) return;
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Ошибка загрузки: $e',
@@ -179,6 +182,32 @@ class ProfileNotifier extends Notifier<ProfileState> {
     final item = DocumentItem(
       id: 'item_${DateTime.now().millisecondsSinceEpoch}',
       label: label.trim(),
+    );
+    final updated = pkg.copyWith(items: [...pkg.items, item]);
+    await _repo.savePackage(updated);
+    final newList = [...state.packages];
+    newList[idx] = updated;
+    state = state.copyWith(packages: newList);
+  }
+
+  /// Adds an already-saved file (an existing local [filePath]) to [packageId]
+  /// as a new, already-attached document item.
+  ///
+  /// Used by the "Добавить документ" flow when the student picks a file from
+  /// "Мои документы" or uploads a new one. No-op if the package is gone.
+  Future<void> addExistingDocToPackage({
+    required String packageId,
+    required String filePath,
+    required String label,
+  }) async {
+    final idx = state.packages.indexWhere((p) => p.id == packageId);
+    if (idx < 0) return;
+    final pkg = state.packages[idx];
+    final item = DocumentItem(
+      id: 'item_${DateTime.now().millisecondsSinceEpoch}',
+      label: label.trim().isEmpty ? 'Документ' : label.trim(),
+      filePath: filePath,
+      isAttached: true,
     );
     final updated = pkg.copyWith(items: [...pkg.items, item]);
     await _repo.savePackage(updated);
