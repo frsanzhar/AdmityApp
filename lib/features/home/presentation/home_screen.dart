@@ -1048,18 +1048,8 @@ class _InteractiveCalendarState extends ConsumerState<_InteractiveCalendar> {
           ),
           SizedBox(height: tokens.gapSm),
 
-          // ── Agenda items: events + tasks ──────────────────────────────────
-          if (isEmpty)
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: tokens.gapSm),
-              child: Text(
-                'Событий и задач нет.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.copyWith(color: AppColors.inkSecondary),
-              ),
-            )
-          else ...[
+          // ── Agenda items: events + tasks (empty day → just the buttons) ───
+          if (!isEmpty) ...[
             for (final e in selectedUserEvents)
               _AgendaEventRow(
                 title: e.title,
@@ -1094,7 +1084,9 @@ class _InteractiveCalendarState extends ConsumerState<_InteractiveCalendar> {
             children: [
               Expanded(
                 child: PrimaryButton(
-                  label: 'Добавить событие',
+                  // Короткая подпись — «Добавить событие» переполняла кнопку
+                  // на 28px на узких экранах (RIGHT OVERFLOWED баннер).
+                  label: 'Событие',
                   icon: const Icon(Icons.add, color: AppColors.white, size: 18),
                   onPressed: () => _openEventSheet(context, null),
                 ),
@@ -1102,7 +1094,7 @@ class _InteractiveCalendarState extends ConsumerState<_InteractiveCalendar> {
               SizedBox(width: tokens.gapSm),
               Expanded(
                 child: FeaturedButton(
-                  label: 'Добавить задачу',
+                  label: 'Задача',
                   onPressed: () => _openTaskSheet(context, null),
                 ),
               ),

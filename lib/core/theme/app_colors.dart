@@ -7,11 +7,11 @@ import 'package:flutter/material.dart';
 abstract final class AppColors {
   // ── Brand ──────────────────────────────────────────────────────────────────
 
-  /// Cobalt — primary accent, active tab indicator.
-  static const primary = Color(0xFF4255FF);
+  /// Bright brand green — primary accent, active tab indicator.
+  static const primary = Color(0xFF17C653);
 
   /// Pressed / dark variant of [primary].
-  static const primaryDark = Color(0xFF2B3CC9);
+  static const primaryDark = Color(0xFF0FA843);
 
   /// Dark navy — used for 3D illustration edges.
   static const navyDeep = Color(0xFF14246B);
@@ -58,11 +58,11 @@ abstract final class AppColors {
 
   /// Four-stop gradient for featured CTA buttons
   /// (Jump ahead / Start the Lesson / lesson completion).
-  /// Direction: left → right (blue → purple → pink → orange).
+  /// Direction: left → right (lime → bright green → deep green).
   static const ctaGradient = <Color>[
-    Color(0xFF6E8BFF),
-    Color(0xFFB07BFF),
-    Color(0xFFFF7BC4),
-    Color(0xFFFFB14E),
+    Color(0xFFA5E93C),
+    Color(0xFF4ADE55),
+    Color(0xFF17C653),
+    Color(0xFF0FA843),
   ];
 }

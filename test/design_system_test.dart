@@ -31,8 +31,8 @@ void main() {
   // ── AppColors ─────────────────────────────────────────────────────────────
 
   group('AppColors', () {
-    test('primary is cobalt 0xFF4255FF', () {
-      expect(AppColors.primary.toARGB32(), 0xFF4255FF);
+    test('primary is bright brand green 0xFF17C653', () {
+      expect(AppColors.primary.toARGB32(), 0xFF17C653);
     });
 
     test('accentLime is 0xFFC2F03C', () {

@@ -116,22 +116,22 @@ void main() {
     expect(find.text('Пн'), findsWidgets);
   });
 
-  testWidgets('"Добавить событие" button is present in calendar', (
+  testWidgets('"Событие" add button is present in calendar', (
     tester,
   ) async {
     await tester.pumpWidget(_themed(const HomeScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Добавить событие'), findsOneWidget);
+    expect(find.text('Событие'), findsOneWidget);
   });
 
-  testWidgets('"Добавить задачу" button is present in calendar', (
+  testWidgets('"Задача" add button is present in calendar', (
     tester,
   ) async {
     await tester.pumpWidget(_themed(const HomeScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Добавить задачу'), findsOneWidget);
+    expect(find.text('Задача'), findsOneWidget);
   });
 
   testWidgets('"Задание на сегодня" card is absent', (tester) async {
@@ -155,7 +155,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // No seeded todos — the day agenda shows the empty-state message.
-    expect(find.text('Событий и задач нет.'), findsOneWidget);
+    // Пустой день больше не показывает заглушку — только кнопки.
+    expect(find.text('Событий и задач нет.'), findsNothing);
   });
 
   // ── No stretch-in-scroll guard ───────────────────────────────────────────────
@@ -186,20 +187,20 @@ void main() {
 
   // ── Unified day agenda CRUD ───────────────────────────────────────────────────
 
-  testWidgets('add-task sheet opens from "Добавить задачу" button', (
+  testWidgets('add-task sheet opens from "Задача" button', (
     tester,
   ) async {
     await tester.pumpWidget(_themed(const HomeScreen()));
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
-      find.text('Добавить задачу'),
+      find.text('Задача'),
       200,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Добавить задачу'));
+    await tester.tap(find.text('Задача'));
     await tester.pumpAndSettle();
 
     expect(find.text('Новая задача'), findsWidgets);
@@ -213,13 +214,13 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
-      find.text('Добавить задачу'),
+      find.text('Задача'),
       200,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Добавить задачу'));
+    await tester.tap(find.text('Задача'));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).first, 'Тест новой задачи');

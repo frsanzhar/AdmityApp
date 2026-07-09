@@ -1902,7 +1902,7 @@ class _MessageState extends StatelessWidget {
 List<Color> _heroGradient(UniversityType? type) {
   switch (type) {
     case UniversityType.national:
-      return const [Color(0xFF4255FF), Color(0xFF6E8BFF)];
+      return const [Color(0xFF17C653), Color(0xFF4ADE55)];
     case UniversityType.autonomous:
       return const [Color(0xFF12B76A), Color(0xFF45D496)];
     case UniversityType.international:
