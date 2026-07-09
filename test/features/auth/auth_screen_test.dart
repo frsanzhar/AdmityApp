@@ -309,10 +309,10 @@ void main() {
     expect(find.text('Создать аккаунт'), findsOneWidget);
   });
 
-  testWidgets('guest button is always visible', (tester) async {
+  testWidgets('guest button is removed (accounts required)', (tester) async {
     await tester.pumpWidget(_pumpAuthScreen());
     await tester.pumpAndSettle();
 
-    expect(find.text('Продолжить как гость'), findsOneWidget);
+    expect(find.text('Продолжить как гость'), findsNothing);
   });
 }

@@ -202,12 +202,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
   }
 
-  Future<void> _handleGuest() async {
-    _setLoading(true);
-    final result = await ref.read(authServiceProvider).continueAsGuest();
-    _handleResult(result);
-  }
-
   void _handleResult(AuthResult result, {bool saveAutofill = false}) {
     if (!mounted) return;
     if (result.ok) {
@@ -391,19 +385,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       onPressed: _isLoading ? null : _handleApple,
                     ).animate().fadeIn(delay: 440.ms, duration: 350.ms),
                 ],
-
-                SizedBox(height: tokens.gapXxl),
-
-                // Guest
-                TextButton(
-                  onPressed: _isLoading ? null : _handleGuest,
-                  child: Text(
-                    'Продолжить как гость',
-                    style: textTheme.bodyLarge?.copyWith(
-                      color: AppColors.inkSecondary,
-                    ),
-                  ),
-                ).animate().fadeIn(delay: 480.ms, duration: 350.ms),
 
                 SizedBox(height: tokens.gapLg),
               ],

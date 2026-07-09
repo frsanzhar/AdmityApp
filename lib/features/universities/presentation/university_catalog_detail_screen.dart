@@ -1906,12 +1906,12 @@ List<Color> _heroGradient(UniversityType? type) {
     case UniversityType.autonomous:
       return const [Color(0xFF12B76A), Color(0xFF45D496)];
     case UniversityType.international:
-      return const [Color(0xFFFF8A3D), Color(0xFFFF5DA2)];
+      return const [Color(0xFFA5E93C), Color(0xFF17C653)];
     case UniversityType.private:
-      return const [Color(0xFFEF5DA8), Color(0xFFA259FF)];
+      return const [Color(0xFF0FA843), Color(0xFF17C653)];
     case UniversityType.state:
     case null:
-      return const [Color(0xFF3D4E81), Color(0xFF6E7BB8)];
+      return const [Color(0xFF0B7A3E), Color(0xFF2FBF71)];
   }
 }
 
