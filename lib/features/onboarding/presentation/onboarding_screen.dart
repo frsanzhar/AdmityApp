@@ -9,6 +9,7 @@ library;
 
 import 'dart:async';
 
+import 'package:admity/core/config/app_config.dart';
 import 'package:admity/core/notifications/notifications_service.dart';
 import 'package:admity/core/theme/app_colors.dart';
 import 'package:admity/core/theme/app_tokens.dart';
@@ -22,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 // ── Animation helper ──────────────────────────────────────────────────────────
 
@@ -175,7 +177,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     // Fire-and-forget — navigation must not wait on the OS permission dialog.
     unawaited(_scheduleStudyReminder(_schedule, _dailyGoalMinutes));
 
-    if (mounted) context.go('/home');
+    if (mounted) {
+      bool hasSession = false;
+      if (AppConfig.hasSupabase) {
+        try {
+          hasSession = Supabase.instance.client.auth.currentSession != null;
+        } catch (_) {}
+      }
+      
+      final hasAuth = updated.authProvider != null || hasSession;
+      if (hasAuth) {
+        context.go('/home');
+      } else {
+        context.go('/auth');
+      }
+    }
   }
 
   /// Requests notification permission, then schedules a daily reminder at the
@@ -204,9 +220,25 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   // ── Determine if Далее button is enabled ──────────────────────────────────
 
-  /// Every step is skippable: all profile fields are nullable, so the student
-  /// may advance without answering — nothing in onboarding is mandatory.
-  bool get _canAdvance => true;
+  /// Restricts advancement until a selection is made on critical steps.
+  bool get _canAdvance {
+    switch (_step) {
+      case 0:
+        return _role != null;
+      case 2:
+        return _motivation != null;
+      case 3:
+        return _age != null;
+      case 4:
+        return _majors.isNotEmpty;
+      case 6:
+        return _confidence != null;
+      case 9:
+        return _dailyGoalMinutes != null && _schedule != null;
+      default:
+        return true;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

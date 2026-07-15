@@ -109,16 +109,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
               .read(profileRepositoryProvider)
               .loadProfile();
           if (!mounted) return;
-          if (profile.onboardingComplete) {
-            context.go('/home');
+          if (!profile.onboardingComplete) {
+            // Unfinished onboarding — run it first.
+            context.go('/onboarding');
           } else if (profile.authProvider == null && !_hasLiveSupabaseSession()) {
-            // First run — never signed in. Show the sign-in screen.
+            // Onboarded but not signed in.
             context.go('/auth');
           } else {
-            // Signed in (incl. guest) but onboarding unfinished — resume it.
-            // A live Supabase session also counts as signed-in even when the
-            // local profile was wiped (e.g. app data cleared mid-flow).
-            context.go('/onboarding');
+            // Onboarded and signed in.
+            context.go('/home');
           }
         } on Object catch (_) {
           // Any error — default to the sign-in screen so the user can start.
