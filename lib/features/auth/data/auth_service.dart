@@ -26,8 +26,11 @@
 ///      team — the install will be rejected on device.
 library;
 
+import 'dart:convert';
+
 import 'package:admity/core/config/app_config.dart';
 import 'package:admity/features/profile/application/profile_notifier.dart';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -264,7 +267,11 @@ class AuthService {
         accessToken: auth.accessToken,
       );
 
-      await _saveAuthToProfile(provider: 'google', email: account.email);
+      await _saveAuthToProfile(
+        provider: 'google',
+        email: account.email,
+        name: account.displayName,
+      );
       return const AuthResult.success();
     } on AuthException catch (e) {
       return AuthResult.failure(_localiseSupabaseError(e.message));
@@ -290,11 +297,16 @@ class AuthService {
       return const AuthResult.success();
     }
     try {
+      final client = Supabase.instance.client;
+      final rawNonce = client.auth.generateRawNonce();
+      final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
+
       final credential = await SignInWithApple.getAppleIDCredential(
         scopes: [
           AppleIDAuthorizationScopes.email,
           AppleIDAuthorizationScopes.fullName,
         ],
+        nonce: hashedNonce,
       );
 
       final idToken = credential.identityToken;
@@ -304,15 +316,26 @@ class AuthService {
         );
       }
 
-      final client = Supabase.instance.client;
       await client.auth.signInWithIdToken(
         provider: OAuthProvider.apple,
         idToken: idToken,
+        nonce: rawNonce,
       );
 
-      // Apple only returns email on the very first sign-in; subsequent
-      // sign-ins return null — preserve the stored email in that case.
-      await _saveAuthToProfile(provider: 'apple', email: credential.email);
+      String? fullName;
+      if (credential.givenName != null || credential.familyName != null) {
+        fullName = [credential.givenName, credential.familyName]
+            .where((s) => s != null && s.isNotEmpty)
+            .join(' ');
+      }
+
+      // Apple only returns email and name on the very first sign-in; subsequent
+      // sign-ins return null — preserve the stored info in that case.
+      await _saveAuthToProfile(
+        provider: 'apple',
+        email: credential.email,
+        name: fullName,
+      );
       return const AuthResult.success();
     } on SignInWithAppleAuthorizationException catch (e) {
       if (e.code == AuthorizationErrorCode.canceled) {
@@ -421,6 +444,7 @@ class AuthService {
   Future<void> _saveAuthToProfile({
     required String provider,
     required String? email,
+    String? name,
   }) async {
     final notifier = _ref.read(profileProvider.notifier);
     final current = _ref.read(profileProvider).profile;
@@ -429,6 +453,7 @@ class AuthService {
       // Preserve a previously stored email if the new value is null (Apple
       // omits email on repeat sign-ins).
       authEmail: email ?? current.authEmail,
+      name: name ?? current.name,
     );
     await notifier.saveProfile(updated);
   }
