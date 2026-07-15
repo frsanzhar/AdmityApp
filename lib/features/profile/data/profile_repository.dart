@@ -50,6 +50,13 @@ abstract class ProfileRepository {
   Future<List<DocumentPackage>> loadPackages();
   Future<void> savePackage(DocumentPackage pkg);
   Future<void> deletePackage(String packageId);
+
+  // ── Account deletion ──────────────────────────────────────────────────────
+
+  /// Deletes ALL user data from local storage (profile, notes, packages).
+  ///
+  /// Called during account deletion (Apple Guideline 5.1.1(v)).
+  Future<void> clearAllData();
 }
 
 // ── Hive implementation (production) ─────────────────────────────────────────
@@ -191,6 +198,25 @@ class HiveProfileRepository implements ProfileRepository {
     await _packages.delete(packageId);
     // TODO(sync): push delete to Supabase when online sync is implemented
   }
+
+  @override
+  Future<void> clearAllData() async {
+    await _profile.clear();
+    await _notes.clear();
+    await _packages.clear();
+    // Also delete the Supabase profile row if the user was signed in.
+    if (AppConfig.hasSupabase) {
+      try {
+        final client = Supabase.instance.client;
+        final user = client.auth.currentUser;
+        if (user != null) {
+          await client.from('app_profiles').delete().eq('id', user.id);
+        }
+      } on Object catch (e) {
+        debugPrint('[ProfileRepository] clearAllData supabase cleanup: $e');
+      }
+    }
+  }
 }
 
 // ── In-memory implementation (tests) ─────────────────────────────────────────
@@ -243,5 +269,12 @@ class InMemoryProfileRepository implements ProfileRepository {
   @override
   Future<void> deletePackage(String packageId) async {
     _packages.remove(packageId);
+  }
+
+  @override
+  Future<void> clearAllData() async {
+    _profile = StudentProfile.empty;
+    _notes.clear();
+    _packages.clear();
   }
 }

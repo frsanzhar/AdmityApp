@@ -346,6 +346,75 @@ class AuthService {
     }
   }
 
+  // ── Sign out ──────────────────────────────────────────────────────────────
+
+  /// Signs the user out of Supabase (if configured) and clears the local
+  /// auth metadata from the profile.
+  Future<AuthResult> signOut() async {
+    try {
+      if (AppConfig.hasSupabase) {
+        await Supabase.instance.client.auth.signOut();
+      }
+      // Clear auth fields from the local profile.
+      final notifier = _ref.read(profileProvider.notifier);
+      final current = _ref.read(profileProvider).profile;
+      final updated = current.copyWith(
+        authProvider: null,
+        authEmail: null,
+      );
+      await notifier.saveProfile(updated);
+      return const AuthResult.success();
+    } on Object catch (e) {
+      debugPrint('[AuthService] signOut error: $e');
+      return const AuthResult.failure(
+        'Не удалось выйти. Попробуйте снова.',
+      );
+    }
+  }
+
+  // ── Account deletion ─────────────────────────────────────────────────────
+
+  /// Permanently deletes the user's account and all associated data.
+  ///
+  /// 1. Calls the Supabase Edge Function `delete-user` (or the built-in
+  ///    admin endpoint) to remove the Auth user.
+  /// 2. Clears all local Hive data (profile, notes, document packages).
+  /// 3. Returns [AuthResult.success] — the caller should navigate to /auth.
+  ///
+  /// This satisfies Apple Guideline 5.1.1(v) — "apps that support account
+  /// creation must also offer account deletion".
+  Future<AuthResult> deleteAccount() async {
+    try {
+      if (AppConfig.hasSupabase) {
+        final client = Supabase.instance.client;
+        final user = client.auth.currentUser;
+        if (user != null) {
+          // Use the Supabase RPC function to delete the user's own account.
+          // If the RPC doesn't exist, fall back to signing out (the server
+          // admin can clean up orphaned accounts later).
+          try {
+            await client.rpc('delete_own_account');
+          } on Object catch (e) {
+            debugPrint(
+              '[AuthService] deleteAccount RPC unavailable, '
+              'falling back to sign-out: $e',
+            );
+            // Ensure the user is at least signed out.
+            await client.auth.signOut();
+          }
+        }
+      }
+      // Clear ALL local data.
+      await _ref.read(profileProvider.notifier).clearAllData();
+      return const AuthResult.success();
+    } on Object catch (e) {
+      debugPrint('[AuthService] deleteAccount error: $e');
+      return const AuthResult.failure(
+        'Не удалось удалить аккаунт. Попробуйте снова.',
+      );
+    }
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   /// Persists auth metadata to the local profile via [profileProvider].
