@@ -1875,7 +1875,12 @@ class _NotificationsStep extends StatelessWidget {
             // TODO(notifications): wire up actual permission request
             PrimaryButton(
               label: 'Включить',
-              onPressed: () => state?._next(),
+              onPressed: () async {
+                await NotificationsService.requestPermission();
+                if (context.mounted) {
+                  state?._next();
+                }
+              },
             ),
           ),
           SizedBox(height: tokens.gapMd),
