@@ -68,7 +68,7 @@ class MentorScreen extends ConsumerWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisSpacing: tokens.gapMd,
                 mainAxisSpacing: tokens.gapMd,
-                childAspectRatio: 0.9,
+                childAspectRatio: 0.82,
                 children: AssistantRole.values.indexed.map(
                   ((int, AssistantRole) entry) {
                     final (i, role) = entry;
