@@ -440,7 +440,7 @@ class _OtpStep extends StatelessWidget {
         ),
         SizedBox(height: tokens.gapSm),
         Text(
-          'Мы отправили 6-значный код на\n$email',
+          'Мы отправили 8-значный код на\n$email',
           style: textTheme.bodySmall,
           textAlign: TextAlign.center,
         ),
@@ -453,7 +453,7 @@ class _OtpStep extends StatelessWidget {
               autofillHints: const [AutofillHints.oneTimeCode],
               keyboardType: TextInputType.number,
               textInputAction: TextInputAction.done,
-              maxLength: 6,
+              maxLength: 8,
               textAlign: TextAlign.center,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               style: textTheme.headlineMedium?.copyWith(
@@ -462,7 +462,7 @@ class _OtpStep extends StatelessWidget {
               ),
               decoration: InputDecoration(
                 counterText: '',
-                hintText: '------',
+                hintText: '--------',
                 hintStyle: textTheme.headlineMedium?.copyWith(
                   color: AppColors.inkSecondary,
                   letterSpacing: 8,
@@ -499,8 +499,8 @@ class _OtpStep extends StatelessWidget {
                 ),
               ),
               validator: (v) {
-                if (v == null || v.trim().length < 6) {
-                  return 'Введите 6-значный код';
+                if (v == null || v.trim().length < 8) {
+                  return 'Введите 8-значный код';
                 }
                 return null;
               },
