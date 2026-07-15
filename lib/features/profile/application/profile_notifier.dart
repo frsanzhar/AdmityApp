@@ -120,6 +120,20 @@ class ProfileNotifier extends Notifier<ProfileState> {
     }
   }
 
+  /// Clears all local profile data during account deletion.
+  Future<void> clearAllData() async {
+    state = state.copyWith(isSaving: true);
+    try {
+      await _repo.clearAllData();
+      state = const ProfileState(); // Reset to empty state
+    } on Object catch (e) {
+      state = state.copyWith(
+        isSaving: false,
+        errorMessage: 'Ошибка удаления: $e',
+      );
+    }
+  }
+
   // ── Notes CRUD ────────────────────────────────────────────────────────────
 
   Future<void> addNote(String text) async {

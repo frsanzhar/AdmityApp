@@ -393,7 +393,7 @@ class AuthService {
           // If the RPC doesn't exist, fall back to signing out (the server
           // admin can clean up orphaned accounts later).
           try {
-            await client.rpc('delete_own_account');
+            await client.rpc<void>('delete_own_account');
           } on Object catch (e) {
             debugPrint(
               '[AuthService] deleteAccount RPC unavailable, '

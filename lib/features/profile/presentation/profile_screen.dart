@@ -19,6 +19,7 @@ import 'dart:async';
 import 'package:admity/core/l10n/l10n.dart';
 import 'package:admity/core/theme/app_colors.dart';
 import 'package:admity/core/theme/app_tokens.dart';
+import 'package:admity/features/auth/application/auth_providers.dart';
 import 'package:admity/features/profile/application/profile_notifier.dart';
 import 'package:admity/features/profile/data/document_store.dart';
 import 'package:admity/features/profile/domain/profile_model.dart';
@@ -141,6 +142,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       current: state.profile.appLanguage,
                       tokens: tokens,
                     ).animate().fadeIn(delay: 300.ms, duration: 350.ms),
+
+                    SizedBox(height: tokens.gapXxl),
+
+                    // ── 6. Настройки аккаунта ──────────────────────────────
+                    _SectionHeader(
+                      title: 'Настройки аккаунта',
+                      tokens: tokens,
+                    ),
+                    SizedBox(height: tokens.gapMd),
+                    _SettingsSection(tokens: tokens)
+                        .animate()
+                        .fadeIn(delay: 360.ms, duration: 350.ms),
 
                     SizedBox(height: tokens.gapXxl),
                   ],
@@ -1406,6 +1419,123 @@ class _EditField extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Settings section (Sign Out / Delete Account) ─────────────────────────────
+
+class _SettingsSection extends ConsumerWidget {
+  const _SettingsSection({required this.tokens});
+
+  final AppTokens tokens;
+
+  Future<void> _signOut(BuildContext context, WidgetRef ref) async {
+    final result = await ref.read(authServiceProvider).signOut();
+    if (!context.mounted) return;
+    if (result.ok) {
+      context.go('/auth');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.error ?? 'Ошибка выхода')),
+      );
+    }
+  }
+
+  Future<void> _deleteAccount(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Удаление аккаунта'),
+        content: const Text(
+          'Вы уверены, что хотите удалить аккаунт? '
+          'Все ваши данные (документы, тесты, прогресс) будут удалены безвозвратно.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text(
+              'Отмена',
+              style: TextStyle(color: AppColors.inkSecondary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.errorRed,
+              foregroundColor: AppColors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    // Show loading indicator
+    unawaited(
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => const Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      ),
+    );
+
+    final result = await ref.read(authServiceProvider).deleteAccount();
+
+    if (!context.mounted) return;
+    Navigator.of(context).pop(); // dismiss loading
+
+    if (result.ok) {
+      context.go('/auth');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.error ?? 'Ошибка удаления аккаунта')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return AppCard(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.logout_rounded, color: AppColors.ink),
+            title: Text(
+              'Выйти из аккаунта',
+              style: textTheme.bodyLarge?.copyWith(color: AppColors.ink),
+            ),
+            onTap: () => _signOut(context, ref),
+          ),
+          const Divider(height: 1, color: AppColors.border),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(
+              Icons.person_remove_rounded,
+              color: AppColors.errorRed,
+            ),
+            title: Text(
+              'Удалить аккаунт',
+              style: textTheme.bodyLarge?.copyWith(color: AppColors.errorRed),
+            ),
+            onTap: () => _deleteAccount(context, ref),
+          ),
+        ],
+      ),
     );
   }
 }
